@@ -1,0 +1,14 @@
+node_modules
+.next
+out
+dist
+*.log
+.env
+.env.local
+.env.*.local
+data/*.sqlite
+data/*.sqlite-*
+data/*.sqlite-journal
+public/uploads
+.DS_Store
+tsconfig.tsbuildinfo
