@@ -86,7 +86,7 @@ export async function reportLostAction(input: {
   notifySms: boolean;
 }) {
   const user = await requireUser(['passenger']);
-  const result = reportLost(user.id, input.rideId, input.category, input.description, input.photo, input.notifySms);
+  const result = await reportLost(user.id, input.rideId, input.category, input.description, input.photo, input.notifySms);
   if (result.ok) refresh();
   return result;
 }

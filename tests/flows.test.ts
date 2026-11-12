@@ -141,7 +141,7 @@ test('passenger pay, conductor verify, lost and found, owner totals', async () =
   if (!voided.ok) assert.match(voided.message, /cancelled/);
 
   const trips = service.listReportableTrips(IDS.richard);
-  const report = service.reportLost(IDS.richard, trips[0]!.id, 'bag', 'Canvas tote, green straps', null, true);
+  const report = await service.reportLost(IDS.richard, trips[0]!.id, 'bag', 'Canvas tote, green straps', null, true);
   assert.equal(report.ok, true);
   if (!report.ok) return;
   const alerts = service.getConductorLost(IDS.mwila).alerts;
@@ -195,6 +195,27 @@ test('passenger pay, conductor verify, lost and found, owner totals', async () =
   const summary = service.getPayoutSummary(IDS.owner);
   assert.ok(summary.availableNgwee > 0);
   assert.equal(summary.history[0]?.amountNgwee, 1000);
+
+  const umbrellaTrip = service.listReportableTrips(IDS.richard).find((trip) => trip.fleetNumber === '12');
+  assert.ok(umbrellaTrip);
+  const matched = await service.reportLost(IDS.richard, umbrellaTrip.id, 'umbrella', 'Black umbrella left on the seat', null, true);
+  assert.equal(matched.ok, true);
+  if (matched.ok) {
+    assert.equal(matched.matched, true);
+    const matchedItem = service.getPassengerLostItem(IDS.richard, matched.itemId);
+    assert.equal(matchedItem?.status, 'pickup_pending');
+    assert.equal(matchedItem?.smsSent, true);
+  }
+
+  const wholeKwacha = String(Math.floor(service.getPayoutSummary(IDS.owner).availableNgwee / 100));
+  const [firstPayout, secondPayout] = await Promise.all([
+    service.requestPayout(IDS.owner, wholeKwacha),
+    service.requestPayout(IDS.owner, wholeKwacha),
+  ]);
+  assert.equal([firstPayout.ok, secondPayout.ok].filter(Boolean).length, 1);
+  const afterPayouts = service.getPayoutSummary(IDS.owner);
+  assert.ok(afterPayouts.availableNgwee >= 0);
+  assert.ok(afterPayouts.availableNgwee < 100);
 
   assert.equal(service.authenticate('0971000001', '0000').ok, false);
   assert.equal(service.authenticate('0971 000 001', '1234').ok, true);

@@ -633,7 +633,7 @@ async function notifyPickup(info: { code: string; bus: BusRow; notify: boolean; 
   }
 }
 
-export function reportLost(
+export async function reportLost(
   passengerId: string,
   rideId: string,
   category: string,
@@ -686,6 +686,7 @@ export function reportLost(
         );
       return { itemId, matched: false, issued: null };
     });
+    if (pendingSms.issued) await notifyPickup(pendingSms.issued);
     return { ok: true as const, itemId: pendingSms.itemId, matched: pendingSms.matched };
   } catch (error) {
     return asFail(error);
@@ -1221,21 +1222,34 @@ export function assignConductor(ownerId: string, busId: string, conductorId: str
   }
 }
 
-export function getPayoutSummary(ownerId: string): PayoutSummary {
-  const user = userById(ownerId);
-  const earned = getDb()
+function earnedNgwee(ownerId: string): number {
+  const row = getDb()
     .prepare(`SELECT COALESCE(SUM(r.amount_ngwee), 0) AS amount FROM rides r JOIN buses b ON b.id = r.bus_id
       WHERE b.owner_id = ? AND r.status = 'verified'`)
     .get(ownerId) as { amount: number };
-  const paid = getDb()
-    .prepare(`SELECT COALESCE(SUM(amount_ngwee), 0) AS amount FROM payouts WHERE owner_id = ? AND status = 'paid'`)
+  return row.amount;
+}
+
+function heldPayoutNgwee(ownerId: string): number {
+  const row = getDb()
+    .prepare(`SELECT COALESCE(SUM(amount_ngwee), 0) AS amount FROM payouts WHERE owner_id = ? AND status IN ('paid', 'reserved')`)
     .get(ownerId) as { amount: number };
+  return row.amount;
+}
+
+function ownerAvailableNgwee(ownerId: string): number {
+  return earnedNgwee(ownerId) - heldPayoutNgwee(ownerId);
+}
+
+export function getPayoutSummary(ownerId: string): PayoutSummary {
+  const user = userById(ownerId);
   const dash = getOwnerDashboard(ownerId, 'today');
   const history = getDb()
-    .prepare(`SELECT id, amount_ngwee, status, network, destination, created_at FROM payouts WHERE owner_id = ? ORDER BY created_at DESC LIMIT 20`)
+    .prepare(`SELECT id, amount_ngwee, status, network, destination, created_at FROM payouts
+      WHERE owner_id = ? AND status = 'paid' ORDER BY created_at DESC LIMIT 20`)
     .all(ownerId) as Array<{ id: string; amount_ngwee: number; status: string; network: string; destination: string; created_at: number }>;
   return {
-    availableNgwee: earned.amount - paid.amount,
+    availableNgwee: ownerAvailableNgwee(ownerId),
     todayNgwee: dash.totalNgwee,
     nextPayoutNgwee: dash.nextPayoutNgwee,
     payoutPhone: user?.payout_phone ?? null,
@@ -1262,24 +1276,56 @@ export function savePayoutDestination(ownerId: string, network: string, destinat
   return { ok: true as const };
 }
 
+function releaseReservation(payoutId: string) {
+  getDb().prepare(`DELETE FROM payouts WHERE id = ? AND status = 'reserved'`).run(payoutId);
+}
+
 export async function requestPayout(ownerId: string, amountRaw: string) {
-  const summary = getPayoutSummary(ownerId);
-  const amount = parseMoney(amountRaw, Math.max(summary.availableNgwee, 100));
+  const amount = parseMoney(amountRaw, 100_000_000);
   if (amount == null) return { ok: false as const, message: 'Enter a payout of at least K1.' };
-  if (amount > summary.availableNgwee) {
-    return { ok: false as const, message: `You can pay out up to ${formatBalance(summary.availableNgwee)}.` };
-  }
   const user = userById(ownerId);
   if (!user) return { ok: false as const, message: 'Sign in again.' };
   const network = (user.payout_network ?? 'mtn') as PayoutNetwork;
   const destination = user.payout_phone ?? user.phone;
-  const reference = nid('payout');
-  const result = await getPaymentProvider().payout({ network, destination, amountNgwee: amount, reference, ownerId });
-  if (!result.ok) return { ok: false as const, message: result.message };
-  getDb()
-    .prepare(`INSERT INTO payouts (id, owner_id, amount_ngwee, status, network, destination, provider_ref, created_at)
-      VALUES (?, ?, ?, 'paid', ?, ?, ?, ?)`)
-    .run(nid('pay'), ownerId, amount, network, destination, result.providerRef, Date.now());
+  const payoutId = nid('pay');
+  try {
+    withTransaction(() => {
+      const available = ownerAvailableNgwee(ownerId);
+      if (amount > available) {
+        throw new UserError(`You can pay out up to ${formatBalance(Math.max(available, 0))}.`);
+      }
+      getDb()
+        .prepare(`INSERT INTO payouts (id, owner_id, amount_ngwee, status, network, destination, provider_ref, created_at)
+          VALUES (?, ?, ?, 'reserved', ?, ?, NULL, ?)`)
+        .run(payoutId, ownerId, amount, network, destination, Date.now());
+    });
+  } catch (error) {
+    return asFail(error);
+  }
+
+  let result;
+  try {
+    result = await getPaymentProvider().payout({
+      network,
+      destination,
+      amountNgwee: amount,
+      reference: payoutId,
+      ownerId,
+    });
+  } catch {
+    releaseReservation(payoutId);
+    return { ok: false as const, message: 'The payout provider did not respond. Nothing was sent.' };
+  }
+  if (!result.ok) {
+    releaseReservation(payoutId);
+    return { ok: false as const, message: result.message };
+  }
+  const updated = getDb()
+    .prepare(`UPDATE payouts SET status = 'paid', provider_ref = ? WHERE id = ? AND status = 'reserved'`)
+    .run(result.providerRef, payoutId);
+  if (Number(updated.changes) !== 1) {
+    return { ok: false as const, message: 'The payout could not be recorded. Check payouts before trying again.' };
+  }
   return { ok: true as const, message: `${formatBalance(amount)} sent to ${formatPhone(destination)} via ${networkLabel(network)}.` };
 }
 

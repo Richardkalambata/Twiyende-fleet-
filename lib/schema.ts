@@ -112,7 +112,7 @@ CREATE TABLE IF NOT EXISTS payouts (
   id TEXT PRIMARY KEY,
   owner_id TEXT NOT NULL REFERENCES users(id),
   amount_ngwee INTEGER NOT NULL,
-  status TEXT NOT NULL CHECK (status IN ('paid', 'failed')),
+  status TEXT NOT NULL CHECK (status IN ('reserved', 'paid', 'failed')),
   network TEXT NOT NULL,
   destination TEXT NOT NULL,
   provider_ref TEXT,

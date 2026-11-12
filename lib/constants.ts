@@ -32,6 +32,6 @@ export const PHONES = {
 
 export const PICKUP_PLACE = 'Town bus stage, Bay 4';
 
-export const SEED_VERSION = '1';
+export const SEED_VERSION = '2';
 
 export const TIP_AMOUNTS_NGWEE = [500, 1000, 2000] as const;
