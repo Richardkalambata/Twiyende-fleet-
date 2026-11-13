@@ -44,13 +44,9 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
         </div>
         <div className="my-4 border-t border-dashed border-[#E4DDD2]" />
         <p className="text-center text-[11px] font-semibold tracking-[0.16em] text-[#8A918C]">CONFIRMATION CODE</p>
-        <div className="mt-3 flex justify-center gap-2">
-          {(receipt.status === 'void' ? ['—', '—', '—', '—'] : receipt.code.split('')).map((char, index) => (
-            <span key={`${char}-${index}`} className="grid h-16 w-14 place-items-center rounded-2xl bg-[#F4F1EA] text-3xl font-semibold text-[#0F1A14]">
-              {char}
-            </span>
-          ))}
-        </div>
+        <p className="mt-3 text-center text-[44px] font-semibold tracking-[0.18em] text-[#0B5D3B]">
+          {receipt.status === 'void' ? '————' : receipt.code}
+        </p>
         <p className="mt-1 text-center text-sm text-[#5C6B63]">
           {receipt.status === 'pending' ? 'Show this code to your conductor' : receipt.status === 'verified' ? 'Code used' : 'Code cancelled'}
         </p>

@@ -66,7 +66,7 @@ export async function seed(db: Db, now = new Date()) {
 
   const people: Array<[string, string, string, string, string, string, boolean, number, string | null, string | null]> = [
     [IDS.richard, 'Richard Banda', 'Richard', PHONES.richard, 'passenger', 'R', true, 12000, null, null],
-    [IDS.owner, 'Richard Kalambata', 'Richard', PHONES.owner, 'owner', 'RK', true, 0, PHONES.owner, 'mtn'],
+    [IDS.owner, 'Richard Kalambata', 'Richard', PHONES.owner, 'operator', 'RK', true, 0, PHONES.owner, 'mtn'],
     [IDS.mwila, 'Mwila Zulu', 'Mwila', PHONES.mwila, 'conductor', 'MW', true, 0, null, null],
     [IDS.chanda, 'Chanda Mulenga', 'Chanda', PHONES.chanda, 'conductor', 'CM', true, 0, null, null],
     [IDS.bwalya, 'Bwalya Mwamba', 'Bwalya', PHONES.bwalya, 'conductor', 'BW', true, 0, null, null],
@@ -80,6 +80,8 @@ export async function seed(db: Db, now = new Date()) {
     await db.run(USER_SQL, id, name, shortName, phone, pinHash, role, initials, demo, payoutPhone, payoutNetwork, created);
     await db.run(WALLET_SQL, id, balance);
   }
+
+  await db.run(`UPDATE users SET operator_id = ? WHERE role = 'conductor'`, IDS.owner);
 
   await db.run(`INSERT INTO wallet_transactions
     (id, user_id, type, amount_ngwee, balance_after, provider, provider_ref, ride_id, lost_item_id, note, created_at)
@@ -243,4 +245,27 @@ export async function seed(db: Db, now = new Date()) {
     `INSERT INTO meta (key, value) VALUES ('data_label', 'demo')
      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
   );
+
+  const shift = lusakaDateKey(now);
+  const shifts: Array<[string, string, string]> = [
+    ['asg_12', IDS.mwila, IDS.bus12],
+    ['asg_15', IDS.chanda, IDS.bus15],
+    ['asg_21', IDS.bwalya, IDS.bus21],
+    ['asg_34', IDS.phiri, IDS.bus34],
+  ];
+  await db.run(
+    `INSERT INTO companies (id, name, operator_id, created_at) VALUES ('co_kalambata', 'Kalambata Transport', ?, ?)`,
+    IDS.owner,
+    created,
+  );
+  for (const [id, conductorId, busId] of shifts) {
+    await db.run(
+      `INSERT INTO assignments (id, conductor_id, bus_id, shift_date, created_at) VALUES (?, ?, ?, ?, ?)`,
+      id,
+      conductorId,
+      busId,
+      shift,
+      created,
+    );
+  }
 }

@@ -7,7 +7,7 @@ import { listConductors, listOwnerBuses } from '@/lib/service';
 export const metadata = { title: 'Buses' };
 
 export default async function BusesPage() {
-  const user = await requireUser(['owner']);
+  const user = await requireUser(['operator']);
   const buses = await listOwnerBuses(user.id);
   const conductors = await listConductors(user.id);
   return (

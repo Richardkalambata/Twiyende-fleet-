@@ -1,15 +1,17 @@
 import { demoLoginAction } from '@/lib/actions';
 import type { DemoAccount } from '@/lib/types';
 
-export function DemoSwitch({ accounts, currentId }: { accounts: DemoAccount[]; currentId: string }) {
+export function DemoSwitch({ accounts, currentId, gate = 'passenger' }: { accounts: DemoAccount[]; currentId: string; gate?: 'passenger' | 'business' }) {
+  if (process.env.DEMO_ROLE_SWITCHER === '0') return null;
   return (
     <section className="rounded-3xl bg-white p-4 shadow-[0_8px_30px_rgba(20,36,28,0.04)]">
-      <h2 className="text-base font-semibold">Demo role switcher</h2>
+      <h2 className="text-base font-semibold">{gate === 'business' ? 'Demo operator switcher' : 'Try another rider'}</h2>
       <p className="mt-1 text-sm text-[#5C6B63]">Sample Lusaka accounts. Every demo PIN is 1234. This is demo data, not a live fleet.</p>
       <div className="mt-3 space-y-2">
         {accounts.map((account) => (
           <form key={account.id} action={demoLoginAction}>
             <input type="hidden" name="userId" value={account.id} />
+            <input type="hidden" name="gate" value={gate} />
             <button
               type="submit"
               disabled={account.id === currentId}

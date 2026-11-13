@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { PayForm } from '@/components/pay-form';
 import { Bell } from '@/components/bell';
-import { BusIcon } from '@/components/icons';
+import { BusIcon, LostIcon, TicketIcon, WalletIcon } from '@/components/icons';
 import { Avatar, Wordmark } from '@/components/shell';
 import { formatBalance, formatCompact } from '@/lib/money';
 import { getPassengerHome } from '@/lib/service';
@@ -43,7 +43,22 @@ export default async function HomePage() {
         </section>
       </div>
       <div className="space-y-5 px-4 py-4">
-        <PayForm buses={home.buses} />
+        <section>
+          <div className="grid grid-cols-4 gap-2">
+            {([
+              ['/home#pay', 'Pay fare', TicketIcon],
+              ['/topup', 'Top up', WalletIcon],
+              ['/rides', 'Trips', BusIcon],
+              ['/lost', 'Lost & found', LostIcon],
+            ] as const).map(([href, label, Icon]) => (
+              <Link key={href} href={href} className="flex min-h-[76px] flex-col items-center justify-center gap-1 rounded-2xl bg-white px-1 py-2 text-center text-[12px] font-semibold text-[#14241C] shadow-[0_8px_24px_rgba(20,36,28,0.04)]">
+                <Icon className="h-5 w-5 text-[#0B5D3B]" />
+                {label}
+              </Link>
+            ))}
+          </div>
+        </section>
+        <div id="pay"><PayForm buses={home.buses} /></div>
         <section>
           <div className="mb-2 flex items-center justify-between">
             <h2 className="font-semibold">Recent rides</h2>
@@ -64,6 +79,17 @@ export default async function HomePage() {
                 </span>
                 <span className="font-semibold">{formatCompact(ride.amountNgwee)}</span>
               </Link>
+            ))}
+          </div>
+        </section>
+        <section>
+          <h2 className="mb-2 font-semibold">Popular routes</h2>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {home.buses.filter((bus) => bus.status === 'active').slice(0, 4).map((bus) => (
+              <div key={bus.fleetNumber} className="min-w-[150px] rounded-2xl bg-white p-3 shadow-[0_8px_24px_rgba(20,36,28,0.04)]">
+                <div className="text-sm font-semibold">Bus {bus.fleetNumber}</div>
+                <div className="mt-1 text-xs text-[#6A756E]">{bus.route}</div>
+              </div>
             ))}
           </div>
         </section>

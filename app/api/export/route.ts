@@ -7,7 +7,7 @@ import { parseRange, ridesForExport } from '@/lib/service';
 
 export async function GET(request: Request) {
   const user = await getCurrentUser();
-  if (!user || user.role !== 'owner') {
+  if (!user || user.role !== 'operator') {
     return NextResponse.json({ message: 'Sign in as the owner to export.' }, { status: 401 });
   }
   const range = parseRange(new URL(request.url).searchParams.get('range') ?? undefined);

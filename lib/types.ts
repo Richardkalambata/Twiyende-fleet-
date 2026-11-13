@@ -1,4 +1,4 @@
-export type Role = 'passenger' | 'conductor' | 'owner';
+export type Role = 'passenger' | 'conductor' | 'operator';
 export type RangeKey = 'today' | 'week' | 'month';
 export type RideStatus = 'pending' | 'verified' | 'void';
 export type LostStatus = 'reported' | 'waiting' | 'not_found' | 'pickup_pending' | 'closed';

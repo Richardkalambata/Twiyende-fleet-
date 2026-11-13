@@ -35,7 +35,7 @@ export default async function ConductorProfilePage() {
       </section>
       <p className="text-sm text-[#8B978F]">Demo data. Fares belong to the owner. Tips stay with you.</p>
       <div className="text-[#14241C]">
-        <DemoSwitch accounts={await listDemoAccounts()} currentId={user.id} />
+        <DemoSwitch gate="business" accounts={(await listDemoAccounts()).filter((account) => account.role !== 'passenger')} currentId={user.id} />
       </div>
       <form action={signOutAction}>
         <button className={buttonClass('outline')}>Sign out</button>

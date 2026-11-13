@@ -12,7 +12,7 @@ import { timeGreeting } from '@/lib/time';
 export const metadata = { title: 'Fleet' };
 
 export default async function FleetPage({ searchParams }: { searchParams: Promise<{ range?: string; route?: string; reset?: string }> }) {
-  const user = await requireUser(['owner']);
+  const user = await requireUser(['operator']);
   const params = await searchParams;
   const range = parseRange(params.range);
   const route = params.route || 'all';
@@ -33,7 +33,7 @@ export default async function FleetPage({ searchParams }: { searchParams: Promis
         <div className="flex items-center gap-2">
           <RangeLinks range={range} route={route} />
           <a href={`/api/export?range=${range}`} className="inline-flex h-11 items-center rounded-full bg-[#E8833A] px-4 text-sm font-semibold text-white">Export</a>
-          <Link href="/fleet/lost" className="relative grid h-11 w-11 place-items-center rounded-full bg-white shadow-sm" aria-label="Alerts">
+          <Link href="/business/desk/lost" className="relative grid h-11 w-11 place-items-center rounded-full bg-white shadow-sm" aria-label="Alerts">
             <BellIcon className="h-5 w-5" />
             {dash.openLost > 0 ? <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-[#E8833A]" /> : null}
           </Link>
@@ -55,7 +55,7 @@ export default async function FleetPage({ searchParams }: { searchParams: Promis
           <section className="rounded-[28px] bg-white p-4 shadow-[0_8px_30px_rgba(20,36,28,0.04)]">
             <div className="mb-2 flex items-center justify-between">
               <h2 className="font-semibold">Buses</h2>
-              <Link href="/fleet/buses" className="text-sm text-[#6A756E]">View all</Link>
+              <Link href="/business/desk/buses" className="text-sm text-[#6A756E]">View all</Link>
             </div>
             <div>
               <table className="w-full text-left text-sm">

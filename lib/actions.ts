@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { createSession, destroySession, requireUser } from './auth';
+import { createSession, destroySession, getCurrentUser, requireUser } from './auth';
 import {
   assignConductor,
   authenticate,
@@ -18,9 +18,12 @@ import {
   reportLost,
   requestPayout,
   restoreDemoData,
+  saveAssignment,
   savePayoutDestination,
   sendTip,
   setBusStatus,
+  signupOperator,
+  signupPassenger,
   topUp,
   verifyCode,
   verifyPickup,
@@ -34,20 +37,36 @@ function refresh() {
 export async function loginAction(_prev: Fail | null, formData: FormData): Promise<Fail | null> {
   const result = await authenticate(String(formData.get('phone') ?? ''), String(formData.get('pin') ?? ''));
   if (!result.ok) return result;
+  const gate = String(formData.get('gate') ?? 'passenger');
+  if (gate === 'passenger' && result.user.role !== 'passenger') {
+    return { ok: false, message: 'Operators and conductors sign in to Twende Fleet Business.' };
+  }
+  if (gate === 'business' && result.user.role === 'passenger') {
+    return { ok: false, message: 'Passengers sign in on the Twende rider app.' };
+  }
   await createSession(result.user.id);
   redirect(homeFor(result.user.role));
 }
 
 export async function demoLoginAction(formData: FormData) {
+  const gate = String(formData.get('gate') ?? 'passenger');
+  const back = gate === 'business' ? '/business/login' : '/login';
   const result = await authenticateDemo(String(formData.get('userId') ?? ''));
-  if (!result.ok) redirect(`/login?error=${encodeURIComponent(result.message)}`);
+  if (!result.ok) redirect(`${back}?error=${encodeURIComponent(result.message)}`);
+  if (gate === 'passenger' && result.user.role !== 'passenger') {
+    redirect(`${back}?error=${encodeURIComponent('Open Twende Fleet Business for this account.')}`);
+  }
+  if (gate === 'business' && result.user.role === 'passenger') {
+    redirect(`${back}?error=${encodeURIComponent('Open the rider app for this account.')}`);
+  }
   await createSession(result.user.id);
   redirect(homeFor(result.user.role));
 }
 
 export async function signOutAction() {
+  const user = await getCurrentUser();
   await destroySession();
-  redirect('/login');
+  redirect(user && user.role !== 'passenger' ? '/business' : '/');
 }
 
 export async function payAction(fleetNumber: string, fare: string) {
@@ -113,7 +132,7 @@ export async function logFoundAction(input: { category: string; description: str
 }
 
 export async function verifyPickupAction(code: string) {
-  const user = await requireUser(['conductor', 'owner']);
+  const user = await requireUser(['conductor', 'operator']);
   const result = await verifyPickup(user.id, code);
   if (result.ok) refresh();
   return result;
@@ -127,15 +146,15 @@ export async function tipAction(itemId: string, amountNgwee: number) {
 }
 
 export async function registerBusAction(_prev: Fail | null, formData: FormData): Promise<Fail | null> {
-  const user = await requireUser(['owner']);
+  const user = await requireUser(['operator']);
   const result = await registerBus(user.id, String(formData.get('fleet') ?? ''), String(formData.get('plate') ?? ''), String(formData.get('route') ?? ''));
   if (!result.ok) return result;
   refresh();
-  redirect('/fleet/buses');
+  redirect('/business/desk/buses');
 }
 
 export async function registerConductorAction(_prev: Fail | null, formData: FormData): Promise<Fail | null> {
-  const user = await requireUser(['owner']);
+  const user = await requireUser(['operator']);
   const busId = String(formData.get('busId') ?? '');
   const result = await registerConductor(
     user.id,
@@ -146,25 +165,25 @@ export async function registerConductorAction(_prev: Fail | null, formData: Form
   );
   if (!result.ok) return result;
   refresh();
-  redirect('/fleet/conductors');
+  redirect('/business/desk/conductors');
 }
 
 export async function setBusStatusAction(formData: FormData) {
-  const user = await requireUser(['owner']);
+  const user = await requireUser(['operator']);
   const status = String(formData.get('status') ?? '') === 'offline' ? 'offline' : 'active';
   await setBusStatus(user.id, String(formData.get('busId') ?? ''), status);
   refresh();
 }
 
 export async function assignConductorAction(formData: FormData) {
-  const user = await requireUser(['owner']);
+  const user = await requireUser(['operator']);
   const conductor = String(formData.get('conductorId') ?? '');
   await assignConductor(user.id, String(formData.get('busId') ?? ''), conductor || null);
   refresh();
 }
 
 export async function savePayoutAction(_prev: Fail | null, formData: FormData): Promise<Fail | null> {
-  const user = await requireUser(['owner']);
+  const user = await requireUser(['operator']);
   const result = await savePayoutDestination(user.id, String(formData.get('network') ?? ''), String(formData.get('destination') ?? ''));
   if (!result.ok) return result;
   refresh();
@@ -172,16 +191,48 @@ export async function savePayoutAction(_prev: Fail | null, formData: FormData): 
 }
 
 export async function payoutAction(_prev: Fail | { ok: true; message: string } | null, formData: FormData) {
-  const user = await requireUser(['owner']);
+  const user = await requireUser(['operator']);
   const result = await requestPayout(user.id, String(formData.get('amount') ?? ''));
   if (result.ok) refresh();
   return result;
 }
 
 export async function resetDemoAction() {
-  const user = await requireUser(['owner']);
+  const user = await requireUser(['operator']);
   if (!user.demo) return;
   await restoreDemoData();
   await createSession(user.id);
-  redirect('/fleet?reset=1');
+  redirect('/business/desk?reset=1');
+}
+
+export async function signupPassengerAction(_prev: Fail | null, formData: FormData): Promise<Fail | null> {
+  const result = await signupPassenger({
+    name: String(formData.get('name') ?? ''),
+    phone: String(formData.get('phone') ?? ''),
+    pin: String(formData.get('pin') ?? ''),
+    network: String(formData.get('network') ?? ''),
+  });
+  if (!result.ok) return result;
+  await createSession(result.id);
+  redirect('/home');
+}
+
+export async function signupOperatorAction(_prev: Fail | null, formData: FormData): Promise<Fail | null> {
+  const result = await signupOperator({
+    name: String(formData.get('name') ?? ''),
+    company: String(formData.get('company') ?? ''),
+    phone: String(formData.get('phone') ?? ''),
+    pin: String(formData.get('pin') ?? ''),
+    network: String(formData.get('network') ?? 'mtn'),
+  });
+  if (!result.ok) return result;
+  await createSession(result.id);
+  redirect('/business/desk');
+}
+
+export async function assignShiftAction(formData: FormData) {
+  const user = await requireUser(['operator']);
+  const conductor = String(formData.get('conductorId') ?? '');
+  await saveAssignment(user.id, String(formData.get('busId') ?? ''), conductor || null);
+  refresh();
 }

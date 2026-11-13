@@ -43,7 +43,7 @@ export default async function ProfilePage() {
         </ul>
       </section>
       <p className="text-sm text-[#5C6B63]">This is demo data for Lusaka minibus routes. No real mobile money moves.</p>
-      <DemoSwitch accounts={await listDemoAccounts()} currentId={user.id} />
+      <DemoSwitch accounts={(await listDemoAccounts()).filter((account) => account.role === 'passenger')} currentId={user.id} />
       <form action={signOutAction}>
         <button className={buttonClass('outline')}>Sign out</button>
       </form>

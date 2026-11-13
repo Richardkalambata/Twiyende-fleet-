@@ -50,7 +50,10 @@ export const getCurrentUser = cache(async (): Promise<PublicUser | null> => {
 
 export async function requireUser(roles?: Role[]): Promise<PublicUser> {
   const user = await getCurrentUser();
-  if (!user) redirect('/login');
+  if (!user) {
+    const business = Boolean(roles && roles.length > 0 && roles.every((role) => role !== 'passenger'));
+    redirect(business ? '/business/login' : '/login');
+  }
   if (roles && !roles.includes(user.role)) redirect(homeFor(user.role));
   return user;
 }

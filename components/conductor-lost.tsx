@@ -55,9 +55,9 @@ export function ConductorLostBoard({
       </div>
       {menu ? (
         <div className="mt-2 rounded-2xl bg-[#1C2622] p-2 text-sm">
-          <a className="block rounded-xl px-3 py-3" href="/conductor">Verify codes</a>
-          <a className="block rounded-xl px-3 py-3" href="/conductor/trips">Today’s trips</a>
-          <a className="block rounded-xl px-3 py-3" href="/conductor/profile">Profile & sign out</a>
+          <a className="block rounded-xl px-3 py-3" href="/business/drive">Verify codes</a>
+          <a className="block rounded-xl px-3 py-3" href="/business/drive/trips">Today’s trips</a>
+          <a className="block rounded-xl px-3 py-3" href="/business/drive/profile">Profile & sign out</a>
         </div>
       ) : null}
       <div className="mt-3 flex items-center gap-2 text-sm">

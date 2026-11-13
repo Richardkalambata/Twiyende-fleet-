@@ -52,7 +52,7 @@ type UserRow = {
   short_name: string;
   phone: string;
   pin_hash: string;
-  role: Role;
+  role: string;
   initials: string;
   demo: boolean;
   payout_phone: string | null;
@@ -111,7 +111,7 @@ function mapUser(row: UserRow): PublicUser {
     name: row.name,
     shortName: row.short_name,
     phone: row.phone,
-    role: row.role,
+    role: row.role === 'owner' ? 'operator' : (row.role as Role),
     initials: row.initials,
     demo: row.demo === true,
     payoutPhone: row.payout_phone,
@@ -179,8 +179,20 @@ async function busById(id: string): Promise<BusRow | null> {
 }
 
 async function conductorBus(userId: string): Promise<BusRow | null> {
+  const { lusakaDateKey } = await import('./time');
+  const today = lusakaDateKey();
+  const assigned = (await (await getDb()).get(
+    `SELECT b.* FROM assignments a JOIN buses b ON b.id = a.bus_id
+     WHERE a.conductor_id = ? AND a.shift_date = ? LIMIT 1`,
+    userId,
+    today,
+  )) as BusRow | null;
+  if (assigned) return assigned;
   return (
-    (await (await getDb()).get(`SELECT * FROM buses WHERE conductor_id = ? ORDER BY CASE status WHEN 'active' THEN 0 ELSE 1 END, fleet_number LIMIT 1`, userId) as BusRow | undefined) ?? null
+    (await (await getDb()).get(
+      `SELECT * FROM buses WHERE conductor_id = ? ORDER BY CASE status WHEN 'active' THEN 0 ELSE 1 END, fleet_number LIMIT 1`,
+      userId,
+    ) as BusRow | undefined) ?? null
   );
 }
 
@@ -218,8 +230,8 @@ function rangeWindow(range: RangeKey, now = new Date()) {
 }
 
 export function homeFor(role: Role): string {
-  if (role === 'conductor') return '/conductor';
-  if (role === 'owner') return '/fleet';
+  if (role === 'operator') return '/business/desk';
+  if (role === 'conductor') return '/business/drive';
   return '/home';
 }
 
@@ -261,7 +273,7 @@ export async function listDemoAccounts(): Promise<DemoAccount[]> {
   for (const row of rows) {
       let detail = 'Demo account';
       if (row.role === 'passenger') detail = `Wallet ${formatBalance(await getBalance(row.id))}`;
-      if (row.role === 'owner') detail = 'Fleet owner';
+      if (row.role === 'operator' || row.role === 'owner') detail = 'Kalambata Transport';
       if (row.role === 'conductor') {
         const bus = buses.find((item) => item.conductor_id === row.id);
         detail = bus ? `Bus ${bus.fleet_number}` : 'No bus assigned';
@@ -270,14 +282,14 @@ export async function listDemoAccounts(): Promise<DemoAccount[]> {
         id: row.id,
         name: row.name,
         shortName: row.short_name,
-        role: row.role,
+        role: row.role === 'owner' ? 'operator' : (row.role as Role),
         phone: row.phone,
         detail,
       });
   }
   return accounts
     .sort((a, b) => {
-      const rank = { passenger: 0, conductor: 1, owner: 2 };
+      const rank = { passenger: 0, conductor: 1, operator: 2 };
       return rank[a.role] - rank[b.role] || a.shortName.localeCompare(b.shortName);
     });
 }
@@ -718,8 +730,8 @@ export async function verifyPickup(actorId: string, rawCode: string) {
   const confusing = confusingCodeMessage(code);
   if (confusing) return { ok: false as const, message: confusing };
   const actor = await userById(actorId);
-  if (!actor || (actor.role !== 'conductor' && actor.role !== 'owner')) {
-    return { ok: false as const, message: 'Only the conductor or owner can close a pickup.' };
+  if (!actor || (actor.role !== 'conductor' && actor.role !== 'operator' && actor.role !== 'owner')) {
+    return { ok: false as const, message: 'Only the conductor or operator can close a pickup.' };
   }
   try {
     return await withTransaction(async () => {
@@ -1018,7 +1030,7 @@ export async function listOwnerBuses(ownerId: string): Promise<BusPerformance[]>
 export async function listConductors(ownerId: string): Promise<ConductorOption[]> {
   const rows = await (await getDb()).all(`SELECT u.id, u.short_name, u.phone, b.fleet_number
       FROM users u LEFT JOIN buses b ON b.conductor_id = u.id AND b.owner_id = ?
-      WHERE u.role = 'conductor' ORDER BY u.short_name`, ownerId) as Array<{ id: string; short_name: string; phone: string; fleet_number: string | null }>;
+      WHERE u.role = 'conductor' AND u.operator_id = ? ORDER BY u.short_name`, ownerId, ownerId) as Array<{ id: string; short_name: string; phone: string; fleet_number: string | null }>;
   return rows.map((row) => ({ id: row.id, shortName: row.short_name, phone: row.phone, busFleet: row.fleet_number }));
 }
 
@@ -1094,8 +1106,8 @@ export async function registerConductor(ownerId: string, nameRaw: string, phoneR
   try {
     const id = nid('usr');
     await withTransaction(async () => {
-      await (await getDb()).run(`INSERT INTO users (id, name, short_name, phone, pin_hash, role, initials, demo, payout_phone, payout_network, created_at)
-          VALUES (?, ?, ?, ?, ?, 'conductor', ?, FALSE, NULL, NULL, ?)`, id, name, name.split(/\s+/)[0], phone, hashPin(pin), initialsFrom(name), Date.now());
+      await (await getDb()).run(`INSERT INTO users (id, name, short_name, phone, pin_hash, role, initials, demo, payout_phone, payout_network, operator_id, created_at)
+          VALUES (?, ?, ?, ?, ?, 'conductor', ?, FALSE, NULL, NULL, ?, ?)`, id, name, name.split(/\s+/)[0], phone, hashPin(pin), initialsFrom(name), ownerId, Date.now());
       await (await getDb()).run('INSERT INTO wallets (user_id, balance_ngwee) VALUES (?, 0)', id);
       if (busId) await assignConductorInTransaction(ownerId, busId, id);
     });
@@ -1170,7 +1182,7 @@ export async function savePayoutDestination(ownerId: string, network: string, de
   if (!destination || (network === 'bank' && destination.length < 6)) {
     return { ok: false as const, message: network === 'bank' ? 'Enter the account number.' : 'Enter the mobile-money number.' };
   }
-  await (await getDb()).run('UPDATE users SET payout_network = ?, payout_phone = ? WHERE id = ? AND role = ?', network, destination, ownerId, 'owner');
+  await (await getDb()).run('UPDATE users SET payout_network = ?, payout_phone = ? WHERE id = ? AND role = ?', network, destination, ownerId, 'operator');
   return { ok: true as const };
 }
 
@@ -1251,6 +1263,101 @@ export async function ridesForExport(ownerId: string, range: RangeKey): Promise<
     amountNgwee: row.amount_ngwee,
     status: row.status,
   }));
+}
+
+export async function signupPassenger(input: { name: string; phone: string; pin: string; network: string }) {
+  const name = cleanText(input.name, 60);
+  const phone = normalizePhone(input.phone);
+  if (name.length < 2) return { ok: false as const, message: 'Enter your name.' };
+  if (!phone) return { ok: false as const, message: 'Enter a Zambian mobile number.' };
+  if (!/^\d{4}$/.test(input.pin)) return { ok: false as const, message: 'Choose a 4-digit PIN.' };
+  if (!['mtn', 'airtel', 'zamtel'].includes(input.network)) {
+    return { ok: false as const, message: 'Choose MTN, Airtel, or Zamtel.' };
+  }
+  const id = nid('usr');
+  try {
+    await (await getDb()).run(
+      `INSERT INTO users (id, name, short_name, phone, pin_hash, role, initials, demo, payout_phone, payout_network, created_at)
+       VALUES (?, ?, ?, ?, ?, 'passenger', ?, FALSE, ?, ?, ?)`,
+      id, name, name.split(/\s+/)[0], phone, hashPin(input.pin), initialsFrom(name), phone, input.network, Date.now(),
+    );
+    await (await getDb()).run('INSERT INTO wallets (user_id, balance_ngwee) VALUES (?, 0)', id);
+    return { ok: true as const, id };
+  } catch (error) {
+    if (isUnique(error)) return { ok: false as const, message: 'That phone number already has a Twende account.' };
+    return asFail(error);
+  }
+}
+
+export async function signupOperator(input: { name: string; company: string; phone: string; pin: string; network: string }) {
+  const name = cleanText(input.name, 60);
+  const company = cleanText(input.company, 80);
+  const phone = normalizePhone(input.phone);
+  if (name.length < 2 || company.length < 2) return { ok: false as const, message: 'Enter your name and company.' };
+  if (!phone) return { ok: false as const, message: 'Enter a Zambian mobile number.' };
+  if (!/^\d{4}$/.test(input.pin)) return { ok: false as const, message: 'Choose a 4-digit PIN.' };
+  const id = nid('usr');
+  try {
+    await withTransaction(async () => {
+      await (await getDb()).run(
+        `INSERT INTO users (id, name, short_name, phone, pin_hash, role, initials, demo, payout_phone, payout_network, created_at)
+         VALUES (?, ?, ?, ?, ?, 'operator', ?, FALSE, ?, ?, ?)`,
+        id, name, name.split(/\s+/)[0], phone, hashPin(input.pin), initialsFrom(name), phone, input.network || 'mtn', Date.now(),
+      );
+      await (await getDb()).run('INSERT INTO wallets (user_id, balance_ngwee) VALUES (?, 0)', id);
+      await (await getDb()).run('INSERT INTO companies (id, name, operator_id, created_at) VALUES (?, ?, ?, ?)', nid('co'), company, id, Date.now());
+    });
+    return { ok: true as const, id };
+  } catch (error) {
+    if (isUnique(error)) return { ok: false as const, message: 'That phone number is already registered.' };
+    return asFail(error);
+  }
+}
+
+export async function listAssignments(ownerId: string) {
+  const today = lusakaDateKey();
+  return (await getDb()).all<{
+    id: string;
+    conductor_id: string;
+    bus_id: string;
+    shift_date: string;
+    fleet_number: string;
+    route: string;
+    conductor_name: string;
+  }>(
+    `SELECT a.id, a.conductor_id, a.bus_id, a.shift_date, b.fleet_number, b.route, u.short_name AS conductor_name
+     FROM assignments a JOIN buses b ON b.id = a.bus_id JOIN users u ON u.id = a.conductor_id
+     WHERE b.owner_id = ? AND a.shift_date = ? ORDER BY CAST(b.fleet_number AS INTEGER)`,
+    ownerId,
+    today,
+  );
+}
+
+export async function saveAssignment(ownerId: string, busId: string, conductorId: string | null) {
+  const today = lusakaDateKey();
+  try {
+    await withTransaction(async () => {
+      const bus = await busById(busId);
+      if (!bus || bus.owner_id !== ownerId) throw new UserError('That bus is not in your fleet.');
+      await (await getDb()).run('DELETE FROM assignments WHERE bus_id = ? AND shift_date = ?', busId, today);
+      if (!conductorId) {
+        await (await getDb()).run('UPDATE buses SET conductor_id = NULL WHERE id = ?', busId);
+        return;
+      }
+      const conductor = await userById(conductorId);
+      if (!conductor || conductor.role !== 'conductor') throw new UserError('Choose a conductor.');
+      await (await getDb()).run('DELETE FROM assignments WHERE conductor_id = ? AND shift_date = ?', conductorId, today);
+      await (await getDb()).run(
+        'INSERT INTO assignments (id, conductor_id, bus_id, shift_date, created_at) VALUES (?, ?, ?, ?, ?)',
+        nid('asg'), conductorId, busId, today, Date.now(),
+      );
+      await (await getDb()).run('UPDATE buses SET conductor_id = NULL WHERE conductor_id = ?', conductorId);
+      await (await getDb()).run('UPDATE buses SET conductor_id = ? WHERE id = ?', conductorId, busId);
+    });
+    return { ok: true as const };
+  } catch (error) {
+    return asFail(error);
+  }
 }
 
 export async function restoreDemoData() {

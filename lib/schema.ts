@@ -7,9 +7,11 @@ TRUNCATE TABLE
   lost_items,
   wallet_transactions,
   rides,
+  assignments,
   sessions,
   wallets,
   buses,
+  companies,
   users,
   meta
 RESTART IDENTITY CASCADE
@@ -22,7 +24,7 @@ CREATE TABLE IF NOT EXISTS users (
   short_name TEXT NOT NULL,
   phone TEXT NOT NULL UNIQUE,
   pin_hash TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('passenger', 'conductor', 'owner')),
+  role TEXT NOT NULL CHECK (role IN ('passenger', 'conductor', 'operator', 'owner')),
   initials TEXT NOT NULL,
   demo BOOLEAN NOT NULL DEFAULT FALSE,
   payout_phone TEXT,
@@ -135,4 +137,32 @@ CREATE INDEX IF NOT EXISTS idx_lost_bus_status ON lost_items (bus_id, status);
 CREATE INDEX IF NOT EXISTS idx_lost_passenger ON lost_items (passenger_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_buses_owner ON buses (owner_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions (user_id);
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS operator_id TEXT;
+
+ALTER TABLE buses ADD COLUMN IF NOT EXISTS capacity INTEGER NOT NULL DEFAULT 18;
+ALTER TABLE buses ADD COLUMN IF NOT EXISTS default_fare_ngwee INTEGER NOT NULL DEFAULT 500;
+ALTER TABLE buses ADD COLUMN IF NOT EXISTS company_id TEXT;
+
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('passenger', 'conductor', 'operator', 'owner'));
+
+CREATE TABLE IF NOT EXISTS companies (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  operator_id TEXT NOT NULL REFERENCES users (id),
+  created_at BIGINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS assignments (
+  id TEXT PRIMARY KEY,
+  conductor_id TEXT NOT NULL REFERENCES users (id),
+  bus_id TEXT NOT NULL REFERENCES buses (id),
+  shift_date TEXT NOT NULL,
+  created_at BIGINT NOT NULL,
+  UNIQUE (conductor_id, shift_date),
+  UNIQUE (bus_id, shift_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_assignments_date ON assignments (shift_date, bus_id);
 `;

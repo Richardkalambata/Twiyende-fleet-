@@ -7,13 +7,15 @@ import type { DemoAccount, Fail } from '@/lib/types';
 import { buttonClass, Wordmark } from './shell';
 import { toast } from './toast';
 
-export function LoginForm({ accounts, error }: { accounts: DemoAccount[]; error?: string }) {
+export function LoginForm({ accounts, error, gate = 'passenger' }: { accounts: DemoAccount[]; error?: string; gate?: 'passenger' | 'business' }) {
   const [state, action, pending] = useActionState(loginAction, null as Fail | null);
-  const pinned = [
-    accounts.find((account) => account.role === 'passenger' && account.shortName === 'Richard'),
-    accounts.find((account) => account.shortName === 'Mwila'),
-    accounts.find((account) => account.role === 'owner'),
-  ].filter(Boolean) as DemoAccount[];
+  const pinned = (gate === 'business'
+    ? [
+        accounts.find((account) => account.role === 'operator'),
+        accounts.find((account) => account.shortName === 'Mwila'),
+      ]
+    : [accounts.find((account) => account.role === 'passenger' && account.shortName === 'Richard')]
+  ).filter(Boolean) as DemoAccount[];
   const rest = accounts.filter((account) => !pinned.includes(account));
   const message = state?.message ?? error;
 
@@ -25,8 +27,8 @@ export function LoginForm({ accounts, error }: { accounts: DemoAccount[]; error?
     <div className="overflow-hidden rounded-[28px] bg-white shadow-[0_24px_60px_rgba(15,26,20,0.08)]">
       <div className="bg-gradient-to-br from-[#146846] via-[#0B5D3B] to-[#083828] px-6 py-8 text-white">
         <Wordmark tone="light" subtitle="Cashless fares · Lusaka" />
-        <h1 className="mt-6 text-[32px] font-semibold tracking-tight">Pay the fare from your phone</h1>
-        <p className="mt-2 text-sm text-white/75">Passengers, conductors and owners share one record of every ride.</p>
+        <h1 className="mt-6 text-[32px] font-semibold tracking-tight">{gate === 'business' ? 'Run the fleet from one desk' : 'Pay the fare from your phone'}</h1>
+        <p className="mt-2 text-sm text-white/75">{gate === 'business' ? 'Operators and conductors. Passengers use the rider app.' : 'Top up, board, and show a one-time code.'}</p>
       </div>
       <div className="px-6 py-6">
       <form action={action} className="space-y-3">
@@ -37,6 +39,7 @@ export function LoginForm({ accounts, error }: { accounts: DemoAccount[]; error?
         <label className="block text-sm font-medium">
           PIN
           <input name="pin" inputMode="numeric" autoComplete="current-password" maxLength={4} placeholder="4 digits" className="mt-1 h-14 w-full rounded-2xl border border-[#E4DDD2] bg-white px-4 text-base outline-none" />
+        <input type="hidden" name="gate" value={gate} />
         </label>
         {message ? <p className="sr-only" role="alert">{message}</p> : null}
         <button className={buttonClass('green')} disabled={pending}>{pending ? 'Signing in…' : 'Continue'}</button>
@@ -48,9 +51,10 @@ export function LoginForm({ accounts, error }: { accounts: DemoAccount[]; error?
           {pinned.map((account) => (
             <form key={account.id} action={demoLoginAction}>
               <input type="hidden" name="userId" value={account.id} />
+              <input type="hidden" name="gate" value={gate} />
               <button type="submit" className="flex min-h-16 w-full items-center justify-between rounded-2xl border border-[#E7E1D6] bg-[#F7F5F0] px-4 text-left">
                 <span>
-                  <span className="block font-semibold">{account.role === 'owner' ? account.name : account.shortName}</span>
+                  <span className="block font-semibold">{account.role === 'operator' ? account.name : account.shortName}</span>
                   <span className="block text-sm capitalize text-[#5C6B63]">{account.role} · {account.detail}</span>
                 </span>
                 <span className="text-sm text-[#0B5D3B]">{formatPhone(account.phone)}</span>
@@ -62,6 +66,7 @@ export function LoginForm({ accounts, error }: { accounts: DemoAccount[]; error?
           {rest.map((account) => (
             <form key={account.id} action={demoLoginAction}>
               <input type="hidden" name="userId" value={account.id} />
+              <input type="hidden" name="gate" value={gate} />
               <button type="submit" className="h-10 rounded-full border border-[#E7E1D6] bg-[#F7F5F0] px-3 text-sm">{account.shortName}</button>
             </form>
           ))}
