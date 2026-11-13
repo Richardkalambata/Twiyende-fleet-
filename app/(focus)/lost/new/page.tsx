@@ -9,7 +9,7 @@ export const metadata = { title: 'Report lost item' };
 
 export default async function ReportPage() {
   const user = await requireUser(['passenger']);
-  const trips = listReportableTrips(user.id);
+  const trips = await listReportableTrips(user.id);
   return (
     <div className="pt-3">
       <div className="flex items-center justify-between px-2">

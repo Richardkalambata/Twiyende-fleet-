@@ -9,7 +9,7 @@ export const metadata = { title: 'Payouts' };
 
 export default async function PayoutsPage() {
   const user = await requireUser(['owner']);
-  const summary = getPayoutSummary(user.id);
+  const summary = await getPayoutSummary(user.id);
   return (
     <div className="space-y-4 px-4 py-5 md:px-6">
       <h1 className="text-[28px] font-semibold">Payouts</h1>

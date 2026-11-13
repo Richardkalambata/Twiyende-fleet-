@@ -6,6 +6,6 @@ export const metadata = { title: 'Verify code' };
 
 export default async function ConductorPage() {
   const user = await requireUser(['conductor']);
-  const home = getConductorHome(user.id);
+  const home = await getConductorHome(user.id);
   return <VerifyPad fleetNumber={home.bus?.fleet_number ?? null} initialRides={home.todayRides} initialAmount={home.todayNgwee} />;
 }

@@ -6,7 +6,7 @@ export const metadata = { title: 'Trips' };
 
 export default async function TripsPage() {
   const user = await requireUser(['conductor']);
-  const data = listConductorTrips(user.id);
+  const data = await listConductorTrips(user.id);
   return (
     <div className="px-4 py-5">
       <h1 className="text-[32px] font-semibold">Trips</h1>

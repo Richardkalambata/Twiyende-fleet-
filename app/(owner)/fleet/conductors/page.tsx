@@ -7,8 +7,8 @@ export const metadata = { title: 'Conductors' };
 
 export default async function ConductorsPage() {
   const user = await requireUser(['owner']);
-  const conductors = listConductors(user.id);
-  const buses = listOwnerBuses(user.id);
+  const conductors = await listConductors(user.id);
+  const buses = await listOwnerBuses(user.id);
   return (
     <div className="space-y-4 px-4 py-5 md:px-6">
       <h1 className="text-[28px] font-semibold">Conductors</h1>

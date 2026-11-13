@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: 'Sign in as the owner to export.' }, { status: 401 });
   }
   const range = parseRange(new URL(request.url).searchParams.get('range') ?? undefined);
-  const rows = ridesForExport(user.id, range);
+  const rows = await ridesForExport(user.id, range);
   const header = ['time', 'bus', 'plate', 'route', 'conductor', 'passenger', 'code', 'amount', 'status'];
   const lines = [
     header.join(','),

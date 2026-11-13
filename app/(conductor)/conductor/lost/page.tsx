@@ -6,6 +6,6 @@ export const metadata = { title: 'Lost & found' };
 
 export default async function ConductorLostPage() {
   const user = await requireUser(['conductor']);
-  const data = getConductorLost(user.id);
+  const data = await getConductorLost(user.id);
   return <ConductorLostBoard fleetNumber={data.bus?.fleet_number ?? null} alerts={data.alerts} items={data.items} />;
 }

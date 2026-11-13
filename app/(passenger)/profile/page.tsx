@@ -12,8 +12,8 @@ export const metadata = { title: 'Profile' };
 
 export default async function ProfilePage() {
   const user = await requireUser(['passenger']);
-  const home = getPassengerHome(user.id);
-  const activity = listWalletActivity(user.id);
+  const home = await getPassengerHome(user.id);
+  const activity = await listWalletActivity(user.id);
   return (
     <div className="space-y-4 px-4 py-5">
       <div className="flex items-center gap-3">
@@ -43,7 +43,7 @@ export default async function ProfilePage() {
         </ul>
       </section>
       <p className="text-sm text-[#5C6B63]">This is demo data for Lusaka minibus routes. No real mobile money moves.</p>
-      <DemoSwitch accounts={listDemoAccounts()} currentId={user.id} />
+      <DemoSwitch accounts={await listDemoAccounts()} currentId={user.id} />
       <form action={signOutAction}>
         <button className={buttonClass('outline')}>Sign out</button>
       </form>

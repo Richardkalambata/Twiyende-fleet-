@@ -1,4 +1,4 @@
-import { getDb, resetDatabase } from './db';
+import { getDb, resetDatabase, withTransaction } from './db';
 import { PICKUP_PLACE, TIP_AMOUNTS_NGWEE } from './constants';
 import { confusingCodeMessage, normalizeFleetNumber, randomCode } from './codes';
 import { isCategory } from './categories';
@@ -54,7 +54,7 @@ type UserRow = {
   pin_hash: string;
   role: Role;
   initials: string;
-  demo: number;
+  demo: boolean;
   payout_phone: string | null;
   payout_network: string | null;
 };
@@ -93,30 +93,16 @@ class UserError extends Error {
 
 const loginFailures = new Map<string, { count: number; until: number }>();
 
-function withTransaction<T>(fn: () => T): T {
-  const db = getDb();
-  db.exec('BEGIN IMMEDIATE');
-  try {
-    const result = fn();
-    db.exec('COMMIT');
-    return result;
-  } catch (error) {
-    try {
-      db.exec('ROLLBACK');
-    } catch {
-      /* already closed */
-    }
-    throw error;
-  }
-}
-
 function asFail(error: unknown): Fail {
   if (error instanceof UserError) return { ok: false, message: error.message };
   throw error;
 }
 
 function isUnique(error: unknown): boolean {
-  return error instanceof Error && error.message.includes('UNIQUE');
+  if (typeof error === 'object' && error !== null && 'code' in error && (error as { code?: string }).code === '23505') {
+    return true;
+  }
+  return error instanceof Error && /unique/i.test(error.message);
 }
 
 function mapUser(row: UserRow): PublicUser {
@@ -127,18 +113,18 @@ function mapUser(row: UserRow): PublicUser {
     phone: row.phone,
     role: row.role,
     initials: row.initials,
-    demo: row.demo === 1,
+    demo: row.demo === true,
     payoutPhone: row.payout_phone,
     payoutNetwork: row.payout_network,
   };
 }
 
-function userById(id: string): UserRow | null {
-  return (getDb().prepare('SELECT * FROM users WHERE id = ?').get(id) as UserRow | undefined) ?? null;
+async function userById(id: string): Promise<UserRow | null> {
+  return (await (await getDb()).get('SELECT * FROM users WHERE id = ?', id) as UserRow | undefined) ?? null;
 }
 
-export function getPublicUser(id: string): PublicUser | null {
-  const row = userById(id);
+export async function getPublicUser(id: string): Promise<PublicUser | null> {
+  const row = await userById(id);
   return row ? mapUser(row) : null;
 }
 
@@ -147,35 +133,30 @@ export function parseRange(value: string | undefined): RangeKey {
   return 'today';
 }
 
-function getBalance(userId: string): number {
-  const row = getDb().prepare('SELECT balance_ngwee FROM wallets WHERE user_id = ?').get(userId) as
+async function getBalance(userId: string): Promise<number> {
+  const row = await (await getDb()).get('SELECT balance_ngwee FROM wallets WHERE user_id = ?', userId) as
     | { balance_ngwee: number }
     | undefined;
   return row?.balance_ngwee ?? 0;
 }
 
-function writeWallet(
+async function writeWallet(
   userId: string,
   delta: number,
   type: string,
   note: string,
   extra: { rideId?: string | null; lostId?: string | null; provider?: string | null; providerRef?: string | null } = {},
-): number {
-  const current = getBalance(userId);
+): Promise<number> {
+  const current = await getBalance(userId);
   if (delta < 0 && current < -delta) {
     throw new UserError(`Not enough balance. You have ${formatBalance(current)}.`);
   }
   const next = current + delta;
-  const updated = getDb()
-    .prepare('UPDATE wallets SET balance_ngwee = ? WHERE user_id = ? AND balance_ngwee = ?')
-    .run(next, userId, current);
+  const updated = await (await getDb()).run('UPDATE wallets SET balance_ngwee = ? WHERE user_id = ? AND balance_ngwee = ?', next, userId, current);
   if (Number(updated.changes) !== 1) throw new UserError('Could not update the wallet. Try again.');
-  getDb()
-    .prepare(`INSERT INTO wallet_transactions
+  await (await getDb()).run(`INSERT INTO wallet_transactions
       (id, user_id, type, amount_ngwee, balance_after, provider, provider_ref, ride_id, lost_item_id, note, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(
-      nid('wtx'),
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, nid('wtx'),
       userId,
       type,
       delta,
@@ -185,24 +166,21 @@ function writeWallet(
       extra.rideId ?? null,
       extra.lostId ?? null,
       note,
-      Date.now(),
-    );
+      Date.now(),);
   return next;
 }
 
-function busByFleet(fleet: string): BusRow | null {
-  return (getDb().prepare('SELECT * FROM buses WHERE fleet_number = ?').get(fleet) as BusRow | undefined) ?? null;
+async function busByFleet(fleet: string): Promise<BusRow | null> {
+  return (await (await getDb()).get('SELECT * FROM buses WHERE fleet_number = ?', fleet) as BusRow | undefined) ?? null;
 }
 
-function busById(id: string): BusRow | null {
-  return (getDb().prepare('SELECT * FROM buses WHERE id = ?').get(id) as BusRow | undefined) ?? null;
+async function busById(id: string): Promise<BusRow | null> {
+  return (await (await getDb()).get('SELECT * FROM buses WHERE id = ?', id) as BusRow | undefined) ?? null;
 }
 
-function conductorBus(userId: string): BusRow | null {
+async function conductorBus(userId: string): Promise<BusRow | null> {
   return (
-    (getDb()
-      .prepare(`SELECT * FROM buses WHERE conductor_id = ? ORDER BY CASE status WHEN 'active' THEN 0 ELSE 1 END, fleet_number LIMIT 1`)
-      .get(userId) as BusRow | undefined) ?? null
+    (await (await getDb()).get(`SELECT * FROM buses WHERE conductor_id = ? ORDER BY CASE status WHEN 'active' THEN 0 ELSE 1 END, fleet_number LIMIT 1`, userId) as BusRow | undefined) ?? null
   );
 }
 
@@ -245,7 +223,7 @@ export function homeFor(role: Role): string {
   return '/home';
 }
 
-export function authenticate(phoneRaw: string, pin: string): { ok: true; user: PublicUser } | Fail {
+export async function authenticate(phoneRaw: string, pin: string): Promise<{ ok: true; user: PublicUser } | Fail> {
   const phone = normalizePhone(phoneRaw);
   if (!phone) return { ok: false, message: 'Enter a Zambian mobile number, like 0971 000 001.' };
   if (!/^\d{4}$/.test(pin)) return { ok: false, message: 'The PIN is 4 digits.' };
@@ -254,7 +232,7 @@ export function authenticate(phoneRaw: string, pin: string): { ok: true; user: P
   if (prior && prior.until > now && prior.count >= 5) {
     return { ok: false, message: 'Too many tries. Wait a minute, then try again.' };
   }
-  const row = getDb().prepare('SELECT * FROM users WHERE phone = ?').get(phone) as UserRow | undefined;
+  const row = await (await getDb()).get('SELECT * FROM users WHERE phone = ?', phone) as UserRow | undefined;
   if (!row || !verifyPin(pin, row.pin_hash)) {
     const count = prior && prior.until > now ? prior.count + 1 : 1;
     loginFailures.set(phone, { count, until: now + 60_000 });
@@ -264,50 +242,49 @@ export function authenticate(phoneRaw: string, pin: string): { ok: true; user: P
   return { ok: true, user: mapUser(row) };
 }
 
-export function authenticateDemo(userId: string): { ok: true; user: PublicUser } | Fail {
+export async function authenticateDemo(userId: string): Promise<{ ok: true; user: PublicUser } | Fail> {
   if (process.env.DEMO_ROLE_SWITCHER === '0') {
     return { ok: false, message: 'Demo sign-in is turned off.' };
   }
-  const row = getDb().prepare('SELECT * FROM users WHERE id = ? AND demo = 1').get(userId) as UserRow | undefined;
+  const row = await (await getDb()).get('SELECT * FROM users WHERE id = ? AND demo = TRUE', userId) as UserRow | undefined;
   if (!row) return { ok: false, message: 'That demo account is not available.' };
   return { ok: true, user: mapUser(row) };
 }
 
-export function listDemoAccounts(): DemoAccount[] {
-  const rows = getDb().prepare(`SELECT * FROM users WHERE demo = 1`).all() as UserRow[];
-  const buses = getDb().prepare('SELECT fleet_number, conductor_id FROM buses').all() as Array<{
+export async function listDemoAccounts(): Promise<DemoAccount[]> {
+  const rows = await (await getDb()).all(`SELECT * FROM users WHERE demo = TRUE`) as UserRow[];
+  const buses = await (await getDb()).all('SELECT fleet_number, conductor_id FROM buses') as Array<{
     fleet_number: string;
     conductor_id: string | null;
   }>;
-  return rows
-    .map((row) => {
+  const accounts: DemoAccount[] = [];
+  for (const row of rows) {
       let detail = 'Demo account';
-      if (row.role === 'passenger') detail = `Wallet ${formatBalance(getBalance(row.id))}`;
+      if (row.role === 'passenger') detail = `Wallet ${formatBalance(await getBalance(row.id))}`;
       if (row.role === 'owner') detail = 'Fleet owner';
       if (row.role === 'conductor') {
         const bus = buses.find((item) => item.conductor_id === row.id);
         detail = bus ? `Bus ${bus.fleet_number}` : 'No bus assigned';
       }
-      return {
+      accounts.push({
         id: row.id,
         name: row.name,
         shortName: row.short_name,
         role: row.role,
         phone: row.phone,
         detail,
-      };
-    })
+      });
+  }
+  return accounts
     .sort((a, b) => {
       const rank = { passenger: 0, conductor: 1, owner: 2 };
       return rank[a.role] - rank[b.role] || a.shortName.localeCompare(b.shortName);
     });
 }
 
-function rideCards(passengerId: string, limit: number): RideCard[] {
-  const rows = getDb()
-    .prepare(`SELECT r.*, b.fleet_number FROM rides r JOIN buses b ON b.id = r.bus_id
-      WHERE r.passenger_id = ? ORDER BY r.created_at DESC LIMIT ?`)
-    .all(passengerId, limit) as RideJoin[];
+async function rideCards(passengerId: string, limit: number): Promise<RideCard[]> {
+  const rows = await (await getDb()).all(`SELECT r.*, b.fleet_number FROM rides r JOIN buses b ON b.id = r.bus_id
+      WHERE r.passenger_id = ? ORDER BY r.created_at DESC LIMIT ?`, passengerId, limit) as RideJoin[];
   return rows.map((row) => ({
     id: row.id,
     fleetNumber: row.fleet_number,
@@ -320,33 +297,29 @@ function rideCards(passengerId: string, limit: number): RideCard[] {
   }));
 }
 
-export function getPassengerHome(userId: string) {
-  const user = userById(userId);
+export async function getPassengerHome(userId: string) {
+  const user = await userById(userId);
   if (!user) throw new UserError('Sign in again.');
   return {
     user: mapUser(user),
-    balanceNgwee: getBalance(userId),
-    rides: rideCards(userId, 4),
-    buses: listBusOptions(),
-    notices: passengerNotices(userId),
+    balanceNgwee: await getBalance(userId),
+    rides: await rideCards(userId, 4),
+    buses: await listBusOptions(),
+    notices: await passengerNotices(userId),
   };
 }
 
-export function listPassengerRides(userId: string): RideCard[] {
-  return rideCards(userId, 50);
+export async function listPassengerRides(userId: string): Promise<RideCard[]> {
+  return await rideCards(userId, 50);
 }
 
-export function listBusOptions(): BusOption[] {
-  const rows = getDb()
-    .prepare(`SELECT fleet_number, route, status FROM buses ORDER BY CAST(fleet_number AS INTEGER)`)
-    .all() as Array<{ fleet_number: string; route: string; status: 'active' | 'offline' }>;
+export async function listBusOptions(): Promise<BusOption[]> {
+  const rows = await (await getDb()).all(`SELECT fleet_number, route, status FROM buses ORDER BY CAST(fleet_number AS INTEGER)`) as Array<{ fleet_number: string; route: string; status: 'active' | 'offline' }>;
   return rows.map((row) => ({ fleetNumber: row.fleet_number, route: row.route, status: row.status }));
 }
 
-export function getReceipt(passengerId: string, rideId: string): Receipt | null {
-  const row = getDb()
-    .prepare(`SELECT r.*, b.fleet_number FROM rides r JOIN buses b ON b.id = r.bus_id WHERE r.id = ? AND r.passenger_id = ?`)
-    .get(rideId, passengerId) as RideJoin | undefined;
+export async function getReceipt(passengerId: string, rideId: string): Promise<Receipt | null> {
+  const row = await (await getDb()).get(`SELECT r.*, b.fleet_number FROM rides r JOIN buses b ON b.id = r.bus_id WHERE r.id = ? AND r.passenger_id = ?`, rideId, passengerId) as RideJoin | undefined;
   if (!row) return null;
   return {
     id: row.id,
@@ -357,15 +330,13 @@ export function getReceipt(passengerId: string, rideId: string): Receipt | null 
     status: row.status,
     createdAt: row.created_at,
     verifiedAt: row.verified_at,
-    balanceNgwee: getBalance(passengerId),
+    balanceNgwee: await getBalance(passengerId),
   };
 }
 
-export function listWalletActivity(userId: string, limit = 8): WalletActivity[] {
-  const rows = getDb()
-    .prepare(`SELECT id, type, amount_ngwee, balance_after, note, created_at FROM wallet_transactions
-      WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`)
-    .all(userId, limit) as Array<{
+export async function listWalletActivity(userId: string, limit = 8): Promise<WalletActivity[]> {
+  const rows = await (await getDb()).all(`SELECT id, type, amount_ngwee, balance_after, note, created_at FROM wallet_transactions
+      WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`, userId, limit) as Array<{
     id: string;
     type: string;
     amount_ngwee: number;
@@ -383,44 +354,42 @@ export function listWalletActivity(userId: string, limit = 8): WalletActivity[] 
   }));
 }
 
-export function payFare(passengerId: string, fleetRaw: string, fareRaw: string) {
+export async function payFare(passengerId: string, fleetRaw: string, fareRaw: string) {
   const fleet = normalizeFleetNumber(fleetRaw);
   const amount = parseFare(fareRaw);
   if (!fleet) return { ok: false as const, message: 'Enter the bus number painted on the minibus.' };
   if (amount == null) return { ok: false as const, message: 'Enter a fare from K1 to K100.' };
-  const bus = busByFleet(fleet);
+  const bus = await busByFleet(fleet);
   if (!bus) return { ok: false as const, message: `No Twende bus ${fleet}. Check the number on the vehicle.` };
   if (bus.status !== 'active' || !bus.conductor_id) {
     return { ok: false as const, message: `Bus ${fleet} is not taking Twende payments right now.` };
   }
-  const balance = getBalance(passengerId);
+  const balance = await getBalance(passengerId);
   if (balance < amount) {
     return {
       ok: false as const,
       message: `Not enough balance. You have ${formatBalance(balance)}. Top up to pay ${formatCompact(amount)}.`,
     };
   }
-  const passenger = userById(passengerId);
+  const passenger = await userById(passengerId);
   if (!passenger) return { ok: false as const, message: 'Sign in again.' };
   try {
-    return withTransaction(() => {
+    return await withTransaction(async () => {
       let code = '';
       let rideId = '';
       for (let attempt = 0; attempt < 8; attempt += 1) {
         code = randomCode(4);
         rideId = nid('ride');
         try {
-          getDb()
-            .prepare(`INSERT INTO rides
+          await (await getDb()).run(`INSERT INTO rides
               (id, passenger_id, passenger_label, bus_id, conductor_id, amount_ngwee, code, status, created_at, verified_at, route_snapshot)
-              VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, NULL, ?)`)
-            .run(rideId, passengerId, passenger.short_name, bus.id, bus.conductor_id, amount, code, Date.now(), bus.route);
+              VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, NULL, ?)`, rideId, passengerId, passenger.short_name, bus.id, bus.conductor_id, amount, code, Date.now(), bus.route);
           break;
         } catch (error) {
           if (!isUnique(error) || attempt === 7) throw error;
         }
       }
-      const balanceNgwee = writeWallet(passengerId, -amount, 'fare', `Fare for Bus ${bus.fleet_number}`, { rideId });
+      const balanceNgwee = await writeWallet(passengerId, -amount, 'fare', `Fare for Bus ${bus.fleet_number}`, { rideId });
       return {
         ok: true as const,
         rideId,
@@ -436,20 +405,16 @@ export function payFare(passengerId: string, fleetRaw: string, fareRaw: string) 
   }
 }
 
-export function cancelFare(passengerId: string, rideId: string) {
+export async function cancelFare(passengerId: string, rideId: string) {
   try {
-    return withTransaction(() => {
-      const ride = getDb()
-        .prepare(`SELECT r.*, b.fleet_number FROM rides r JOIN buses b ON b.id = r.bus_id WHERE r.id = ? AND r.passenger_id = ?`)
-        .get(rideId, passengerId) as RideJoin | undefined;
+    return await withTransaction(async () => {
+      const ride = await (await getDb()).get(`SELECT r.*, b.fleet_number FROM rides r JOIN buses b ON b.id = r.bus_id WHERE r.id = ? AND r.passenger_id = ?`, rideId, passengerId) as RideJoin | undefined;
       if (!ride) throw new UserError('That fare could not be found.');
       if (ride.status === 'verified') throw new UserError('The conductor already confirmed this fare.');
       if (ride.status === 'void') throw new UserError('This fare is already cancelled.');
-      const updated = getDb()
-        .prepare(`UPDATE rides SET status = 'void' WHERE id = ? AND status = 'pending'`)
-        .run(rideId);
+      const updated = await (await getDb()).run(`UPDATE rides SET status = 'void' WHERE id = ? AND status = 'pending'`, rideId);
       if (Number(updated.changes) !== 1) throw new UserError('This fare can no longer be cancelled.');
-      const balanceNgwee = writeWallet(passengerId, ride.amount_ngwee, 'refund', `Refund for Bus ${ride.fleet_number}`, {
+      const balanceNgwee = await writeWallet(passengerId, ride.amount_ngwee, 'refund', `Refund for Bus ${ride.fleet_number}`, {
         rideId,
       });
       return { ok: true as const, balanceNgwee };
@@ -459,21 +424,21 @@ export function cancelFare(passengerId: string, rideId: string) {
   }
 }
 
-export function verifyCode(conductorId: string, rawCode: string) {
+export async function verifyCode(conductorId: string, rawCode: string) {
   const code = rawCode.toUpperCase().replace(/\s+/g, '');
   const confusing = confusingCodeMessage(code);
   if (confusing) return { ok: false as const, message: confusing };
-  const bus = conductorBus(conductorId);
+  const bus = await conductorBus(conductorId);
   if (!bus || bus.status !== 'active') {
     return { ok: false as const, message: 'You are not assigned to an active bus yet.' };
   }
   try {
-    return withTransaction(() => {
-      const ride = getDb().prepare('SELECT * FROM rides WHERE code = ?').get(code) as
+    return await withTransaction(async () => {
+      const ride = await (await getDb()).get('SELECT * FROM rides WHERE code = ?', code) as
         | (RideJoin & { fleet_number?: string })
         | undefined;
       if (!ride) throw new UserError('Code not found. Ask the passenger to read it again.');
-      const rideBus = busById(ride.bus_id);
+      const rideBus = await busById(ride.bus_id);
       const fleet = rideBus?.fleet_number ?? 'another bus';
       if (ride.status === 'void') throw new UserError('This fare was cancelled and the passenger was refunded.');
       if (ride.bus_id !== bus.id) {
@@ -483,11 +448,9 @@ export function verifyCode(conductorId: string, rawCode: string) {
         throw new UserError(`Already used at ${formatHour24(ride.verified_at ?? ride.created_at)}. A code works once.`);
       }
       const verifiedAt = Date.now();
-      const updated = getDb()
-        .prepare(`UPDATE rides SET status = 'verified', verified_at = ?, conductor_id = ? WHERE id = ? AND status = 'pending'`)
-        .run(verifiedAt, conductorId, ride.id);
+      const updated = await (await getDb()).run(`UPDATE rides SET status = 'verified', verified_at = ?, conductor_id = ? WHERE id = ? AND status = 'pending'`, verifiedAt, conductorId, ride.id);
       if (Number(updated.changes) !== 1) throw new UserError('This code was just used.');
-      const stats = conductorToday(conductorId);
+      const stats = await conductorToday(conductorId);
       return {
         ok: true as const,
         amountNgwee: ride.amount_ngwee,
@@ -503,38 +466,34 @@ export function verifyCode(conductorId: string, rawCode: string) {
   }
 }
 
-function conductorToday(conductorId: string, now = new Date()) {
+async function conductorToday(conductorId: string, now = new Date()) {
   const start = startOfLusakaDay(now);
-  const row = getDb()
-    .prepare(`SELECT COUNT(*) AS rides, COALESCE(SUM(amount_ngwee), 0) AS amount
-      FROM rides WHERE conductor_id = ? AND status = 'verified' AND created_at >= ? AND created_at < ?`)
-    .get(conductorId, start, start + DAY_MS) as { rides: number; amount: number };
+  const row = await (await getDb()).get(`SELECT COUNT(*) AS rides, COALESCE(SUM(amount_ngwee), 0) AS amount
+      FROM rides WHERE conductor_id = ? AND status = 'verified' AND created_at >= ? AND created_at < ?`, conductorId, start, start + DAY_MS) as { rides: number; amount: number };
   return { rides: row.rides, amountNgwee: row.amount };
 }
 
-export function getConductorHome(userId: string) {
-  const user = userById(userId);
+export async function getConductorHome(userId: string) {
+  const user = await userById(userId);
   if (!user) throw new UserError('Sign in again.');
-  const bus = conductorBus(userId);
-  const stats = conductorToday(userId);
+  const bus = await conductorBus(userId);
+  const stats = await conductorToday(userId);
   return { user: mapUser(user), bus, todayRides: stats.rides, todayNgwee: stats.amountNgwee };
 }
 
-export function listConductorTrips(userId: string) {
-  const bus = conductorBus(userId);
+export async function listConductorTrips(userId: string) {
+  const bus = await conductorBus(userId);
   const start = startOfLusakaDay();
-  const rows = getDb()
-    .prepare(`SELECT passenger_label, code, amount_ngwee, created_at, verified_at FROM rides
+  const rows = await (await getDb()).all(`SELECT passenger_label, code, amount_ngwee, created_at, verified_at FROM rides
       WHERE conductor_id = ? AND status = 'verified' AND created_at >= ?
-      ORDER BY verified_at DESC LIMIT 80`)
-    .all(userId, start) as Array<{
+      ORDER BY verified_at DESC LIMIT 80`, userId, start) as Array<{
     passenger_label: string;
     code: string;
     amount_ngwee: number;
     created_at: number;
     verified_at: number | null;
   }>;
-  const stats = conductorToday(userId);
+  const stats = await conductorToday(userId);
   return {
     bus,
     todayRides: stats.rides,
@@ -567,8 +526,8 @@ export async function topUp(passengerId: string, network: string, phoneRaw: stri
   });
   if (!result.ok) return { ok: false as const, message: result.message };
   try {
-    const balanceNgwee = withTransaction(() =>
-      writeWallet(passengerId, amount, 'topup', `Top up from ${networkLabel(network)}`, {
+    const balanceNgwee = await withTransaction(async () =>
+      await writeWallet(passengerId, amount, 'topup', `Top up from ${networkLabel(network)}`, {
         provider: network,
         providerRef: result.providerRef,
       }),
@@ -591,24 +550,22 @@ export function networkDisplay(network: string): string {
   return networkLabel(network);
 }
 
-function issuePickup(itemId: string, foundBy: string) {
-  const item = getDb().prepare('SELECT * FROM lost_items WHERE id = ?').get(itemId) as
-    | { id: string; bus_id: string; passenger_id: string | null; notify_sms: number; category: string; status: string }
+async function issuePickup(itemId: string, foundBy: string) {
+  const item = await (await getDb()).get('SELECT * FROM lost_items WHERE id = ?', itemId) as
+    | { id: string; bus_id: string; passenger_id: string | null; notify_sms: boolean; category: string; status: string }
     | undefined;
   if (!item) throw new UserError('That report is no longer here.');
-  const bus = busById(item.bus_id);
+  const bus = await busById(item.bus_id);
   if (!bus) throw new UserError('That bus is no longer registered.');
   let code = '';
   for (let attempt = 0; attempt < 8; attempt += 1) {
     code = randomCode(4);
     try {
-      const updated = getDb()
-        .prepare(`UPDATE lost_items
+      const updated = await (await getDb()).run(`UPDATE lost_items
           SET status = 'pickup_pending', pickup_code = ?, pickup_place = ?, pickup_until = ?, found_by = ?, found_at = ?, conductor_id = ?
-          WHERE id = ? AND status IN ('reported', 'waiting')`)
-        .run(code, PICKUP_PLACE, nextPickupDeadline(), foundBy, Date.now(), foundBy, itemId);
+          WHERE id = ? AND status IN ('reported', 'waiting')`, code, PICKUP_PLACE, nextPickupDeadline(), foundBy, Date.now(), foundBy, itemId);
       if (Number(updated.changes) !== 1) throw new UserError('That report was already updated.');
-      return { code, bus, notify: item.notify_sms === 1, passengerId: item.passenger_id, category: item.category };
+      return { code, bus, notify: item.notify_sms === true, passengerId: item.passenger_id, category: item.category };
     } catch (error) {
       if (error instanceof UserError) throw error;
       if (!isUnique(error) || attempt === 7) throw error;
@@ -619,14 +576,12 @@ function issuePickup(itemId: string, foundBy: string) {
 
 async function notifyPickup(info: { code: string; bus: BusRow; notify: boolean; passengerId: string | null; category: string; itemId: string }) {
   if (!info.notify || !info.passengerId) return false;
-  const passenger = userById(info.passengerId);
+  const passenger = await userById(info.passengerId);
   if (!passenger) return false;
   const body = `Twende: your ${info.category} was found on Bus ${info.bus.fleet_number}. Pickup code ${info.code} at ${PICKUP_PLACE}.`;
   try {
     const result = await getSmsProvider().send({ to: passenger.phone, body });
-    getDb()
-      .prepare(`INSERT INTO sms_messages (id, to_phone, body, status, lost_item_id, created_at) VALUES (?, ?, ?, ?, ?, ?)`)
-      .run(nid('sms'), passenger.phone, body, result.status, info.itemId, Date.now());
+    await (await getDb()).run(`INSERT INTO sms_messages (id, to_phone, body, status, lost_item_id, created_at) VALUES (?, ?, ?, ?, ?, ?)`, nid('sms'), passenger.phone, body, result.status, info.itemId, Date.now());
     return true;
   } catch {
     return false;
@@ -645,34 +600,26 @@ export async function reportLost(
   if (!isCategory(category)) return { ok: false as const, message: 'Choose what you lost.' };
   if (description.length < 3) return { ok: false as const, message: 'Add a short description so the conductor can recognise it.' };
   try {
-    const pendingSms = withTransaction(() => {
-      const ride = getDb()
-        .prepare(`SELECT r.*, b.fleet_number, b.owner_id, b.conductor_id FROM rides r JOIN buses b ON b.id = r.bus_id
-          WHERE r.id = ? AND r.passenger_id = ?`)
-        .get(rideId, passengerId) as (RideJoin & { owner_id: string }) | undefined;
+    const pendingSms = await withTransaction(async () => {
+      const ride = await (await getDb()).get(`SELECT r.*, b.fleet_number, b.owner_id, b.conductor_id FROM rides r JOIN buses b ON b.id = r.bus_id
+          WHERE r.id = ? AND r.passenger_id = ?`, rideId, passengerId) as (RideJoin & { owner_id: string }) | undefined;
       if (!ride) throw new UserError('Choose one of your trips.');
       if (ride.status !== 'verified') throw new UserError('You can report a lost item after the conductor has confirmed the fare.');
       const photoData = cleanPhoto(photo);
-      const waiting = getDb()
-        .prepare(`SELECT id FROM lost_items WHERE bus_id = ? AND status = 'waiting' AND category = ? ORDER BY created_at LIMIT 1`)
-        .get(ride.bus_id, category) as { id: string } | undefined;
+      const waiting = await (await getDb()).get(`SELECT id FROM lost_items WHERE bus_id = ? AND status = 'waiting' AND category = ? ORDER BY created_at LIMIT 1`, ride.bus_id, category) as { id: string } | undefined;
       if (waiting) {
-        getDb()
-          .prepare(`UPDATE lost_items
+        await (await getDb()).run(`UPDATE lost_items
             SET ride_id = ?, passenger_id = ?, description = ?, photo_data = COALESCE(?, photo_data), notify_sms = ?, owner_id = ?
-            WHERE id = ?`)
-          .run(ride.id, passengerId, description, photoData, notifySms ? 1 : 0, ride.owner_id, waiting.id);
-        const issued = issuePickup(waiting.id, ride.conductor_id ?? userById(ride.owner_id)?.id ?? passengerId);
+            WHERE id = ?`, ride.id, passengerId, description, photoData, notifySms, ride.owner_id, waiting.id);
+        const owner = await userById(ride.owner_id);
+        const issued = await issuePickup(waiting.id, ride.conductor_id ?? owner?.id ?? passengerId);
         return { itemId: waiting.id, matched: true, issued: { ...issued, itemId: waiting.id } };
       }
       const itemId = nid('lost');
-      getDb()
-        .prepare(`INSERT INTO lost_items (
+      await (await getDb()).run(`INSERT INTO lost_items (
           id, ride_id, passenger_id, bus_id, conductor_id, owner_id, category, description, photo_data,
           notify_sms, status, pickup_code, pickup_place, pickup_until, source, found_by, found_at, closed_at, created_at, tip_ngwee
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'reported', NULL, NULL, NULL, 'passenger', NULL, NULL, NULL, ?, 0)`)
-        .run(
-          itemId,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'reported', NULL, NULL, NULL, 'passenger', NULL, NULL, NULL, ?, 0)`, itemId,
           ride.id,
           passengerId,
           ride.bus_id,
@@ -681,9 +628,8 @@ export async function reportLost(
           category,
           description,
           photoData,
-          notifySms ? 1 : 0,
-          Date.now(),
-        );
+          notifySms,
+          Date.now(),);
       return { itemId, matched: false, issued: null };
     });
     if (pendingSms.issued) await notifyPickup(pendingSms.issued);
@@ -694,16 +640,16 @@ export async function reportLost(
 }
 
 export async function markFound(conductorId: string, itemId: string) {
-  const bus = conductorBus(conductorId);
+  const bus = await conductorBus(conductorId);
   if (!bus) return { ok: false as const, message: 'You are not assigned to a bus.' };
   try {
-    const issued = withTransaction(() => {
-      const item = getDb().prepare('SELECT id, bus_id, status FROM lost_items WHERE id = ?').get(itemId) as
+    const issued = await withTransaction(async () => {
+      const item = await (await getDb()).get('SELECT id, bus_id, status FROM lost_items WHERE id = ?', itemId) as
         | { id: string; bus_id: string; status: string }
         | undefined;
       if (!item || item.bus_id !== bus.id) throw new UserError('That report is not for your bus.');
       if (item.status !== 'reported') throw new UserError('That report is no longer waiting.');
-      return issuePickup(item.id, conductorId);
+      return await issuePickup(item.id, conductorId);
     });
     await notifyPickup({ ...issued, itemId });
     return { ok: true as const, message: 'Marked found. The passenger now has a pickup code.' };
@@ -712,14 +658,12 @@ export async function markFound(conductorId: string, itemId: string) {
   }
 }
 
-export function markNotFound(conductorId: string, itemId: string) {
-  const bus = conductorBus(conductorId);
+export async function markNotFound(conductorId: string, itemId: string) {
+  const bus = await conductorBus(conductorId);
   if (!bus) return { ok: false as const, message: 'You are not assigned to a bus.' };
   try {
-    withTransaction(() => {
-      const updated = getDb()
-        .prepare(`UPDATE lost_items SET status = 'not_found' WHERE id = ? AND bus_id = ? AND status = 'reported'`)
-        .run(itemId, bus.id);
+    await withTransaction(async () => {
+      const updated = await (await getDb()).run(`UPDATE lost_items SET status = 'not_found' WHERE id = ? AND bus_id = ? AND status = 'reported'`, itemId, bus.id);
       if (Number(updated.changes) !== 1) throw new UserError('That report is no longer open.');
     });
     return { ok: true as const, message: 'Marked as not found. The passenger can see that.' };
@@ -729,31 +673,27 @@ export function markNotFound(conductorId: string, itemId: string) {
 }
 
 export async function logFoundItem(conductorId: string, category: string, descriptionRaw: string, photo: string | null) {
-  const bus = conductorBus(conductorId);
+  const bus = await conductorBus(conductorId);
   if (!bus) return { ok: false as const, message: 'You are not assigned to a bus.' };
   if (!isCategory(category)) return { ok: false as const, message: 'Choose a category.' };
   const description = cleanText(descriptionRaw, 280);
   try {
-    const outcome = withTransaction(() => {
+    const outcome = await withTransaction(async () => {
       const photoData = cleanPhoto(photo);
-      const reported = getDb()
-        .prepare(`SELECT id FROM lost_items WHERE bus_id = ? AND status = 'reported' AND category = ? ORDER BY created_at LIMIT 1`)
-        .get(bus.id, category) as { id: string } | undefined;
+      const reported = await (await getDb()).get(`SELECT id FROM lost_items WHERE bus_id = ? AND status = 'reported' AND category = ? ORDER BY created_at LIMIT 1`, bus.id, category) as { id: string } | undefined;
       if (reported) {
         if (photoData) {
-          getDb().prepare('UPDATE lost_items SET photo_data = COALESCE(photo_data, ?) WHERE id = ?').run(photoData, reported.id);
+          await (await getDb()).run('UPDATE lost_items SET photo_data = COALESCE(photo_data, ?) WHERE id = ?', photoData, reported.id);
         }
-        const issued = issuePickup(reported.id, conductorId);
+        const issued = await issuePickup(reported.id, conductorId);
         return { matched: true, itemId: reported.id, issued };
       }
       const itemId = nid('lost');
       const ownerId = bus.owner_id;
-      getDb()
-        .prepare(`INSERT INTO lost_items (
+      await (await getDb()).run(`INSERT INTO lost_items (
           id, ride_id, passenger_id, bus_id, conductor_id, owner_id, category, description, photo_data,
           notify_sms, status, pickup_code, pickup_place, pickup_until, source, found_by, found_at, closed_at, created_at, tip_ngwee
-        ) VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, 0, 'waiting', NULL, NULL, NULL, 'conductor', ?, ?, NULL, ?, 0)`)
-        .run(itemId, bus.id, conductorId, ownerId, category, description || categoryLabelSafe(category), photoData, conductorId, Date.now(), Date.now());
+        ) VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, FALSE, 'waiting', NULL, NULL, NULL, 'conductor', ?, ?, NULL, ?, 0)`, itemId, bus.id, conductorId, ownerId, category, description || categoryLabelSafe(category), photoData, conductorId, Date.now(), Date.now());
       return { matched: false, itemId, issued: null };
     });
     if (outcome.issued) await notifyPickup({ ...outcome.issued, itemId: outcome.itemId });
@@ -773,24 +713,24 @@ function categoryLabelSafe(category: string): string {
   return category.slice(0, 1).toUpperCase() + category.slice(1);
 }
 
-export function verifyPickup(actorId: string, rawCode: string) {
+export async function verifyPickup(actorId: string, rawCode: string) {
   const code = rawCode.toUpperCase().replace(/\s+/g, '');
   const confusing = confusingCodeMessage(code);
   if (confusing) return { ok: false as const, message: confusing };
-  const actor = userById(actorId);
+  const actor = await userById(actorId);
   if (!actor || (actor.role !== 'conductor' && actor.role !== 'owner')) {
     return { ok: false as const, message: 'Only the conductor or owner can close a pickup.' };
   }
   try {
-    return withTransaction(() => {
-      const item = getDb().prepare('SELECT * FROM lost_items WHERE pickup_code = ?').get(code) as
+    return await withTransaction(async () => {
+      const item = await (await getDb()).get('SELECT * FROM lost_items WHERE pickup_code = ?', code) as
         | { id: string; bus_id: string; status: LostStatus; category: string }
         | undefined;
       if (!item) throw new UserError('Pickup code not found. Ask the passenger to read it again.');
-      const bus = busById(item.bus_id);
+      const bus = await busById(item.bus_id);
       if (!bus) throw new UserError('That bus is no longer registered.');
       if (actor.role === 'conductor') {
-        const mine = conductorBus(actorId);
+        const mine = await conductorBus(actorId);
         if (!mine || mine.id !== bus.id) {
           throw new UserError(`This pickup is for Bus ${bus.fleet_number}, not your bus.`);
         }
@@ -799,9 +739,7 @@ export function verifyPickup(actorId: string, rawCode: string) {
       }
       if (item.status === 'closed') throw new UserError('This item was already handed over.');
       if (item.status !== 'pickup_pending') throw new UserError('This pickup is not ready yet.');
-      const updated = getDb()
-        .prepare(`UPDATE lost_items SET status = 'closed', closed_at = ? WHERE id = ? AND status = 'pickup_pending'`)
-        .run(Date.now(), item.id);
+      const updated = await (await getDb()).run(`UPDATE lost_items SET status = 'closed', closed_at = ? WHERE id = ? AND status = 'pickup_pending'`, Date.now(), item.id);
       if (Number(updated.changes) !== 1) throw new UserError('This pickup was just closed.');
       return { ok: true as const, message: `${categoryLabelSafe(item.category)} handed over. The report is closed.` };
     });
@@ -810,13 +748,13 @@ export function verifyPickup(actorId: string, rawCode: string) {
   }
 }
 
-export function sendTip(passengerId: string, itemId: string, amountRaw: number) {
+export async function sendTip(passengerId: string, itemId: string, amountRaw: number) {
   if (!TIP_AMOUNTS_NGWEE.includes(amountRaw as (typeof TIP_AMOUNTS_NGWEE)[number])) {
     return { ok: false as const, message: 'Choose K5, K10, or K20.' };
   }
   try {
-    return withTransaction(() => {
-      const item = getDb().prepare('SELECT * FROM lost_items WHERE id = ? AND passenger_id = ?').get(itemId, passengerId) as
+    return await withTransaction(async () => {
+      const item = await (await getDb()).get('SELECT * FROM lost_items WHERE id = ? AND passenger_id = ?', itemId, passengerId) as
         | { id: string; status: LostStatus; tip_ngwee: number; found_by: string | null; conductor_id: string | null; category: string }
         | undefined;
       if (!item) throw new UserError('That item is not on your account.');
@@ -826,11 +764,9 @@ export function sendTip(passengerId: string, itemId: string, amountRaw: number) 
       if (item.tip_ngwee > 0) throw new UserError('You already sent thanks for this item.');
       const conductorId = item.found_by ?? item.conductor_id;
       if (!conductorId) throw new UserError('No conductor is attached to this item yet.');
-      const balanceNgwee = writeWallet(passengerId, -amountRaw, 'tip', `Tip for finding your ${item.category}`, { lostId: item.id });
-      writeWallet(conductorId, amountRaw, 'tip', `Tip from a passenger`, { lostId: item.id });
-      const updated = getDb()
-        .prepare('UPDATE lost_items SET tip_ngwee = ? WHERE id = ? AND tip_ngwee = 0')
-        .run(amountRaw, item.id);
+      const balanceNgwee = await writeWallet(passengerId, -amountRaw, 'tip', `Tip for finding your ${item.category}`, { lostId: item.id });
+      await writeWallet(conductorId, amountRaw, 'tip', `Tip from a passenger`, { lostId: item.id });
+      const updated = await (await getDb()).run('UPDATE lost_items SET tip_ngwee = ? WHERE id = ? AND tip_ngwee = 0', amountRaw, item.id);
       if (Number(updated.changes) !== 1) throw new UserError('You already sent thanks for this item.');
       return { ok: true as const, balanceNgwee, message: `Sent ${formatCompact(amountRaw)} to the conductor.` };
     });
@@ -839,13 +775,11 @@ export function sendTip(passengerId: string, itemId: string, amountRaw: number) 
   }
 }
 
-function passengerNotices(userId: string): Notice[] {
-  const rows = getDb()
-    .prepare(`SELECT li.id, li.category, li.status, b.fleet_number FROM lost_items li
+async function passengerNotices(userId: string): Promise<Notice[]> {
+  const rows = await (await getDb()).all(`SELECT li.id, li.category, li.status, b.fleet_number FROM lost_items li
       JOIN buses b ON b.id = li.bus_id
       WHERE li.passenger_id = ? AND li.status IN ('reported', 'pickup_pending', 'not_found')
-      ORDER BY li.created_at DESC LIMIT 6`)
-    .all(userId) as Array<{ id: string; category: string; status: LostStatus; fleet_number: string }>;
+      ORDER BY li.created_at DESC LIMIT 6`, userId) as Array<{ id: string; category: string; status: LostStatus; fleet_number: string }>;
   return rows.map((row) => {
     if (row.status === 'pickup_pending') {
       return { id: row.id, href: `/lost/${row.id}`, title: `Your ${row.category} was found`, body: `Bus ${row.fleet_number} · open for the pickup code` };
@@ -857,11 +791,9 @@ function passengerNotices(userId: string): Notice[] {
   });
 }
 
-export function listPassengerLost(userId: string): LostSummary[] {
-  const rows = getDb()
-    .prepare(`SELECT li.*, b.fleet_number, b.route FROM lost_items li JOIN buses b ON b.id = li.bus_id
-      WHERE li.passenger_id = ? ORDER BY li.created_at DESC LIMIT 30`)
-    .all(userId) as Array<{
+export async function listPassengerLost(userId: string): Promise<LostSummary[]> {
+  const rows = await (await getDb()).all(`SELECT li.*, b.fleet_number, b.route FROM lost_items li JOIN buses b ON b.id = li.bus_id
+      WHERE li.passenger_id = ? ORDER BY li.created_at DESC LIMIT 30`, userId) as Array<{
     id: string;
     category: string;
     description: string;
@@ -882,14 +814,12 @@ export function listPassengerLost(userId: string): LostSummary[] {
   }));
 }
 
-export function getPassengerLostItem(userId: string, itemId: string): PassengerLostDetail | null {
-  const row = getDb()
-    .prepare(`SELECT li.*, b.fleet_number, b.route, u.short_name AS conductor_name, u.phone AS conductor_phone
+export async function getPassengerLostItem(userId: string, itemId: string): Promise<PassengerLostDetail | null> {
+  const row = await (await getDb()).get(`SELECT li.*, b.fleet_number, b.route, u.short_name AS conductor_name, u.phone AS conductor_phone
       FROM lost_items li
       JOIN buses b ON b.id = li.bus_id
       LEFT JOIN users u ON u.id = COALESCE(li.found_by, li.conductor_id)
-      WHERE li.id = ? AND li.passenger_id = ?`)
-    .get(itemId, userId) as
+      WHERE li.id = ? AND li.passenger_id = ?`, itemId, userId) as
     | {
         id: string;
         category: string;
@@ -907,7 +837,7 @@ export function getPassengerLostItem(userId: string, itemId: string): PassengerL
       }
     | undefined;
   if (!row) return null;
-  const sms = getDb().prepare('SELECT id FROM sms_messages WHERE lost_item_id = ? LIMIT 1').get(itemId) as { id: string } | undefined;
+  const sms = await (await getDb()).get('SELECT id FROM sms_messages WHERE lost_item_id = ? LIMIT 1', itemId) as { id: string } | undefined;
   return {
     id: row.id,
     category: row.category,
@@ -923,16 +853,14 @@ export function getPassengerLostItem(userId: string, itemId: string): PassengerL
     pickupUntilLabel: row.pickup_until ? formatPickupUntil(row.pickup_until) : null,
     photoData: row.photo_data,
     tipNgwee: row.tip_ngwee,
-    balanceNgwee: getBalance(userId),
+    balanceNgwee: await getBalance(userId),
     smsSent: Boolean(sms),
   };
 }
 
-export function listReportableTrips(userId: string): RideCard[] {
-  const rows = getDb()
-    .prepare(`SELECT r.*, b.fleet_number FROM rides r JOIN buses b ON b.id = r.bus_id
-      WHERE r.passenger_id = ? AND r.status = 'verified' ORDER BY r.created_at DESC LIMIT 20`)
-    .all(userId) as RideJoin[];
+export async function listReportableTrips(userId: string): Promise<RideCard[]> {
+  const rows = await (await getDb()).all(`SELECT r.*, b.fleet_number FROM rides r JOIN buses b ON b.id = r.bus_id
+      WHERE r.passenger_id = ? AND r.status = 'verified' ORDER BY r.created_at DESC LIMIT 20`, userId) as RideJoin[];
   return rows.map((row) => ({
     id: row.id,
     fleetNumber: row.fleet_number,
@@ -945,19 +873,15 @@ export function listReportableTrips(userId: string): RideCard[] {
   }));
 }
 
-export function getConductorLost(userId: string) {
-  const bus = conductorBus(userId);
+export async function getConductorLost(userId: string) {
+  const bus = await conductorBus(userId);
   if (!bus) return { bus: null, alerts: [] as ConductorAlert[], items: [] as ConductorItem[] };
-  const alerts = getDb()
-    .prepare(`SELECT li.id, li.category, li.description, li.created_at, r.created_at AS ride_at
+  const alerts = await (await getDb()).all(`SELECT li.id, li.category, li.description, li.created_at, r.created_at AS ride_at
       FROM lost_items li LEFT JOIN rides r ON r.id = li.ride_id
-      WHERE li.bus_id = ? AND li.status = 'reported' ORDER BY li.created_at DESC`)
-    .all(bus.id) as Array<{ id: string; category: string; description: string; created_at: number; ride_at: number | null }>;
-  const items = getDb()
-    .prepare(`SELECT id, category, description, status, created_at, found_at FROM lost_items
+      WHERE li.bus_id = ? AND li.status = 'reported' ORDER BY li.created_at DESC`, bus.id) as Array<{ id: string; category: string; description: string; created_at: number; ride_at: number | null }>;
+  const items = await (await getDb()).all(`SELECT id, category, description, status, created_at, found_at FROM lost_items
       WHERE bus_id = ? AND status IN ('waiting', 'pickup_pending', 'closed')
-      ORDER BY CASE status WHEN 'pickup_pending' THEN 0 WHEN 'waiting' THEN 1 ELSE 2 END, created_at DESC LIMIT 20`)
-    .all(bus.id) as Array<{ id: string; category: string; description: string; status: LostStatus; created_at: number; found_at: number | null }>;
+      ORDER BY CASE status WHEN 'pickup_pending' THEN 0 WHEN 'waiting' THEN 1 ELSE 2 END, created_at DESC LIMIT 20`, bus.id) as Array<{ id: string; category: string; description: string; status: LostStatus; created_at: number; found_at: number | null }>;
   return {
     bus,
     alerts: alerts.map((row) => ({
@@ -983,24 +907,20 @@ export function getConductorLost(userId: string) {
 
 type Agg = { created_at: number; amount_ngwee: number; bus_id: string; conductor_id: string | null; fleet_number: string };
 
-export function getOwnerDashboard(ownerId: string, range: RangeKey, routeFleet?: string): Dashboard {
+export async function getOwnerDashboard(ownerId: string, range: RangeKey, routeFleet?: string): Promise<Dashboard> {
   const now = new Date();
   const window = rangeWindow(range, now);
-  const rows = getDb()
-    .prepare(`SELECT r.created_at, r.amount_ngwee, r.bus_id, r.conductor_id, b.fleet_number
+  const rows = await (await getDb()).all(`SELECT r.created_at, r.amount_ngwee, r.bus_id, r.conductor_id, b.fleet_number
       FROM rides r JOIN buses b ON b.id = r.bus_id
-      WHERE b.owner_id = ? AND r.status = 'verified' AND r.created_at >= ? AND r.created_at < ?`)
-    .all(ownerId, Math.min(window.previousStart, window.start), window.end) as Agg[];
+      WHERE b.owner_id = ? AND r.status = 'verified' AND r.created_at >= ? AND r.created_at < ?`, ownerId, Math.min(window.previousStart, window.start), window.end) as Agg[];
   const inSpan = (row: Agg, start: number, end: number) => row.created_at >= start && row.created_at < end;
   const current = rows.filter((row) => inSpan(row, window.start, window.end));
   const previous = rows.filter((row) => inSpan(row, window.previousStart, window.previousEnd));
   const sum = (list: Agg[]) => list.reduce((total, row) => total + row.amount_ngwee, 0);
 
-  const buses = getDb()
-    .prepare(`SELECT b.*, u.short_name AS conductor_name, u.initials AS conductor_initials
+  const buses = await (await getDb()).all(`SELECT b.*, u.short_name AS conductor_name, u.initials AS conductor_initials
       FROM buses b LEFT JOIN users u ON u.id = b.conductor_id
-      WHERE b.owner_id = ? ORDER BY CAST(b.fleet_number AS INTEGER)`)
-    .all(ownerId) as Array<BusRow & { conductor_name: string | null; conductor_initials: string | null }>;
+      WHERE b.owner_id = ? ORDER BY CAST(b.fleet_number AS INTEGER)`, ownerId) as Array<BusRow & { conductor_name: string | null; conductor_initials: string | null }>;
 
   const performance: BusPerformance[] = buses.map((bus) => {
     const mine = current.filter((row) => row.bus_id === bus.id);
@@ -1026,7 +946,7 @@ export function getOwnerDashboard(ownerId: string, range: RangeKey, routeFleet?:
     bag.earningsNgwee += row.amount_ngwee;
     byConductor.set(row.conductor_id, bag);
   }
-  const conductorRows = getDb().prepare(`SELECT id, short_name, initials FROM users WHERE role = 'conductor'`).all() as Array<{
+  const conductorRows = await (await getDb()).all(`SELECT id, short_name, initials FROM users WHERE role = 'conductor'`) as Array<{
     id: string;
     short_name: string;
     initials: string;
@@ -1041,14 +961,10 @@ export function getOwnerDashboard(ownerId: string, range: RangeKey, routeFleet?:
   }
 
   const chartRows = routeFleet && routeFleet !== 'all' ? current.filter((row) => row.fleet_number === routeFleet) : current;
-  const open = getDb()
-    .prepare(`SELECT COUNT(*) AS n FROM lost_items li JOIN buses b ON b.id = li.bus_id WHERE b.owner_id = ? AND li.status = 'reported'`)
-    .get(ownerId) as { n: number };
+  const open = await (await getDb()).get(`SELECT COUNT(*) AS n FROM lost_items li JOIN buses b ON b.id = li.bus_id WHERE b.owner_id = ? AND li.status = 'reported'`, ownerId) as { n: number };
   const todayWindow = rangeWindow('today', now);
   const todayRows = rows.filter((row) => inSpan(row, todayWindow.start, todayWindow.end));
-  const paidToday = getDb()
-    .prepare(`SELECT COALESCE(SUM(amount_ngwee), 0) AS amount FROM payouts WHERE owner_id = ? AND status = 'paid' AND created_at >= ? AND created_at < ?`)
-    .get(ownerId, todayWindow.start, todayWindow.end) as { amount: number };
+  const paidToday = await (await getDb()).get(`SELECT COALESCE(SUM(amount_ngwee), 0) AS amount FROM payouts WHERE owner_id = ? AND status = 'paid' AND created_at >= ? AND created_at < ?`, ownerId, todayWindow.start, todayWindow.end) as { amount: number };
 
   return {
     range,
@@ -1095,16 +1011,14 @@ function buildChart(range: RangeKey, rows: Agg[], now: Date): ChartPoint[] {
   });
 }
 
-export function listOwnerBuses(ownerId: string): BusPerformance[] {
-  return getOwnerDashboard(ownerId, 'today').buses;
+export async function listOwnerBuses(ownerId: string): Promise<BusPerformance[]> {
+  return (await getOwnerDashboard(ownerId, 'today')).buses;
 }
 
-export function listConductors(ownerId: string): ConductorOption[] {
-  const rows = getDb()
-    .prepare(`SELECT u.id, u.short_name, u.phone, b.fleet_number
+export async function listConductors(ownerId: string): Promise<ConductorOption[]> {
+  const rows = await (await getDb()).all(`SELECT u.id, u.short_name, u.phone, b.fleet_number
       FROM users u LEFT JOIN buses b ON b.conductor_id = u.id AND b.owner_id = ?
-      WHERE u.role = 'conductor' ORDER BY u.short_name`)
-    .all(ownerId) as Array<{ id: string; short_name: string; phone: string; fleet_number: string | null }>;
+      WHERE u.role = 'conductor' ORDER BY u.short_name`, ownerId) as Array<{ id: string; short_name: string; phone: string; fleet_number: string | null }>;
   return rows.map((row) => ({ id: row.id, shortName: row.short_name, phone: row.phone, busFleet: row.fleet_number }));
 }
 
@@ -1118,13 +1032,11 @@ export type OwnerLostItem = {
   passenger: string | null;
 };
 
-export function listOwnerLost(ownerId: string): OwnerLostItem[] {
-  const rows = getDb()
-    .prepare(`SELECT li.id, li.category, li.description, li.status, li.created_at, b.fleet_number, u.short_name AS passenger
+export async function listOwnerLost(ownerId: string): Promise<OwnerLostItem[]> {
+  const rows = await (await getDb()).all(`SELECT li.id, li.category, li.description, li.status, li.created_at, b.fleet_number, u.short_name AS passenger
       FROM lost_items li JOIN buses b ON b.id = li.bus_id LEFT JOIN users u ON u.id = li.passenger_id
       WHERE b.owner_id = ? ORDER BY CASE li.status WHEN 'reported' THEN 0 WHEN 'pickup_pending' THEN 1 WHEN 'waiting' THEN 2 ELSE 3 END, li.created_at DESC
-      LIMIT 40`)
-    .all(ownerId) as Array<{
+      LIMIT 40`, ownerId) as Array<{
     id: string;
     category: string;
     description: string;
@@ -1144,14 +1056,12 @@ export function listOwnerLost(ownerId: string): OwnerLostItem[] {
   }));
 }
 
-export function countOpenLost(ownerId: string): number {
-  const row = getDb()
-    .prepare(`SELECT COUNT(*) AS n FROM lost_items li JOIN buses b ON b.id = li.bus_id WHERE b.owner_id = ? AND li.status = 'reported'`)
-    .get(ownerId) as { n: number };
+export async function countOpenLost(ownerId: string): Promise<number> {
+  const row = await (await getDb()).get(`SELECT COUNT(*) AS n FROM lost_items li JOIN buses b ON b.id = li.bus_id WHERE b.owner_id = ? AND li.status = 'reported'`, ownerId) as { n: number };
   return row.n;
 }
 
-export function registerBus(ownerId: string, fleetRaw: string, plateRaw: string, routeRaw: string) {
+export async function registerBus(ownerId: string, fleetRaw: string, plateRaw: string, routeRaw: string) {
   const fleet = normalizeFleetNumber(fleetRaw);
   const plate = cleanText(plateRaw, 20).toUpperCase();
   const route = cleanText(routeRaw, 60);
@@ -1160,10 +1070,8 @@ export function registerBus(ownerId: string, fleetRaw: string, plateRaw: string,
   if (route.length < 3) return { ok: false as const, message: 'Enter the route, such as Town to Matero.' };
   try {
     const id = nid('bus');
-    getDb()
-      .prepare(`INSERT INTO buses (id, fleet_number, plate, route, status, owner_id, conductor_id, created_at)
-        VALUES (?, ?, ?, ?, 'active', ?, NULL, ?)`)
-      .run(id, fleet, plate, route, ownerId, Date.now());
+    await (await getDb()).run(`INSERT INTO buses (id, fleet_number, plate, route, status, owner_id, conductor_id, created_at)
+        VALUES (?, ?, ?, ?, 'active', ?, NULL, ?)`, id, fleet, plate, route, ownerId, Date.now());
     return { ok: true as const, id, fleetNumber: fleet };
   } catch (error) {
     if (isUnique(error)) return { ok: false as const, message: `Bus ${fleet} is already registered.` };
@@ -1171,15 +1079,13 @@ export function registerBus(ownerId: string, fleetRaw: string, plateRaw: string,
   }
 }
 
-export function setBusStatus(ownerId: string, busId: string, status: 'active' | 'offline') {
-  const updated = getDb()
-    .prepare(`UPDATE buses SET status = ? WHERE id = ? AND owner_id = ?`)
-    .run(status, busId, ownerId);
+export async function setBusStatus(ownerId: string, busId: string, status: 'active' | 'offline') {
+  const updated = await (await getDb()).run(`UPDATE buses SET status = ? WHERE id = ? AND owner_id = ?`, status, busId, ownerId);
   if (Number(updated.changes) !== 1) return { ok: false as const, message: 'That bus is not in your fleet.' };
   return { ok: true as const };
 }
 
-export function registerConductor(ownerId: string, nameRaw: string, phoneRaw: string, pin: string, busId: string | null) {
+export async function registerConductor(ownerId: string, nameRaw: string, phoneRaw: string, pin: string, busId: string | null) {
   const name = cleanText(nameRaw, 60);
   const phone = normalizePhone(phoneRaw);
   if (name.length < 2) return { ok: false as const, message: 'Enter the conductor’s name.' };
@@ -1187,13 +1093,11 @@ export function registerConductor(ownerId: string, nameRaw: string, phoneRaw: st
   if (!/^\d{4}$/.test(pin)) return { ok: false as const, message: 'Choose a 4-digit PIN for the conductor.' };
   try {
     const id = nid('usr');
-    withTransaction(() => {
-      getDb()
-        .prepare(`INSERT INTO users (id, name, short_name, phone, pin_hash, role, initials, demo, payout_phone, payout_network, created_at)
-          VALUES (?, ?, ?, ?, ?, 'conductor', ?, 0, NULL, NULL, ?)`)
-        .run(id, name, name.split(/\s+/)[0], phone, hashPin(pin), initialsFrom(name), Date.now());
-      getDb().prepare('INSERT INTO wallets (user_id, balance_ngwee) VALUES (?, 0)').run(id);
-      if (busId) assignConductorInTransaction(ownerId, busId, id);
+    await withTransaction(async () => {
+      await (await getDb()).run(`INSERT INTO users (id, name, short_name, phone, pin_hash, role, initials, demo, payout_phone, payout_network, created_at)
+          VALUES (?, ?, ?, ?, ?, 'conductor', ?, FALSE, NULL, NULL, ?)`, id, name, name.split(/\s+/)[0], phone, hashPin(pin), initialsFrom(name), Date.now());
+      await (await getDb()).run('INSERT INTO wallets (user_id, balance_ngwee) VALUES (?, 0)', id);
+      if (busId) await assignConductorInTransaction(ownerId, busId, id);
     });
     return { ok: true as const, id, phone, shortName: name.split(/\s+/)[0] ?? name };
   } catch (error) {
@@ -1202,54 +1106,48 @@ export function registerConductor(ownerId: string, nameRaw: string, phoneRaw: st
   }
 }
 
-function assignConductorInTransaction(ownerId: string, busId: string, conductorId: string | null) {
-  const bus = busById(busId);
+async function assignConductorInTransaction(ownerId: string, busId: string, conductorId: string | null) {
+  const bus = await busById(busId);
   if (!bus || bus.owner_id !== ownerId) throw new UserError('That bus is not in your fleet.');
   if (conductorId) {
-    const conductor = userById(conductorId);
+    const conductor = await userById(conductorId);
     if (!conductor || conductor.role !== 'conductor') throw new UserError('Choose a conductor.');
-    getDb().prepare('UPDATE buses SET conductor_id = NULL WHERE conductor_id = ?').run(conductorId);
+    await (await getDb()).run('UPDATE buses SET conductor_id = NULL WHERE conductor_id = ?', conductorId);
   }
-  getDb().prepare('UPDATE buses SET conductor_id = ? WHERE id = ? AND owner_id = ?').run(conductorId, busId, ownerId);
+  await (await getDb()).run('UPDATE buses SET conductor_id = ? WHERE id = ? AND owner_id = ?', conductorId, busId, ownerId);
 }
 
-export function assignConductor(ownerId: string, busId: string, conductorId: string | null) {
+export async function assignConductor(ownerId: string, busId: string, conductorId: string | null) {
   try {
-    withTransaction(() => assignConductorInTransaction(ownerId, busId, conductorId));
+    await withTransaction(async () => await assignConductorInTransaction(ownerId, busId, conductorId));
     return { ok: true as const };
   } catch (error) {
     return asFail(error);
   }
 }
 
-function earnedNgwee(ownerId: string): number {
-  const row = getDb()
-    .prepare(`SELECT COALESCE(SUM(r.amount_ngwee), 0) AS amount FROM rides r JOIN buses b ON b.id = r.bus_id
-      WHERE b.owner_id = ? AND r.status = 'verified'`)
-    .get(ownerId) as { amount: number };
+async function earnedNgwee(ownerId: string): Promise<number> {
+  const row = await (await getDb()).get(`SELECT COALESCE(SUM(r.amount_ngwee), 0) AS amount FROM rides r JOIN buses b ON b.id = r.bus_id
+      WHERE b.owner_id = ? AND r.status = 'verified'`, ownerId) as { amount: number };
   return row.amount;
 }
 
-function heldPayoutNgwee(ownerId: string): number {
-  const row = getDb()
-    .prepare(`SELECT COALESCE(SUM(amount_ngwee), 0) AS amount FROM payouts WHERE owner_id = ? AND status IN ('paid', 'reserved')`)
-    .get(ownerId) as { amount: number };
+async function heldPayoutNgwee(ownerId: string): Promise<number> {
+  const row = await (await getDb()).get(`SELECT COALESCE(SUM(amount_ngwee), 0) AS amount FROM payouts WHERE owner_id = ? AND status IN ('paid', 'reserved')`, ownerId) as { amount: number };
   return row.amount;
 }
 
-function ownerAvailableNgwee(ownerId: string): number {
-  return earnedNgwee(ownerId) - heldPayoutNgwee(ownerId);
+async function ownerAvailableNgwee(ownerId: string): Promise<number> {
+  return (await earnedNgwee(ownerId)) - (await heldPayoutNgwee(ownerId));
 }
 
-export function getPayoutSummary(ownerId: string): PayoutSummary {
-  const user = userById(ownerId);
-  const dash = getOwnerDashboard(ownerId, 'today');
-  const history = getDb()
-    .prepare(`SELECT id, amount_ngwee, status, network, destination, created_at FROM payouts
-      WHERE owner_id = ? AND status = 'paid' ORDER BY created_at DESC LIMIT 20`)
-    .all(ownerId) as Array<{ id: string; amount_ngwee: number; status: string; network: string; destination: string; created_at: number }>;
+export async function getPayoutSummary(ownerId: string): Promise<PayoutSummary> {
+  const user = await userById(ownerId);
+  const dash = await getOwnerDashboard(ownerId, 'today');
+  const history = await (await getDb()).all(`SELECT id, amount_ngwee, status, network, destination, created_at FROM payouts
+      WHERE owner_id = ? AND status = 'paid' ORDER BY created_at DESC LIMIT 20`, ownerId) as Array<{ id: string; amount_ngwee: number; status: string; network: string; destination: string; created_at: number }>;
   return {
-    availableNgwee: ownerAvailableNgwee(ownerId),
+    availableNgwee: await ownerAvailableNgwee(ownerId),
     todayNgwee: dash.totalNgwee,
     nextPayoutNgwee: dash.nextPayoutNgwee,
     payoutPhone: user?.payout_phone ?? null,
@@ -1265,39 +1163,37 @@ export function getPayoutSummary(ownerId: string): PayoutSummary {
   };
 }
 
-export function savePayoutDestination(ownerId: string, network: string, destinationRaw: string) {
+export async function savePayoutDestination(ownerId: string, network: string, destinationRaw: string) {
   const allowed = ['mtn', 'airtel', 'zamtel', 'bank'];
   if (!allowed.includes(network)) return { ok: false as const, message: 'Choose MTN, Airtel, Zamtel, or a bank account.' };
   const destination = network === 'bank' ? cleanText(destinationRaw, 32) : normalizePhone(destinationRaw);
   if (!destination || (network === 'bank' && destination.length < 6)) {
     return { ok: false as const, message: network === 'bank' ? 'Enter the account number.' : 'Enter the mobile-money number.' };
   }
-  getDb().prepare('UPDATE users SET payout_network = ?, payout_phone = ? WHERE id = ? AND role = ?').run(network, destination, ownerId, 'owner');
+  await (await getDb()).run('UPDATE users SET payout_network = ?, payout_phone = ? WHERE id = ? AND role = ?', network, destination, ownerId, 'owner');
   return { ok: true as const };
 }
 
-function releaseReservation(payoutId: string) {
-  getDb().prepare(`DELETE FROM payouts WHERE id = ? AND status = 'reserved'`).run(payoutId);
+async function releaseReservation(payoutId: string) {
+  await (await getDb()).run(`DELETE FROM payouts WHERE id = ? AND status = 'reserved'`, payoutId);
 }
 
 export async function requestPayout(ownerId: string, amountRaw: string) {
   const amount = parseMoney(amountRaw, 100_000_000);
   if (amount == null) return { ok: false as const, message: 'Enter a payout of at least K1.' };
-  const user = userById(ownerId);
+  const user = await userById(ownerId);
   if (!user) return { ok: false as const, message: 'Sign in again.' };
   const network = (user.payout_network ?? 'mtn') as PayoutNetwork;
   const destination = user.payout_phone ?? user.phone;
   const payoutId = nid('pay');
   try {
-    withTransaction(() => {
-      const available = ownerAvailableNgwee(ownerId);
+    await withTransaction(async () => {
+      const available = await ownerAvailableNgwee(ownerId);
       if (amount > available) {
         throw new UserError(`You can pay out up to ${formatBalance(Math.max(available, 0))}.`);
       }
-      getDb()
-        .prepare(`INSERT INTO payouts (id, owner_id, amount_ngwee, status, network, destination, provider_ref, created_at)
-          VALUES (?, ?, ?, 'reserved', ?, ?, NULL, ?)`)
-        .run(payoutId, ownerId, amount, network, destination, Date.now());
+      await (await getDb()).run(`INSERT INTO payouts (id, owner_id, amount_ngwee, status, network, destination, provider_ref, created_at)
+          VALUES (?, ?, ?, 'reserved', ?, ?, NULL, ?)`, payoutId, ownerId, amount, network, destination, Date.now());
     });
   } catch (error) {
     return asFail(error);
@@ -1313,31 +1209,27 @@ export async function requestPayout(ownerId: string, amountRaw: string) {
       ownerId,
     });
   } catch {
-    releaseReservation(payoutId);
+    await releaseReservation(payoutId);
     return { ok: false as const, message: 'The payout provider did not respond. Nothing was sent.' };
   }
   if (!result.ok) {
-    releaseReservation(payoutId);
+    await releaseReservation(payoutId);
     return { ok: false as const, message: result.message };
   }
-  const updated = getDb()
-    .prepare(`UPDATE payouts SET status = 'paid', provider_ref = ? WHERE id = ? AND status = 'reserved'`)
-    .run(result.providerRef, payoutId);
+  const updated = await (await getDb()).run(`UPDATE payouts SET status = 'paid', provider_ref = ? WHERE id = ? AND status = 'reserved'`, result.providerRef, payoutId);
   if (Number(updated.changes) !== 1) {
     return { ok: false as const, message: 'The payout could not be recorded. Check payouts before trying again.' };
   }
   return { ok: true as const, message: `${formatBalance(amount)} sent to ${formatPhone(destination)} via ${networkLabel(network)}.` };
 }
 
-export function ridesForExport(ownerId: string, range: RangeKey): ExportRide[] {
+export async function ridesForExport(ownerId: string, range: RangeKey): Promise<ExportRide[]> {
   const window = rangeWindow(range);
-  const rows = getDb()
-    .prepare(`SELECT r.created_at, r.code, r.amount_ngwee, r.status, r.passenger_label, r.route_snapshot,
+  const rows = await (await getDb()).all(`SELECT r.created_at, r.code, r.amount_ngwee, r.status, r.passenger_label, r.route_snapshot,
         b.fleet_number, b.plate, u.short_name AS conductor
       FROM rides r JOIN buses b ON b.id = r.bus_id LEFT JOIN users u ON u.id = r.conductor_id
       WHERE b.owner_id = ? AND r.created_at >= ? AND r.created_at < ?
-      ORDER BY r.created_at DESC`)
-    .all(ownerId, window.start, window.end) as Array<{
+      ORDER BY r.created_at DESC`, ownerId, window.start, window.end) as Array<{
     created_at: number;
     code: string;
     amount_ngwee: number;
@@ -1361,12 +1253,12 @@ export function ridesForExport(ownerId: string, range: RangeKey): ExportRide[] {
   }));
 }
 
-export function restoreDemoData() {
-  resetDatabase();
+export async function restoreDemoData() {
+  await resetDatabase();
 }
 
-export function conductorTipBalance(userId: string): number {
-  return getBalance(userId);
+export async function conductorTipBalance(userId: string): Promise<number> {
+  return await getBalance(userId);
 }
 
 export { formatPhone, lusakaDateKey };

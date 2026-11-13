@@ -9,7 +9,7 @@ import { getPassengerHome } from '@/lib/service';
 
 export default async function HomePage() {
   const user = await requireUser(['passenger']);
-  const home = getPassengerHome(user.id);
+  const home = await getPassengerHome(user.id);
   return (
     <div>
       <div className="bg-gradient-to-b from-[#07281C] to-[#0A3A28] px-4 pb-5 pt-4 text-white">

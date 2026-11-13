@@ -16,7 +16,7 @@ const STATUS: Record<string, string> = {
 
 export default async function LostPage() {
   const user = await requireUser(['passenger']);
-  const items = listPassengerLost(user.id);
+  const items = await listPassengerLost(user.id);
   const found = items.find((item) => item.status === 'pickup_pending');
   return (
     <div className="px-4 py-5">

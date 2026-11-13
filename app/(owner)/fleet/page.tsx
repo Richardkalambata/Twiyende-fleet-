@@ -16,7 +16,7 @@ export default async function FleetPage({ searchParams }: { searchParams: Promis
   const params = await searchParams;
   const range = parseRange(params.range);
   const route = params.route || 'all';
-  const dash = getOwnerDashboard(user.id, range, route);
+  const dash = await getOwnerDashboard(user.id, range, route);
   const earnings = formatPercent(dash.totalNgwee, dash.previousNgwee);
   const rides = formatPercent(dash.rides, dash.previousRides);
   const compare = range === 'today' ? 'vs yesterday' : range === 'week' ? 'vs prior 7 days' : 'vs last month';
@@ -93,7 +93,7 @@ export default async function FleetPage({ searchParams }: { searchParams: Promis
         <aside className="rounded-[28px] bg-white p-5 text-center shadow-[0_8px_30px_rgba(20,36,28,0.04)]">
           <div className="flex items-center justify-between text-left">
             <h2 className="font-semibold">Top conductor</h2>
-            <span className="text-[#E8833A]">★</span>
+            <span className="text-[#E8833A]"><ChartIcon className="h-5 w-5" /></span>
           </div>
           {dash.topConductor ? (
             <div className="mt-6">

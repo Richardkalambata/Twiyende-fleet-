@@ -8,7 +8,7 @@ export const metadata = { title: 'Top up' };
 
 export default async function TopUpPage() {
   const user = await requireUser(['passenger']);
-  const home = getPassengerHome(user.id);
+  const home = await getPassengerHome(user.id);
   return (
     <div className="pt-4">
       <div className="flex items-center gap-2 px-2">

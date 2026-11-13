@@ -12,7 +12,7 @@ export const metadata = { title: 'Item found' };
 export default async function LostDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser(['passenger']);
   const { id } = await params;
-  const item = getPassengerLostItem(user.id, id);
+  const item = await getPassengerLostItem(user.id, id);
   if (!item) notFound();
   const ready = item.status === 'pickup_pending' || item.status === 'closed';
   return (
@@ -26,7 +26,7 @@ export default async function LostDetailPage({ params }: { params: Promise<{ id:
               <span className="block text-[11px] text-white/70">Transit · Zambia</span>
             </span>
           </span>
-          <Bell notices={getPassengerHome(user.id).notices} tone="light" />
+          <Bell notices={(await getPassengerHome(user.id)).notices} tone="light" />
         </header>
       </div>
       <div className="-mt-4 space-y-3 px-4 pb-8">

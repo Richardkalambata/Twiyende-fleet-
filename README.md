@@ -16,26 +16,36 @@ Codes use letters and digits without `0`, `O`, `1` or `I`, so they are easier to
 ## Stack
 
 - Next.js (App Router) + TypeScript + Tailwind CSS
-- SQLite via Node’s built-in `node:sqlite` (no database account, no secrets)
-- The SQL is ordinary and lives behind `lib/db.ts`, so a Postgres driver can replace that file later for Vercel
+- Postgres via `pg`, using the pooled `DATABASE_URL` for queries and `DATABASE_URL_UNPOOLED` for seeding when it is set
+- On Vercel, `@vercel/functions` attaches the pool so Fluid Compute can reuse it
 
-Node.js 22 or newer is required.
+Node.js 22 or newer is required. Do not commit a real `DATABASE_URL`.
 
 ## Setup
 
+Create a local database, then:
+
 ```bash
+cp .env.example .env.local
+# set DATABASE_URL=postgres://USER:PASSWORD@127.0.0.1:5432/twende
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The database file is created at `data/twende.sqlite` on first launch and filled with demo data for the current Lusaka day. Nothing in this repo is a credential. See `.env.example` for optional settings.
+Open [http://localhost:3000](http://localhost:3000). The first request creates the tables and loads demo data for the current Lusaka day. A second instance waits on a Postgres advisory lock, so seeding does not run twice. Sessions, fares, and photos live in Postgres.
 
 ```bash
-npm test        # fare, verify, lost-and-found and dashboard totals
+DATABASE_URL=postgres://USER:PASSWORD@127.0.0.1:5432/twende_test npm test
 npm run typecheck
 npm run lint
 npm run build
 ```
+
+`npm test` falls back to `postgres://twende:twende@127.0.0.1:5432/twende_test` when `DATABASE_URL` is unset.
+
+## Vercel
+
+Set `DATABASE_URL` to the Neon pooled URL and `DATABASE_URL_UNPOOLED` to the direct URL. Deploy the Node.js runtime (not Edge). The app reads those variables at request time and does not need a SQLite file.
 
 ## Demo accounts
 

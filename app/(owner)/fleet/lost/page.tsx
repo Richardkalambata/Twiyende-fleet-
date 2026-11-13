@@ -7,7 +7,7 @@ export const metadata = { title: 'Lost & found' };
 
 export default async function OwnerLostPage() {
   const user = await requireUser(['owner']);
-  const items = listOwnerLost(user.id);
+  const items = await listOwnerLost(user.id);
   return (
     <div className="space-y-4 px-4 py-5 md:px-6">
       <h1 className="text-[28px] font-semibold">Lost & found</h1>

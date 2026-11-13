@@ -16,7 +16,8 @@ function hashToken(token: string): string {
 export async function createSession(userId: string) {
   const token = randomBytes(32).toString('hex');
   const expiresAt = Date.now() + MAX_AGE * 1000;
-  getDb().prepare('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)').run(hashToken(token), userId, expiresAt);
+  const db = await getDb();
+  await db.run('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)', hashToken(token), userId, expiresAt);
   const jar = await cookies();
   jar.set(COOKIE, token, {
     httpOnly: true,
@@ -30,7 +31,10 @@ export async function createSession(userId: string) {
 export async function destroySession() {
   const jar = await cookies();
   const token = jar.get(COOKIE)?.value;
-  if (token) getDb().prepare('DELETE FROM sessions WHERE id = ?').run(hashToken(token));
+  if (token) {
+    const db = await getDb();
+    await db.run('DELETE FROM sessions WHERE id = ?', hashToken(token));
+  }
   jar.delete(COOKIE);
 }
 
@@ -38,11 +42,10 @@ export const getCurrentUser = cache(async (): Promise<PublicUser | null> => {
   const jar = await cookies();
   const token = jar.get(COOKIE)?.value;
   if (!token) return null;
-  const row = getDb()
-    .prepare('SELECT user_id FROM sessions WHERE id = ? AND expires_at > ?')
-    .get(hashToken(token), Date.now()) as { user_id: string } | undefined;
+  const db = await getDb();
+  const row = await db.get<{ user_id: string }>('SELECT user_id FROM sessions WHERE id = ? AND expires_at > ?', hashToken(token), Date.now());
   if (!row) return null;
-  return getPublicUser(row.user_id);
+  return await getPublicUser(row.user_id);
 });
 
 export async function requireUser(roles?: Role[]): Promise<PublicUser> {

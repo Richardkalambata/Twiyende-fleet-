@@ -3,7 +3,7 @@
 @theme inline {
   --font-sans: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
   --color-cream: #f7f5f0;
-  --color-ink: #14241c;
+  --color-ink: #0f1a14;
   --color-emerald: #0b5d3b;
   --color-copper: #e8833a;
   --color-charcoal: #111614;
@@ -22,7 +22,7 @@ body {
   margin: 0;
   min-height: 100dvh;
   background: #e7e1d6;
-  color: #14241c;
+  color: #0f1a14;
   font-family: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
   text-rendering: optimizeLegibility;
 }
@@ -34,6 +34,31 @@ button, a, input, select, textarea {
 ::selection {
   background: #0b5d3b;
   color: white;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible {
+  outline: 2px solid #0b5d3b;
+  outline-offset: 2px;
+}
+
+.keypad-key {
+  transition: transform 0.08s ease, background 0.08s ease;
+}
+
+.keypad-key:active {
+  transform: scale(0.96);
+}
+
+.check-pop {
+  animation: pop 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes pop {
+  from { transform: scale(0.7); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 
 input:-webkit-autofill {

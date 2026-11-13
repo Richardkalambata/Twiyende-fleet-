@@ -8,8 +8,8 @@ export const metadata = { title: 'Buses' };
 
 export default async function BusesPage() {
   const user = await requireUser(['owner']);
-  const buses = listOwnerBuses(user.id);
-  const conductors = listConductors(user.id);
+  const buses = await listOwnerBuses(user.id);
+  const conductors = await listConductors(user.id);
   return (
     <div className="space-y-4 px-4 py-5 md:px-6">
       <h1 className="text-[28px] font-semibold">Buses</h1>

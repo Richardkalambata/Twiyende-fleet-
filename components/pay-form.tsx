@@ -7,6 +7,7 @@ import { formatCompact, parseFare } from '@/lib/money';
 import type { BusOption } from '@/lib/types';
 import { BusIcon, QrIcon } from './icons';
 import { buttonClass } from './shell';
+import { toast } from './toast';
 
 export function PayForm({ buses }: { buses: BusOption[] }) {
   const router = useRouter();
@@ -26,6 +27,7 @@ export function PayForm({ buses }: { buses: BusOption[] }) {
     const result = await payAction(fleet, fare);
     if (!result.ok) {
       setError(result.message);
+      toast(result.message);
       setPending(false);
       return;
     }

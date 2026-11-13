@@ -7,6 +7,7 @@ import { formatBalance, formatGrouped } from '@/lib/money';
 import { formatHour24 } from '@/lib/time';
 import { BusIcon, CheckIcon, ShieldIcon } from './icons';
 import { buttonClass } from './shell';
+import { toast } from './toast';
 
 const LETTERS = 'ABCDEFGHJKMNPQRSTUVWXYZ'.split('');
 
@@ -42,6 +43,7 @@ export function VerifyPad({
     if (!result.ok) {
       setPaid(null);
       setError(result.message);
+      toast(result.message);
       return;
     }
     setPaid({ amountNgwee: result.amountNgwee, verifiedAt: result.verifiedAt });
@@ -98,7 +100,7 @@ export function VerifyPad({
       ) : (
         <div className="mt-4 grid grid-cols-3 gap-2">
           {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
-            <button key={digit} type="button" className="h-14 rounded-2xl bg-[#1C2622] text-xl font-semibold active:bg-[#2A3832]" onClick={() => push(digit)}>
+            <button key={digit} type="button" className="keypad-key h-14 rounded-2xl bg-[#1C2622] text-xl font-semibold active:bg-[#2A3832]" onClick={() => push(digit)}>
               {digit}
             </button>
           ))}
