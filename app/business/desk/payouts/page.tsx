@@ -38,9 +38,9 @@ export default async function PayoutsPage() {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <article className="rounded-3xl bg-white p-4 shadow-sm">
-      <p className="text-sm text-[#5C6B63]">{label}</p>
-      <p className="text-2xl font-semibold">{value}</p>
+    <article className="rounded-2xl bg-white p-4 shadow-card">
+      <p className="text-[13px] text-[#6B7570]">{label}</p>
+      <p className="num mt-2 text-[24px] font-semibold tracking-tight">{value}</p>
     </article>
   );
 }

@@ -62,11 +62,11 @@ export function TopUpForm({ phone, balanceNgwee }: { phone: string; balanceNgwee
       </div>
       <label className="block text-sm font-medium">
         Other amount (K)
-        <input value={amount} inputMode="decimal" onChange={(event) => setAmount(event.target.value)} className="mt-1 h-14 w-full rounded-2xl border border-[#E8E2D8] bg-white px-4 text-base outline-none" />
+        <input value={amount} inputMode="decimal" onChange={(event) => setAmount(event.target.value)} className="field mt-1.5" />
       </label>
       <label className="block text-sm font-medium">
         Mobile money number
-        <input value={number} inputMode="tel" onChange={(event) => setNumber(event.target.value)} className="mt-1 h-14 w-full rounded-2xl border border-[#E8E2D8] bg-white px-4 text-base outline-none" />
+        <input value={number} inputMode="tel" onChange={(event) => setNumber(event.target.value)} className="field mt-1.5" />
       </label>
       {error ? <p className="text-sm text-[#9A3B1A]" role="alert">{error}</p> : null}
       {done != null ? <p className="rounded-2xl bg-[#E7F3EC] px-4 py-3 text-sm text-[#0B5D3B]" role="status">Simulated top-up complete. New balance {formatBalance(done)} on {formatPhone(number)}.</p> : null}

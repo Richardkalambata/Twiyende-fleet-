@@ -11,7 +11,7 @@ export function PhoneShell({
 }) {
   const dark = tone === 'dark';
   return (
-    <div className={dark ? 'min-h-dvh bg-[#070b09] text-white' : 'min-h-dvh bg-[#e7e1d6] text-[#14241c]'}>
+    <div className={dark ? 'min-h-dvh bg-[#070b09] text-white' : 'min-h-dvh bg-[#efeae2] text-[#0F1A14]'}>
       <div
         className={`mx-auto flex h-dvh w-full max-w-[430px] flex-col ${
           dark ? 'bg-[#111614]' : 'bg-[#F7F5F0]'
@@ -28,13 +28,13 @@ export function PhoneShell({
 
 export function buttonClass(variant: 'copper' | 'green' | 'mint' | 'outline' | 'ghost' = 'copper', extra = '') {
   const base =
-    'inline-flex h-14 w-full items-center justify-center gap-2 rounded-full px-5 text-[17px] font-semibold transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60';
+    'inline-flex h-14 w-full items-center justify-center gap-2 rounded-full px-5 text-[16px] font-semibold transition duration-150 ease-out active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60';
   const styles = {
-    copper: 'bg-[#E8833A] text-white shadow-[0_10px_24px_rgba(232,131,58,0.28)]',
-    green: 'bg-[#0B5D3B] text-white shadow-[0_10px_24px_rgba(11,93,59,0.2)]',
+    copper: 'bg-gradient-to-b from-[#F4A15C] to-[#E8833A] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_8px_24px_rgba(232,131,58,0.28)]',
+    green: 'bg-[#0B5D3B] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_24px_rgba(7,61,39,0.18)]',
     mint: 'bg-[#1DB972] text-[#062117]',
-    outline: 'border border-[#D5E0D8] bg-white text-[#0B5D3B]',
-    ghost: 'h-12 text-[#5C6B63]',
+    outline: 'bg-white text-[#0B5D3B] shadow-[inset_0_0_0_1px_rgba(15,26,20,0.08)]',
+    ghost: 'h-12 text-[#6B7570]',
   } as const;
   return `${base} ${styles[variant]} ${extra}`;
 }

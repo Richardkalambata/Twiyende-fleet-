@@ -33,7 +33,7 @@ type IconProps = { className?: string };
 
 function icon(Icon: typeof Bus) {
   return function Wrapped({ className }: IconProps) {
-    return <Icon className={className ?? 'h-6 w-6'} strokeWidth={1.75} aria-hidden />;
+    return <Icon className={className ?? 'h-5 w-5'} strokeWidth={1.75} aria-hidden />;
   };
 }
 

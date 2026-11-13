@@ -34,11 +34,11 @@ export function LoginForm({ accounts, error, gate = 'passenger' }: { accounts: D
       <form action={action} className="space-y-3">
         <label className="block text-sm font-medium">
           Phone number
-          <input name="phone" inputMode="tel" autoComplete="tel" placeholder="0971 000 001" className="mt-1 h-14 w-full rounded-2xl border border-[#E4DDD2] bg-white px-4 text-base outline-none" />
+          <input name="phone" inputMode="tel" autoComplete="tel" placeholder="0971 000 001" className="field mt-1.5" />
         </label>
         <label className="block text-sm font-medium">
           PIN
-          <input name="pin" inputMode="numeric" autoComplete="current-password" maxLength={4} placeholder="4 digits" className="mt-1 h-14 w-full rounded-2xl border border-[#E4DDD2] bg-white px-4 text-base outline-none" />
+          <input name="pin" inputMode="numeric" autoComplete="current-password" maxLength={4} placeholder="4 digits" className="field mt-1.5" />
         <input type="hidden" name="gate" value={gate} />
         </label>
         {message ? <p className="sr-only" role="alert">{message}</p> : null}

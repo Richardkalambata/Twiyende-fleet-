@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import QRCode from 'qrcode';
 import { requireUser } from '@/lib/auth';
 import { CancelFare, ShareReceipt } from '@/components/receipt-actions';
-import { BusIcon, CheckIcon, ClockIcon, UserIcon } from '@/components/icons';
+import { BusIcon, ClockIcon, UserIcon } from '@/components/icons';
 import { buttonClass, Wordmark } from '@/components/shell';
 import { formatBalance } from '@/lib/money';
 import { formatHour24 } from '@/lib/time';
@@ -16,6 +17,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
   const receipt = await getReceipt(user.id, id);
   if (!receipt) notFound();
   const share = `Twende receipt\nBus ${receipt.fleetNumber} · ${receipt.route}\nFare: ${formatBalance(receipt.amountNgwee)}\nCode: ${receipt.code}\nShow this code to your conductor.`;
+  const qr = await QRCode.toDataURL(receipt.code, { margin: 0, width: 128, color: { dark: '#073D27', light: '#00000000' } });
   const headline = receipt.status === 'void' ? 'Fare cancelled' : receipt.status === 'verified' ? 'Fare confirmed' : 'Payment successful';
   return (
     <div className="px-4 pb-8 pt-5">
@@ -24,8 +26,11 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
         <Link href="/profile" className="grid h-11 w-11 place-items-center rounded-full border border-[#E4DDD2]" aria-label="Profile"><UserIcon /></Link>
       </header>
       <div className="mt-8 flex justify-center">
-        <span className="check-pop grid h-24 w-24 place-items-center rounded-full bg-[#E7F6EE] text-[#0B5D3B] shadow-[0_0_0_10px_rgba(11,93,59,0.06)]">
-          <span className="grid h-16 w-16 place-items-center rounded-full bg-[#0B5D3B] text-white"><CheckIcon className="h-8 w-8" /></span>
+        <span className="check-pop grid h-20 w-20 place-items-center">
+          <svg viewBox="0 0 52 52" className="h-20 w-20" aria-hidden>
+            <circle cx="26" cy="26" r="24" fill="#0B5D3B" />
+            <path className="draw" d="M15 27l7 7 15-16" fill="none" stroke="white" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </span>
       </div>
       <h1 className="mt-5 text-center text-[30px] font-semibold tracking-tight">{headline}</h1>
@@ -44,9 +49,15 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
         </div>
         <div className="my-4 border-t border-dashed border-[#E4DDD2]" />
         <p className="text-center text-[11px] font-semibold tracking-[0.16em] text-[#8A918C]">CONFIRMATION CODE</p>
-        <p className="mt-3 text-center text-[44px] font-semibold tracking-[0.18em] text-[#0B5D3B]">
-          {receipt.status === 'void' ? '————' : receipt.code}
-        </p>
+        <div className="mt-3 flex items-center justify-center gap-4">
+          <p className="num font-mono text-[40px] font-semibold tracking-[0.18em] text-[#073D27]">
+            {receipt.status === 'void' ? '————' : receipt.code}
+          </p>
+          {receipt.status === 'void' ? null : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={qr} alt="" width={56} height={56} className="h-14 w-14" />
+          )}
+        </div>
         <p className="mt-1 text-center text-sm text-[#5C6B63]">
           {receipt.status === 'pending' ? 'Show this code to your conductor' : receipt.status === 'verified' ? 'Code used' : 'Code cancelled'}
         </p>

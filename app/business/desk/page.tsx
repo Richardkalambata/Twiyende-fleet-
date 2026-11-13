@@ -1,13 +1,13 @@
-import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { EarningsChart } from '@/components/chart';
 import { BellIcon, BusIcon, ChartIcon, ClockIcon, TicketIcon } from '@/components/icons';
 import { Avatar } from '@/components/shell';
 import { RangeLinks, RouteSelect, StatusPill } from '@/components/owner-frame';
+import { StatCard } from '@/components/ui';
 import { formatGrouped, formatPercent } from '@/lib/money';
 import { getOwnerDashboard, parseRange } from '@/lib/service';
-import { timeGreeting } from '@/lib/time';
+import { lusakaParts, timeGreeting } from '@/lib/time';
 
 export const metadata = { title: 'Fleet' };
 
@@ -40,39 +40,40 @@ export default async function FleetPage({ searchParams }: { searchParams: Promis
         </div>
       </header>
       <section className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi label={range === 'today' ? 'Total today' : range === 'week' ? 'This week' : 'This month'} value={formatGrouped(dash.totalNgwee)} detail={percentLine(earnings, compare)} icon={<ChartIcon className="h-5 w-5" />} />
-        <Kpi label="Active buses" value={String(dash.activeBuses)} detail={`out of ${dash.totalBuses} total buses`} icon={<BusIcon className="h-5 w-5" />} />
-        <Kpi label="Rides" value={String(dash.rides)} detail={percentLine(rides, compare)} icon={<TicketIcon className="h-5 w-5" />} />
-        <Kpi label="Next payout" value={formatGrouped(dash.nextPayoutNgwee)} detail={dash.nextPayoutNgwee > 0 ? 'at 18:00' : 'Paid out today'} icon={<ClockIcon className="h-5 w-5" />} />
+        <StatCard label={range === 'today' ? 'Total today' : range === 'week' ? 'This week' : 'This month'} value={formatGrouped(dash.totalNgwee)} detail={percentLine(earnings, compare)} icon={<ChartIcon className="h-5 w-5" />} spark={dash.chart.map((point) => point.value)} />
+        <StatCard label="Active buses" value={String(dash.activeBuses)} detail={`out of ${dash.totalBuses} total buses`} icon={<BusIcon className="h-5 w-5" />} />
+        <StatCard label="Rides" value={String(dash.rides)} detail={percentLine(rides, compare)} icon={<TicketIcon className="h-5 w-5" />} spark={dash.chart.map((point) => point.value)} />
+        <StatCard label="Next payout" value={formatGrouped(dash.nextPayoutNgwee)} detail={dash.nextPayoutNgwee > 0 ? 'at 18:00' : 'Paid out today'} icon={<ClockIcon className="h-5 w-5" />} />
       </section>
       <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
         <div className="space-y-4">
           <EarningsChart
             points={dash.chart}
+            untilHour={range === 'today' ? lusakaParts(new Date()).hour : undefined}
             title={range === 'today' ? 'Earnings today' : range === 'week' ? 'Earnings this week' : 'Earnings this month'}
             extra={<RouteSelect range={range} route={route} routes={dash.routes} />}
           />
-          <section className="rounded-[28px] bg-white p-4 shadow-[0_8px_30px_rgba(20,36,28,0.04)]">
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="font-semibold">Buses</h2>
-              <Link href="/business/desk/buses" className="text-sm text-[#6A756E]">View all</Link>
+          <section className="overflow-hidden rounded-2xl bg-white shadow-card">
+            <div className="flex items-center justify-between px-4 pt-4">
+              <h2 className="text-[16px] font-semibold">Buses</h2>
+              <Link href="/business/desk/buses" className="text-[13px] text-[#6B7570]">View all</Link>
             </div>
-            <div>
-              <table className="w-full text-left text-sm">
-                <thead className="text-[#6A756E]">
+            <div className="mt-2 overflow-x-auto">
+              <table className="data">
+                <thead>
                   <tr>
-                    <th className="py-2 font-medium">Bus</th>
-                    <th className="font-medium">Plate</th>
-                    <th className="font-medium">Conductor</th>
-                    <th className="font-medium">Rides</th>
-                    <th className="font-medium">Earnings {range === 'today' ? 'today' : ''}</th>
-                    <th className="font-medium whitespace-nowrap">Status</th>
+                    <th className="px-4">Bus</th>
+                    <th>Plate</th>
+                    <th>Conductor</th>
+                    <th className="num">Rides</th>
+                    <th className="num">Earnings</th>
+                    <th className="px-4">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {active.map((bus) => (
-                    <tr key={bus.id} className="border-t border-[#F0EBE3]">
-                      <td className="py-3 font-semibold">Bus {bus.fleetNumber}</td>
+                    <tr key={bus.id}>
+                      <td className="px-4 font-semibold">Bus {bus.fleetNumber}</td>
                       <td>{bus.plate}</td>
                       <td>
                         <span className="inline-flex items-center gap-2">
@@ -80,9 +81,9 @@ export default async function FleetPage({ searchParams }: { searchParams: Promis
                           {bus.conductorName ?? 'Unassigned'}
                         </span>
                       </td>
-                      <td>{bus.rides}</td>
-                      <td className="font-semibold">{formatGrouped(bus.earningsNgwee)}</td>
-                      <td><StatusPill status={bus.status} /></td>
+                      <td className="num">{bus.rides}</td>
+                      <td className="num font-semibold">{formatGrouped(bus.earningsNgwee)}</td>
+                      <td className="px-4"><StatusPill status={bus.status} /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -90,21 +91,7 @@ export default async function FleetPage({ searchParams }: { searchParams: Promis
             </div>
           </section>
         </div>
-        <aside className="rounded-[28px] bg-white p-5 text-center shadow-[0_8px_30px_rgba(20,36,28,0.04)]">
-          <div className="flex items-center justify-between text-left">
-            <h2 className="font-semibold">Top conductor</h2>
-            <span className="text-[#E8833A]"><ChartIcon className="h-5 w-5" /></span>
-          </div>
-          {dash.topConductor ? (
-            <div className="mt-6">
-              <Avatar initials={dash.topConductor.initials} size={112} tone="copper" />
-              <p className="mt-4 text-2xl font-semibold">{dash.topConductor.name}</p>
-              <p className="mt-1 text-4xl font-semibold text-[#E8833A]">{formatGrouped(dash.topConductor.earningsNgwee)}</p>
-              <p className="mt-4 text-sm text-[#E8833A]">Today’s top earner ↗</p>
-              <p className="text-xs text-[#8A918C]">{dash.topConductor.rides} rides</p>
-            </div>
-          ) : <p className="mt-8 text-sm text-[#5C6B63]">No verified fares in this period.</p>}
-        </aside>
+        <Leaderboard buses={dash.buses} />
       </div>
     </div>
   );
@@ -115,16 +102,39 @@ function percentLine(stat: { text: string; up: boolean } | null, compare: string
   return `${stat.up ? '↑' : '↓'} ${stat.text} ${compare}`;
 }
 
-function Kpi({ label, value, detail, icon }: { label: string; value: string; detail: string; icon: ReactNode }) {
-  const tone = detail.startsWith('↑') ? 'text-[#1C7A45]' : detail.startsWith('↓') ? 'text-[#9A3B1A]' : 'text-[#6A756E]';
+function Leaderboard({ buses }: { buses: { conductorName: string | null; conductorInitials: string | null; rides: number; earningsNgwee: number }[] }) {
+  const map = new Map<string, { name: string; initials: string; rides: number; earnings: number }>();
+  for (const bus of buses) {
+    if (!bus.conductorName) continue;
+    const row = map.get(bus.conductorName) ?? { name: bus.conductorName, initials: bus.conductorInitials ?? '–', rides: 0, earnings: 0 };
+    row.rides += bus.rides;
+    row.earnings += bus.earningsNgwee;
+    map.set(bus.conductorName, row);
+  }
+  const rows = [...map.values()].sort((a, b) => b.earnings - a.earnings).slice(0, 4);
+  const max = rows[0]?.earnings || 1;
   return (
-    <article className="rounded-3xl bg-white p-4 shadow-[0_8px_30px_rgba(20,36,28,0.04)]">
-      <div className="flex items-center gap-2 text-sm text-[#5C6B63]">
-        <span className="grid h-9 w-9 place-items-center rounded-full bg-[#F6F1E8] text-[#E8833A]">{icon}</span>
-        {label}
-      </div>
-      <p className="mt-3 text-[28px] font-semibold tracking-tight">{value}</p>
-      <p className={`mt-1 text-sm ${tone}`}>{detail}</p>
-    </article>
+    <aside className="overflow-hidden rounded-2xl bg-white p-4 shadow-card">
+      <h2 className="text-[16px] font-semibold">Conductors</h2>
+      <p className="mt-1 text-[13px] text-[#6B7570]">Ranked by earnings</p>
+      {rows.length === 0 ? <p className="mt-6 text-[14px] text-[#6B7570]">No verified fares in this period.</p> : null}
+      <ol className="mt-4 space-y-4">
+        {rows.map((row) => (
+          <li key={row.name}>
+            <div className="flex items-center gap-3">
+              <Avatar initials={row.initials} size={36} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[14px] font-semibold">{row.name}</div>
+                <div className="text-[12px] text-[#6B7570]">{row.rides} rides</div>
+              </div>
+              <div className="num text-[14px] font-semibold">{formatGrouped(row.earnings)}</div>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#F3EFE7]">
+              <div className="h-full max-w-full rounded-full bg-[#0B5D3B]" style={{ width: `${Math.min(100, Math.max(8, (row.earnings / max) * 100))}%` }} />
+            </div>
+          </li>
+        ))}
+      </ol>
+    </aside>
   );
 }

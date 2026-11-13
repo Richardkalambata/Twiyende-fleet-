@@ -19,7 +19,7 @@ export default function BusinessSignup() {
         <Field name="pin" label="4-digit PIN" />
         <label className="block text-sm font-medium">
           Payout network
-          <select name="network" className="mt-1 h-14 w-full rounded-2xl border border-[#E4DDD2] bg-white px-4" defaultValue="mtn">
+          <select name="network" className="field mt-1.5" defaultValue="mtn">
             <option value="mtn">MTN</option>
             <option value="airtel">Airtel</option>
             <option value="zamtel">Zamtel</option>
@@ -37,7 +37,7 @@ function Field({ name, label }: { name: string; label: string }) {
   return (
     <label className="block text-sm font-medium">
       {label}
-      <input name={name} className="mt-1 h-14 w-full rounded-2xl border border-[#E4DDD2] bg-white px-4 outline-none" />
+      <input name={name} className="field mt-1.5" />
     </label>
   );
 }
