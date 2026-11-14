@@ -9,7 +9,7 @@ import type { Fail } from '@/lib/types';
 export default function SignupPage() {
   const [state, action, pending] = useActionState(signupPassengerAction, null as Fail | null);
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[460px] flex-col justify-center px-5 py-10">
+    <main className="safe-top mx-auto flex min-h-dvh w-full max-w-[430px] flex-col px-5 pb-10">
       <Wordmark subtitle="Create a rider account" />
       <form action={action} className="mt-8 space-y-3">
         <Field name="name" label="Name" placeholder="Richard Kalambata" />

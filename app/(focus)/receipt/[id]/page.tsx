@@ -20,7 +20,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
   const qr = await QRCode.toDataURL(receipt.code, { margin: 0, width: 128, color: { dark: '#073D27', light: '#00000000' } });
   const headline = receipt.status === 'void' ? 'Fare cancelled' : receipt.status === 'verified' ? 'Fare confirmed' : 'Payment successful';
   return (
-    <div className="px-4 pb-8 pt-5">
+    <div className="safe-top px-5 pb-8">
       <header className="flex items-center justify-between">
         <Wordmark subtitle="Minibus · Zambia" />
         <Link href="/profile" className="grid h-11 w-11 place-items-center rounded-full border border-[#E4DDD2]" aria-label="Profile"><UserIcon /></Link>

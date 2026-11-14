@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
       { source: '/fleet/:path*', destination: '/business/desk/:path*', permanent: false },
       { source: '/conductor', destination: '/business/drive', permanent: false },
       { source: '/conductor/:path*', destination: '/business/drive/:path*', permanent: false },
+      { source: '/welcome', destination: '/', permanent: false },
     ];
   },
   experimental: {

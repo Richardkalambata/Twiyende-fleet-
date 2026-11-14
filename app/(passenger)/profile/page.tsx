@@ -15,11 +15,11 @@ export default async function ProfilePage() {
   const home = await getPassengerHome(user.id);
   const activity = await listWalletActivity(user.id);
   return (
-    <div className="space-y-4 px-4 py-5">
+    <div className="safe-top space-y-4 px-5 pb-6">
       <div className="flex items-center gap-3">
         <Avatar initials={user.initials} size={64} />
         <div>
-          <h1 className="text-2xl font-semibold">{user.name}</h1>
+          <h1 className="text-[32px] font-semibold tracking-[-0.02em]">{user.name}</h1>
           <p className="text-sm text-[#5C6B63]">{formatPhone(user.phone)} · Passenger</p>
         </div>
       </div>

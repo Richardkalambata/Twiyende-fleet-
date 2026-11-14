@@ -1,102 +1,90 @@
 'use client';
 
-import { animate, motion, useMotionValue } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
+import { Wordmark } from './shell';
 
-const SLIDES = [
+const STEPS = [
   {
     src: '/onboarding/topup.webp',
     alt: 'A hand holding a phone wallet with mobile-money coins',
-    title: 'Top up with mobile money',
-    body: 'Add kwacha from MTN, Airtel, or Zamtel. The fare never needs cash on the bus.',
-    tint: '#E7F3EC',
+    title: 'Top up',
+    body: 'Add kwacha from your phone.',
   },
   {
     src: '/onboarding/board.webp',
     alt: 'A rider stepping onto a green and cream minibus',
-    title: 'Board any Twende minibus',
-    body: 'Enter the bus number on the door. The fare for that route is already set.',
-    tint: '#F3EFE7',
+    title: 'Board any Twende bus',
+    body: 'Enter the number on the door.',
   },
   {
     src: '/onboarding/code.webp',
     alt: 'A phone showing a one-time fare code',
-    title: 'Show a one-time code',
-    body: 'Your phone makes a short code. The conductor confirms it and the ride is paid.',
-    tint: '#E8F6EF',
+    title: 'Show your 4-letter code',
+    body: 'The conductor confirms it once.',
   },
   {
     src: '/onboarding/lost.webp',
     alt: 'A phone found on a minibus seat',
-    title: 'Lost something?',
-    body: 'Report it with a photo. When the conductor logs it, you get a pickup code.',
-    tint: '#FFF1E6',
+    title: "Lost something? We'll help.",
+    body: 'Report it and track the pickup.',
   },
 ] as const;
 
 export function Onboarding() {
-  const [index, setIndex] = useState(0);
-  const dragX = useMotionValue(0);
-  const last = index === SLIDES.length - 1;
-
-  function go(next: number) {
-    const value = Math.max(0, Math.min(SLIDES.length - 1, next));
-    setIndex(value);
-    animate(dragX, 0, { duration: 0.2 });
-  }
-
+  const reduce = useReducedMotion();
   return (
-    <main className="min-h-dvh bg-[#F7F5F0] text-[#0F1A14] md:grid md:place-items-center md:bg-[#EFEAE2] md:p-6">
-      <section className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col bg-[#F7F5F0] md:min-h-[844px] md:overflow-hidden md:rounded-[36px] md:shadow-[0_1px_2px_rgba(7,61,39,0.06),0_24px_64px_rgba(7,61,39,0.12)]">
-        <div className="flex items-center justify-between px-5 pt-[max(20px,env(safe-area-inset-top))]">
-          <span className="text-[14px] font-semibold text-[#0B5D3B]">Twende</span>
-          <Link href="/welcome" className="text-[14px] font-semibold text-[#6B7570]">Skip</Link>
-        </div>
-        <motion.div
-          className="mt-4 overflow-hidden"
-          drag="x"
-          dragConstraints={{ left: 0, right: 0 }}
-          dragElastic={0.18}
-          style={{ x: dragX }}
-          onDragEnd={(_, info) => {
-            if (info.offset.x < -48) go(index + 1);
-            else if (info.offset.x > 48) go(index - 1);
-            else animate(dragX, 0, { duration: 0.2 });
-          }}
-        >
-          <motion.div className="flex" animate={{ x: `${-index * 100}%` }} transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}>
-            {SLIDES.map((slide) => (
-              <div key={slide.src} className="w-full shrink-0 px-5">
-                <div className="relative aspect-[5/4] overflow-hidden rounded-[24px]" style={{ background: slide.tint }}>
-                  <motion.div className="absolute inset-0" style={{ x: dragX }} transition={{ duration: 0.2 }}>
-                    <Image src={slide.src} alt={slide.alt} fill priority sizes="390px" className="object-contain p-3" />
-                  </motion.div>
-                </div>
-              </div>
-            ))}
-          </motion.div>
-        </motion.div>
-        <div className="flex flex-1 flex-col px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-6">
-          <h1 className="text-[34px] font-semibold leading-[1.05] tracking-[-0.02em]">{SLIDES[index].title}</h1>
-          <p className="mt-3 text-[16px] leading-6 text-[#6B7570]">{SLIDES[index].body}</p>
-          <div className="mt-auto pt-8">
-            <div className="mb-5 flex gap-1.5" aria-label="Progress">
-              {SLIDES.map((slide, dot) => (
-                <motion.span
-                  key={slide.src}
-                  className="h-2 rounded-full"
-                  animate={{ width: dot === index ? 22 : 8, backgroundColor: dot === index ? '#0B5D3B' : '#D9D1C5' }}
-                  transition={{ duration: 0.2 }}
-                />
-              ))}
+    <main className="min-h-dvh bg-[#EFEAE2] text-[#0F1A14] md:grid md:place-items-center md:p-6">
+      <section className="relative mx-auto flex min-h-dvh w-full max-w-[430px] flex-col bg-[#F7F5F0] md:min-h-[844px] md:overflow-hidden md:rounded-[36px] md:shadow-[0_1px_2px_rgba(7,61,39,0.06),0_24px_64px_rgba(7,61,39,0.12)]">
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4">
+          <div className="safe-top">
+            <Wordmark />
+          </div>
+          <div className="mt-5 flex items-end justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-[34px] font-semibold leading-[1.05] tracking-[-0.02em]">Ride without cash.</h1>
+              <p className="mt-2 text-[15px] leading-5 text-[#3E4A44]">Top up once. Pay any Twende bus. Keep the receipt.</p>
             </div>
-            {last ? (
-              <Link href="/welcome" className="flex h-14 w-full items-center justify-center rounded-full bg-[#0B5D3B] text-[16px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_24px_rgba(7,61,39,0.18)] active:scale-[0.98]">Get started</Link>
-            ) : (
-              <button type="button" onClick={() => go(index + 1)} className="flex h-14 w-full items-center justify-center rounded-full bg-[#0B5D3B] text-[16px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_24px_rgba(7,61,39,0.18)] active:scale-[0.98]">Next</button>
-            )}
+            <div className="relative h-[132px] w-[124px] shrink-0">
+              <Image
+                src="/onboarding/board.webp"
+                alt="A rider boarding a Twende minibus"
+                fill
+                priority
+                sizes="148px"
+                className="object-contain object-bottom"
+              />
+            </div>
+          </div>
+          <h2 className="mb-2 mt-5 text-[13px] font-semibold uppercase tracking-[0.14em] text-[#3E4A44]">How it works</h2>
+          <ol className="space-y-2">
+            {STEPS.map((step, index) => (
+              <motion.li
+                key={step.title}
+                initial={reduce ? false : { opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: reduce ? 0 : 0.22, delay: reduce ? 0 : 0.05 * index, ease: 'easeOut' }}
+              >
+                <article className="flex overflow-hidden rounded-[22px] bg-white shadow-[0_1px_2px_rgba(7,61,39,0.06),0_8px_24px_rgba(7,61,39,0.08)]">
+                  <div className="relative h-[76px] w-[80px] shrink-0">
+                    <Image src={step.src} alt={step.alt} fill sizes="80px" className="object-cover" />
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col justify-center px-3">
+                    <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center self-start rounded-full bg-[#E7F3EC] text-[11px] font-semibold text-[#0B5D3B]">{index + 1}</span>
+                    <h3 className="mt-1 text-[16px] font-semibold leading-5 tracking-[-0.02em]">{step.title}</h3>
+                    <p className="mt-0.5 text-[14px] leading-5 text-[#3E4A44]">{step.body}</p>
+                  </div>
+                </article>
+              </motion.li>
+            ))}
+          </ol>
+        </div>
+        <div className="sticky bottom-0 z-10 bg-[#F7F5F0]/85 px-5 pb-[max(16px,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
+          <div className="space-y-2">
+            <Link href="/signup" className="flex h-14 items-center justify-center rounded-full bg-[#0B5D3B] text-[16px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_24px_rgba(7,61,39,0.18)]">Create account</Link>
+            <Link href="/login" className="flex h-14 items-center justify-center rounded-full bg-white text-[16px] font-semibold text-[#0F1A14] shadow-[0_1px_2px_rgba(7,61,39,0.06),0_8px_24px_rgba(7,61,39,0.08)]">I already have an account</Link>
+            <Link href="/business" className="block py-1 text-center text-[13px] font-medium text-[#3E4A44]">I run a fleet</Link>
           </div>
         </div>
       </section>

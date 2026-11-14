@@ -11,7 +11,7 @@ export default async function ReportPage() {
   const user = await requireUser(['passenger']);
   const trips = await listReportableTrips(user.id);
   return (
-    <div className="pt-3">
+    <div className="safe-top">
       <div className="flex items-center justify-between px-2">
         <div className="flex items-center">
           <Link href="/lost" className="grid h-14 w-14 place-items-center" aria-label="Back"><BackIcon /></Link>

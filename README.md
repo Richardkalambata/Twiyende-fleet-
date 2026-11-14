@@ -8,7 +8,7 @@ This is a working demo with Postgres, not a static mock. Sample buses, conductor
 
 **Twende (riders)** — `/`
 
-- Onboarding, welcome, sign up and sign in
+- One-page welcome at `/` (and `/welcome`), then sign up and sign in
 - `/home` wallet, pay a fare, recent trips, popular routes
 - `/rides` trip history, `/receipt/[id]` one-time code
 - `/topup` simulated MTN, Airtel or Zamtel

@@ -13,7 +13,7 @@ export default async function HomePage() {
   const home = await getPassengerHome(user.id);
   return (
     <div>
-      <div className="relative overflow-hidden bg-gradient-to-b from-[#073D27] via-[#0B5D3B] to-[#146846] px-5 pb-6 pt-4 text-white">
+      <div className="safe-top relative overflow-hidden bg-gradient-to-b from-[#073D27] via-[#0B5D3B] to-[#146846] px-5 pb-6 text-white">
         <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.18]" viewBox="0 0 360 280" aria-hidden>
           <g fill="none" stroke="#E8B860" strokeWidth="1.1">
             <path d="M210 18l18 18-18 18-18-18zM250 36l14 14-14 14-14-14zM228 70l12 12-12 12-12-12zM270 78l16 16-16 16-16-16zM300 24l10 10-10 10-10-10z" />

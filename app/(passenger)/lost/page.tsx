@@ -19,8 +19,8 @@ export default async function LostPage() {
   const items = await listPassengerLost(user.id);
   const found = items.find((item) => item.status === 'pickup_pending');
   return (
-    <div className="px-4 py-5">
-      <h1 className="text-[32px] font-semibold tracking-tight">Lost & found</h1>
+    <div className="safe-top px-5 pb-6">
+      <h1 className="text-[32px] font-semibold tracking-[-0.02em]">Lost & found</h1>
       <p className="text-sm text-[#5C6B63]">Report something from a trip you already paid for.</p>
       {found ? (
         <Link href={`/lost/${found.id}`} className="mt-4 block rounded-3xl bg-[#0B5D3B] p-4 text-white">

@@ -10,7 +10,7 @@ export default async function TopUpPage() {
   const user = await requireUser(['passenger']);
   const home = await getPassengerHome(user.id);
   return (
-    <div className="pt-4">
+    <div className="safe-top">
       <div className="flex items-center gap-2 px-2">
         <Link href="/home" className="grid h-14 w-14 place-items-center" aria-label="Back"><BackIcon /></Link>
         <h1 className="text-xl font-semibold">Top up</h1>

@@ -12,7 +12,7 @@ export default async function ConductorProfilePage() {
   const user = await requireUser(['conductor']);
   const home = await getConductorHome(user.id);
   return (
-    <div className="space-y-4 px-4 py-5">
+    <div className="safe-top space-y-4 px-5 pb-6">
       <div className="flex items-center gap-3">
         <Avatar initials={user.initials} size={64} tone="copper" />
         <div>

@@ -33,7 +33,7 @@ export function buttonClass(variant: 'copper' | 'green' | 'mint' | 'outline' | '
     copper: 'bg-gradient-to-b from-[#F4A15C] to-[#E8833A] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_8px_24px_rgba(232,131,58,0.28)]',
     green: 'bg-[#0B5D3B] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_24px_rgba(7,61,39,0.18)]',
     mint: 'bg-[#1DB972] text-[#062117]',
-    outline: 'bg-white text-[#0B5D3B] shadow-[inset_0_0_0_1px_rgba(15,26,20,0.08)]',
+    outline: 'bg-white text-[#0B5D3B] shadow-[0_1px_2px_rgba(7,61,39,0.06),0_8px_24px_rgba(7,61,39,0.08)]',
     ghost: 'h-12 text-[#6B7570]',
   } as const;
   return `${base} ${styles[variant]} ${extra}`;

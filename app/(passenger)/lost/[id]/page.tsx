@@ -17,7 +17,7 @@ export default async function LostDetailPage({ params }: { params: Promise<{ id:
   const ready = item.status === 'pickup_pending' || item.status === 'closed';
   return (
     <div>
-      <div className="bg-[#0B5D3B] px-4 pb-8 pt-4 text-white">
+      <div className="safe-top bg-[#0B5D3B] px-5 pb-8 text-white">
         <header className="flex items-center justify-between">
           <span className="inline-flex items-center gap-2">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#E8833A] font-bold">T</span>

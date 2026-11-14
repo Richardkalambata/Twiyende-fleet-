@@ -11,7 +11,7 @@ export default async function BusinessLogin({ searchParams }: { searchParams: Pr
   const params = await searchParams;
   const accounts = (await listDemoAccounts()).filter((account) => account.role !== 'passenger');
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[460px] flex-col justify-center px-5 py-10">
+    <main className="safe-top mx-auto flex min-h-dvh w-full max-w-[430px] flex-col px-5 pb-10">
       <LoginForm accounts={accounts} error={params.error} gate="business" />
     </main>
   );

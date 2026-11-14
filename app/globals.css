@@ -34,6 +34,10 @@ h1, h2, .display {
 
 .num { font-variant-numeric: tabular-nums; }
 
+.safe-top {
+  padding-top: max(20px, calc(env(safe-area-inset-top, 0px) + 12px));
+}
+
 .field {
   height: 52px;
   width: 100%;

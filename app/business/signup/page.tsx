@@ -9,9 +9,9 @@ import type { Fail } from '@/lib/types';
 export default function BusinessSignup() {
   const [state, action, pending] = useActionState(signupOperatorAction, null as Fail | null);
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[520px] flex-col justify-center px-5 py-10">
+    <main className="safe-top mx-auto flex min-h-dvh w-full max-w-[520px] flex-col px-5 pb-10">
       <p className="text-sm font-semibold text-[#E8833A]">Twende Fleet Business</p>
-      <h1 className="mt-2 text-4xl font-semibold tracking-tight">Open an operator account</h1>
+      <h1 className="mt-2 text-[34px] font-semibold tracking-[-0.02em]">Open an operator account</h1>
       <form action={action} className="mt-8 space-y-3">
         <Field name="name" label="Your name" />
         <Field name="company" label="Company" />

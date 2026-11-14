@@ -8,7 +8,7 @@ export default async function TripsPage() {
   const user = await requireUser(['conductor']);
   const data = await listConductorTrips(user.id);
   return (
-    <div className="px-4 py-5">
+    <div className="safe-top px-5 pb-6">
       <h1 className="text-[32px] font-semibold">Trips</h1>
       <p className="text-sm text-[#B7C2BA]">Bus {data.bus?.fleet_number ?? '—'} · {formatGrouped(data.todayNgwee)} · {data.todayRides} rides today</p>
       <ul className="mt-4 space-y-2">

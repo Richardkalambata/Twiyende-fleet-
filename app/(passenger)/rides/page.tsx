@@ -11,8 +11,8 @@ export default async function RidesPage() {
   const user = await requireUser(['passenger']);
   const rides = await listPassengerRides(user.id);
   return (
-    <div className="px-4 py-5">
-      <h1 className="text-[32px] font-semibold tracking-tight">Rides</h1>
+    <div className="safe-top px-5 pb-6">
+      <h1 className="text-[32px] font-semibold tracking-[-0.02em]">Trips</h1>
       <p className="text-sm text-[#5C6B63]">Fares paid from your Twende wallet.</p>
       <div className="mt-4 overflow-hidden rounded-2xl bg-white shadow-card">
         {rides.length === 0 ? <EmptyState title="No trips yet" body="Pay a fare from Home and it will show up here." /> : null}

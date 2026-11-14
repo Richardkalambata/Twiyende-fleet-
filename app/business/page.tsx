@@ -5,7 +5,7 @@ export const metadata = { title: 'Twende Fleet Business' };
 export default function BusinessHome() {
   return (
     <main className="min-h-dvh bg-[#F7F5F0] text-[#0F1A14]">
-      <header className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-5">
+      <header className="safe-top mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 md:px-6">
         <div>
           <div className="text-[16px] font-semibold tracking-[-0.02em]">Twende Fleet Business</div>
           <div className="text-[11px] font-medium tracking-[0.14em] text-[#6B7570]">OPERATORS & CONDUCTORS</div>
@@ -15,11 +15,11 @@ export default function BusinessHome() {
           <Link href="/business/signup" className="inline-flex h-11 items-center rounded-full bg-[#0B5D3B] px-4 text-[14px] font-semibold text-white">Start a fleet</Link>
         </div>
       </header>
-      <section className="mx-auto grid max-w-6xl items-center gap-12 px-6 pb-16 pt-10 lg:grid-cols-[1fr_1.05fr]">
+      <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-16 pt-8 md:px-6 lg:grid-cols-[1fr_1.05fr]">
         <div>
           <p className="text-[13px] font-semibold text-[#E8833A]">Lusaka minibuses</p>
-          <h1 className="mt-3 max-w-xl text-[40px] font-semibold leading-[1.05] tracking-[-0.02em] md:text-[52px]">Every fare, on one desk.</h1>
-          <p className="mt-4 max-w-md text-[18px] leading-7 text-[#6B7570]">Passengers pay from their phones. Conductors confirm a code. You see the day’s takings before the bus is back at the stage.</p>
+          <h1 className="mt-3 max-w-xl text-[34px] font-semibold leading-[1.05] tracking-[-0.02em] md:text-[52px]">Every fare, on one desk.</h1>
+          <p className="mt-4 max-w-md text-[16px] leading-6 text-[#3E4A44] md:text-[18px] md:leading-7">Passengers pay from their phones. Conductors confirm a code. You see the day’s takings before the bus is back at the stage.</p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/business/signup" className="inline-flex h-14 items-center rounded-full bg-[#0B5D3B] px-6 text-[16px] font-semibold text-white shadow-[0_8px_24px_rgba(7,61,39,0.18)]">Create operator account</Link>
             <Link href="/business/login" className="inline-flex h-14 items-center rounded-full bg-white px-6 text-[16px] font-semibold shadow-[inset_0_0_0_1px_rgba(15,26,20,0.08)]">Sign in</Link>
