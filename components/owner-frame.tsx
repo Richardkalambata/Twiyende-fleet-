@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CalendarDays, Map } from 'lucide-react';
 import { signOutAction } from '@/lib/actions';
+import { Logo } from './shell';
 import { BusIcon, ChartIcon, GearIcon, LogoutIcon, LostIcon, UsersIcon, WalletIcon } from './icons';
 
 const LINKS = [
@@ -22,21 +23,14 @@ export function OwnerFrame({ children, openLost }: { children: ReactNode; openLo
   const path = usePathname();
   return (
     <div className="min-h-dvh bg-[#F7F5F0] text-[#0F1A14] md:flex">
-      <aside className="flex shrink-0 flex-col bg-[#0A1F17] text-white md:sticky md:top-0 md:h-dvh md:w-[220px]">
-        <div className="flex items-center gap-3 px-4 py-5">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#E8833A]"><BusIcon className="h-5 w-5" /></span>
-          <span>
-            <span className="block text-[14px] font-semibold leading-tight">Twende</span>
-            <span className="block text-[11px] text-white/55">Fleet Business</span>
-          </span>
-        </div>
+      <aside className="flex shrink-0 flex-col bg-[#0B1B3B] text-white md:sticky md:top-0 md:h-dvh md:w-[232px]">
+        <div className="px-4 py-5"><Logo tone="light" business /></div>
         <nav className="flex gap-1 overflow-x-auto px-2 pb-3 md:flex-col md:overflow-visible md:px-2" aria-label="Fleet">
           {LINKS.map((link) => {
             const active = link.href === '/business/desk' ? path === '/business/desk' : path.startsWith(link.href);
             const Icon = link.icon;
             return (
-              <Link key={link.href} href={link.href} className={`relative flex h-10 shrink-0 items-center gap-3 rounded-lg px-3 text-[14px] font-medium ${active ? 'bg-white/10 text-white' : 'text-white/60'}`}>
-                {active ? <span className="absolute left-0 h-4 w-0.5 rounded-full bg-[#1DB972]" /> : null}
+              <Link key={link.href} href={link.href} className={`relative flex h-10 shrink-0 items-center gap-3 rounded-xl px-3 text-[14px] font-semibold ${active ? 'bg-[#1F5BFF] text-white' : 'text-white/70'}`}>
                 <Icon className="h-5 w-5" />
                 {link.label}
                 {link.href === '/business/desk/lost' && openLost > 0 ? <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-[#E8833A] px-1 text-[11px] text-white">{openLost}</span> : null}

@@ -7,7 +7,7 @@ import { RangeLinks, RouteSelect, StatusPill } from '@/components/owner-frame';
 import { StatCard } from '@/components/ui';
 import { formatGrouped, formatPercent } from '@/lib/money';
 import { getOwnerDashboard, parseRange } from '@/lib/service';
-import { lusakaParts, timeGreeting } from '@/lib/time';
+import { lusakaParts } from '@/lib/time';
 
 export const metadata = { title: 'Fleet' };
 
@@ -25,14 +25,14 @@ export default async function FleetPage({ searchParams }: { searchParams: Promis
     <div className="px-4 py-5 md:px-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-[28px] font-semibold tracking-tight">{timeGreeting()}, {user.shortName}</h1>
+          <h1 className="text-[32px] font-extrabold tracking-[-0.04em] text-[#0B1B3B]">Your fleet, at a glance.</h1>
           <p className="text-sm text-[#5C6B63]">Here’s what’s happening with your fleet {range === 'today' ? 'today' : range === 'week' ? 'this week' : 'this month'}.</p>
           <span className="mt-2 inline-flex rounded-full bg-[#FFF1E6] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#C2611E]">Demo data</span>
           {params.reset ? <span className="ml-2 text-sm text-[#0B5D3B]">Demo fleet restored.</span> : null}
         </div>
         <div className="flex items-center gap-2">
           <RangeLinks range={range} route={route} />
-          <a href={`/api/export?range=${range}`} className="inline-flex h-11 items-center rounded-full bg-[#E8833A] px-4 text-sm font-semibold text-white">Export</a>
+          <a href={`/api/export?range=${range}`} className="inline-flex h-11 items-center rounded-xl bg-[#1F5BFF] px-4 text-sm font-bold text-white">Export</a>
           <Link href="/business/desk/lost" className="relative grid h-11 w-11 place-items-center rounded-full bg-white shadow-sm" aria-label="Alerts">
             <BellIcon className="h-5 w-5" />
             {dash.openLost > 0 ? <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-[#E8833A]" /> : null}

@@ -11,15 +11,9 @@ export function PhoneShell({
 }) {
   const dark = tone === 'dark';
   return (
-    <div className={dark ? 'min-h-dvh bg-[#070b09] text-white' : 'min-h-dvh bg-[#efeae2] text-[#0F1A14]'}>
-      <div
-        className={`mx-auto flex h-dvh w-full max-w-[430px] flex-col ${
-          dark ? 'bg-[#111614]' : 'bg-[#F7F5F0]'
-        } md:my-4 md:h-[calc(100dvh-2rem)] md:overflow-hidden md:rounded-[32px] md:shadow-[0_30px_80px_rgba(20,36,28,0.18)]`}
-      >
-        <div id="main" className="min-h-0 flex-1 overflow-y-auto">
-          {children}
-        </div>
+    <div className={dark ? 'min-h-dvh bg-[#E8EDF5] text-white' : 'min-h-dvh bg-[#E8EDF5] text-[#0B1B3B]'}>
+      <div className={`mx-auto flex h-dvh w-full max-w-[430px] flex-col ${dark ? 'bg-[#F4F6FB] text-[#0B1B3B]' : 'bg-[#F4F6FB]'} md:my-4 md:h-[calc(100dvh-2rem)] md:overflow-hidden md:rounded-[28px] md:shadow-[0_24px_60px_rgba(11,27,59,0.12)]`}>
+        <div id="main" className="min-h-0 flex-1 overflow-y-auto">{children}</div>
         {nav}
       </div>
     </div>
@@ -27,45 +21,41 @@ export function PhoneShell({
 }
 
 export function buttonClass(variant: 'copper' | 'green' | 'mint' | 'outline' | 'ghost' = 'copper', extra = '') {
-  const base =
-    'inline-flex h-14 w-full items-center justify-center gap-2 rounded-full px-5 text-[16px] font-semibold transition duration-150 ease-out active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60';
+  const base = 'inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-[15px] font-bold tracking-[-0.02em] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50';
   const styles = {
-    copper: 'bg-gradient-to-b from-[#F4A15C] to-[#E8833A] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_8px_24px_rgba(232,131,58,0.28)]',
-    green: 'bg-[#0B5D3B] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_24px_rgba(7,61,39,0.18)]',
-    mint: 'bg-[#1DB972] text-[#062117]',
-    outline: 'bg-white text-[#0B5D3B] shadow-[0_1px_2px_rgba(7,61,39,0.06),0_8px_24px_rgba(7,61,39,0.08)]',
-    ghost: 'h-12 text-[#6B7570]',
+    copper: 'bg-[#1F5BFF] text-white',
+    green: 'bg-[#1F5BFF] text-white',
+    mint: 'bg-[#12B76A] text-white',
+    outline: 'bg-white text-[#0B1B3B] ring-1 ring-[#E4E8F0]',
+    ghost: 'h-11 text-[#5C6578]',
   } as const;
   return `${base} ${styles[variant]} ${extra}`;
 }
 
-export function Wordmark({
-  tone = 'dark',
-  subtitle,
-}: {
-  tone?: 'dark' | 'light' | 'copper';
-  subtitle?: string;
-}) {
-  const word = tone === 'light' ? 'text-white' : 'text-[#143028]';
+export function Logo({ tone = 'dark', business = false }: { tone?: 'dark' | 'light'; business?: boolean }) {
+  const ink = tone === 'light' ? '#FFFFFF' : '#0B1B3B';
   return (
-    <span className="inline-flex items-center gap-2.5">
-      <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#E8833A] text-lg font-bold text-white">T</span>
-      <span className="leading-tight">
-        <span className={`block text-[17px] font-semibold tracking-tight ${word}`}>Twende</span>
-        {subtitle ? <span className={`block text-[11px] ${tone === 'light' ? 'text-white/70' : 'text-[#6A756E]'}`}>{subtitle}</span> : null}
+    <span className="inline-flex items-center gap-2">
+      <svg width="22" height="16" viewBox="0 0 22 16" aria-hidden>
+        <path d="M3 0h4.2L3.2 16H-1L3 0z" fill="#1F5BFF" />
+        <path d="M10 0h4.2L10.2 16H6L10 0z" fill={ink} />
+      </svg>
+      <span className="leading-none">
+        <span className="block text-[18px] font-extrabold lowercase tracking-[-0.05em]" style={{ color: ink }}>twende</span>
+        {business ? <span className={`block text-[10px] font-semibold ${tone === 'light' ? 'text-white/70' : 'text-[#5C6578]'}`}>Fleet Business</span> : null}
       </span>
     </span>
   );
 }
 
-export function Avatar({ initials, size = 40, tone = 'green' }: { initials: string; size?: number; tone?: 'green' | 'copper' }) {
-  const background = tone === 'copper' ? '#E8833A' : '#0B5D3B';
+export function Wordmark({ tone = 'dark', subtitle }: { tone?: 'dark' | 'light' | 'copper'; subtitle?: string }) {
+  return <Logo tone={tone === 'light' ? 'light' : 'dark'} business={Boolean(subtitle)} />;
+}
+
+export function Avatar({ initials, size = 40 }: { initials: string; size?: number; tone?: 'green' | 'copper' }) {
   return (
-    <span
-      className="inline-grid shrink-0 place-items-center rounded-full font-semibold text-white"
-      style={{ width: size, height: size, background, fontSize: size < 48 ? 13 : 28 }}
-    >
-      {initials}
+    <span className="inline-grid shrink-0 place-items-center rounded-full bg-[#0B1B3B] font-bold text-white" style={{ width: size, height: size, fontSize: size < 48 ? 12 : 18 }}>
+      {initials.slice(0, 2)}
     </span>
   );
 }

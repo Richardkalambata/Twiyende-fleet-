@@ -35,8 +35,8 @@ export function EarningsChart({ points, title, extra, untilHour }: { points: Cha
             <AreaChart data={data} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="earnFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#0B5D3B" stopOpacity={0.45} />
-                  <stop offset="100%" stopColor="#0B5D3B" stopOpacity={0.02} />
+                  <stop offset="0%" stopColor="#1F5BFF" stopOpacity={0.35} />
+                  <stop offset="100%" stopColor="#1F5BFF" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
               <CartesianGrid stroke="rgba(15,26,20,0.06)" vertical={false} />
@@ -49,7 +49,7 @@ export function EarningsChart({ points, title, extra, untilHour }: { points: Cha
                   return [formatGrouped(shown ?? Math.round(Number(value) * 100)), 'Earnings'];
                 }}
               />
-              <Area type="monotone" dataKey="kwacha" stroke="#0B5D3B" strokeWidth={2.5} fill="url(#earnFill)" isAnimationActive={false} activeDot={{ r: 4, fill: '#0B5D3B', stroke: '#fff', strokeWidth: 2 }} />
+              <Area type="monotone" dataKey="kwacha" stroke="#1F5BFF" strokeWidth={2.5} fill="url(#earnFill)" isAnimationActive={false} activeDot={{ r: 4, fill: '#1F5BFF', stroke: '#fff', strokeWidth: 2 }} />
             </AreaChart>
           </ResponsiveContainer>
         </div>

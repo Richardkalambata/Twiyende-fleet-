@@ -5,38 +5,41 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { BusIcon, HomeIcon, LostIcon, RidesIcon, ShieldIcon, UserIcon } from './icons';
 
-function Item({ href, label, active, dark, children }: { href: string; label: string; active: boolean; dark?: boolean; children: ReactNode }) {
-  const color = active ? (dark ? 'text-[#1DB972]' : 'text-[#0B5D3B]') : dark ? 'text-[#8B978F]' : 'text-[#6B7570]';
+function Item({ href, label, active, children }: { href: string; label: string; active: boolean; dark?: boolean; children: ReactNode }) {
   return (
-    <Link href={href} className={`flex min-h-[52px] flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium ${color} ${active ? 'nav-on font-semibold' : ''}`}>
+    <Link href={href} className={`flex h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[10px] font-semibold ${active ? 'bg-white text-[#0B1B3B]' : 'text-white/70'}`}>
       {children}
-      <span className="whitespace-nowrap">{label}</span>
+      <span>{label}</span>
     </Link>
   );
 }
 
 export function PassengerNav() {
   const path = usePathname();
-  const active = (href: string) => (href === '/home' ? path === '/home' : path.startsWith(href));
+  const on = (href: string) => (href === '/home' ? path === '/home' : path.startsWith(href));
   return (
-    <nav className="grid shrink-0 grid-cols-4 border-t border-[rgba(15,26,20,0.08)] bg-white/80 backdrop-blur-xl pb-[max(6px,env(safe-area-inset-bottom))]" aria-label="Passenger">
-      <Item href="/home" label="Home" active={active('/home')}><HomeIcon className="h-6 w-6" /></Item>
-      <Item href="/rides" label="Trips" active={active('/rides')}><RidesIcon className="h-6 w-6" /></Item>
-      <Item href="/lost" label="Lost & found" active={active('/lost')}><LostIcon className="h-6 w-6" /></Item>
-      <Item href="/profile" label="Profile" active={active('/profile')}><UserIcon className="h-6 w-6" /></Item>
+    <nav className="px-4 pb-[max(12px,env(safe-area-inset-bottom))]" aria-label="Passenger">
+      <div className="grid grid-cols-4 rounded-full bg-[#0B1B3B] p-1.5">
+        <Item href="/home" label="Home" active={on('/home')}><HomeIcon className="h-5 w-5" /></Item>
+        <Item href="/rides" label="Rides" active={on('/rides')}><RidesIcon className="h-5 w-5" /></Item>
+        <Item href="/lost" label="Help" active={on('/lost')}><LostIcon className="h-5 w-5" /></Item>
+        <Item href="/profile" label="Profile" active={on('/profile')}><UserIcon className="h-5 w-5" /></Item>
+      </div>
     </nav>
   );
 }
 
 export function ConductorNav() {
   const path = usePathname();
-  const active = (href: string) => (href === '/business/drive' ? path === '/business/drive' : path.startsWith(href));
+  const on = (href: string) => (href === '/business/drive' ? path === '/business/drive' : path.startsWith(href));
   return (
-    <nav className="grid shrink-0 grid-cols-4 border-t border-white/10 bg-[#0E1411]/90 backdrop-blur-xl pb-[max(6px,env(safe-area-inset-bottom))]" aria-label="Conductor">
-      <Item href="/business/drive" label="Verify" active={active('/business/drive')} dark><ShieldIcon className="h-6 w-6" /></Item>
-      <Item href="/business/drive/trips" label="Trips" active={active('/business/drive/trips')} dark><BusIcon className="h-6 w-6" /></Item>
-      <Item href="/business/drive/lost" label="Lost & found" active={active('/business/drive/lost')} dark><LostIcon className="h-6 w-6" /></Item>
-      <Item href="/business/drive/profile" label="Profile" active={active('/business/drive/profile')} dark><UserIcon className="h-6 w-6" /></Item>
+    <nav className="bg-[#F4F6FB] px-4 pb-[max(12px,env(safe-area-inset-bottom))]" aria-label="Conductor">
+      <div className="grid grid-cols-4 rounded-full bg-[#0B1B3B] p-1.5">
+        <Item href="/business/drive" label="Verify" active={on('/business/drive')}><ShieldIcon className="h-5 w-5" /></Item>
+        <Item href="/business/drive/trips" label="Trips" active={on('/business/drive/trips')}><BusIcon className="h-5 w-5" /></Item>
+        <Item href="/business/drive/lost" label="Lost" active={on('/business/drive/lost')}><LostIcon className="h-5 w-5" /></Item>
+        <Item href="/business/drive/profile" label="Profile" active={on('/business/drive/profile')}><UserIcon className="h-5 w-5" /></Item>
+      </div>
     </nav>
   );
 }

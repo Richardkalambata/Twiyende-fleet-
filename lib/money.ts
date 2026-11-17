@@ -17,7 +17,7 @@ export function parseFare(input: string): number | null {
 export function formatBalance(ngwee: number): string {
   const sign = ngwee < 0 ? '-' : '';
   const abs = Math.abs(ngwee) / 100;
-  return `${sign}K ${abs.toLocaleString('en-US', {
+  return `${sign}K${abs.toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
@@ -33,11 +33,8 @@ export function formatCompact(ngwee: number): string {
 export function formatGrouped(ngwee: number): string {
   const sign = ngwee < 0 ? '-' : '';
   const abs = Math.abs(ngwee);
-  const whole = Math.floor(abs / 100);
-  const frac = abs % 100;
-  const withComma = whole.toLocaleString('en-US');
-  if (frac === 0) return `${sign}K ${withComma}`;
-  return `${sign}K ${withComma}.${String(frac).padStart(2, '0')}`;
+  const withComma = (abs / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${sign}K${withComma}`;
 }
 
 export function formatPercent(current: number, previous: number): { text: string; up: boolean } | null {

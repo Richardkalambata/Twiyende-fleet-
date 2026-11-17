@@ -1,18 +1,18 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Inter_Tight } from 'next/font/google';
+import localFont from 'next/font/local';
 import { Toaster } from '@/components/toast';
 import './globals.css';
 
-const inter = Inter({
-  subsets: ['latin'],
-  display: 'swap',
+const sans = localFont({
+  src: [
+    { path: '../fonts/Inter-Regular.woff2', weight: '400', style: 'normal' },
+    { path: '../fonts/Inter-Medium.woff2', weight: '500', style: 'normal' },
+    { path: '../fonts/Inter-SemiBold.woff2', weight: '600', style: 'normal' },
+    { path: '../fonts/Inter-Bold.woff2', weight: '700', style: 'normal' },
+    { path: '../fonts/Inter-ExtraBold.woff2', weight: '800', style: 'normal' },
+  ],
   variable: '--font-inter',
-});
-
-const display = Inter_Tight({
-  subsets: ['latin'],
   display: 'swap',
-  variable: '--font-display',
 });
 
 export const metadata: Metadata = {
@@ -25,13 +25,13 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#0B5D3B',
+  themeColor: '#F4F6FB',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${display.variable} antialiased`}>
+      <body className={`${sans.variable} ${sans.className} antialiased`}>
         <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-full focus:bg-white focus:px-4 focus:py-2">
           Skip to content
         </a>

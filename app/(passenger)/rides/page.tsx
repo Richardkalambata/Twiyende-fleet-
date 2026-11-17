@@ -12,8 +12,8 @@ export default async function RidesPage() {
   const rides = await listPassengerRides(user.id);
   return (
     <div className="safe-top px-5 pb-6">
-      <h1 className="text-[32px] font-semibold tracking-[-0.02em]">Trips</h1>
-      <p className="text-sm text-[#5C6B63]">Fares paid from your Twende wallet.</p>
+      <h1 className="text-[32px] font-extrabold tracking-[-0.04em] text-[#0B1B3B]">My rides</h1>
+      <p className="text-[14px] text-[#5C6578]">{rides.length} rides · {formatCompact(rides.reduce((sum, ride) => sum + (ride.status === 'void' ? 0 : ride.amountNgwee), 0))} spent</p>
       <div className="mt-4 overflow-hidden rounded-2xl bg-white shadow-card">
         {rides.length === 0 ? <EmptyState title="No trips yet" body="Pay a fare from Home and it will show up here." /> : null}
         {rides.map((ride, index) => (

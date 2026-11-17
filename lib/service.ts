@@ -468,6 +468,7 @@ export async function verifyCode(conductorId: string, rawCode: string) {
         amountNgwee: ride.amount_ngwee,
         verifiedAt,
         code,
+        passenger: ride.passenger_label,
         fleetNumber: bus.fleet_number,
         todayNgwee: stats.amountNgwee,
         todayRides: stats.rides,

@@ -1,77 +1,65 @@
 'use client';
 
-import { useActionState, useEffect } from 'react';
+import { useActionState, useEffect, useState } from 'react';
 import { demoLoginAction, loginAction } from '@/lib/actions';
 import { formatPhone } from '@/lib/phone';
 import type { DemoAccount, Fail } from '@/lib/types';
-import { buttonClass, Wordmark } from './shell';
+import { Logo } from './shell';
 import { toast } from './toast';
 
 export function LoginForm({ accounts, error, gate = 'passenger' }: { accounts: DemoAccount[]; error?: string; gate?: 'passenger' | 'business' }) {
   const [state, action, pending] = useActionState(loginAction, null as Fail | null);
-  const pinned = (gate === 'business'
-    ? [
-        accounts.find((account) => account.role === 'operator'),
-        accounts.find((account) => account.shortName === 'Mwila'),
-      ]
-    : [accounts.find((account) => account.role === 'passenger' && account.shortName === 'Richard')]
-  ).filter(Boolean) as DemoAccount[];
-  const rest = accounts.filter((account) => !pinned.includes(account));
+  const [phone, setPhone] = useState(gate === 'business' ? '0977000001' : '0971000001');
+  const [pin, setPin] = useState('');
   const message = state?.message ?? error;
+  useEffect(() => { if (message) toast(message); }, [message]);
 
-  useEffect(() => {
-    if (message) toast(message);
-  }, [message]);
+  function push(digit: string) {
+    setPin((current) => (current + digit).slice(0, 4));
+  }
 
   return (
-    <div className="overflow-hidden rounded-[28px] bg-white shadow-[0_24px_60px_rgba(15,26,20,0.08)]">
-      <div className="bg-gradient-to-br from-[#146846] via-[#0B5D3B] to-[#083828] px-6 py-8 text-white">
-        <Wordmark tone="light" subtitle="Cashless fares · Lusaka" />
-        <h1 className="mt-6 text-[32px] font-semibold tracking-tight">{gate === 'business' ? 'Run the fleet from one desk' : 'Pay the fare from your phone'}</h1>
-        <p className="mt-2 text-sm text-white/75">{gate === 'business' ? 'Operators and conductors. Passengers use the rider app.' : 'Top up, board, and show a one-time code.'}</p>
-      </div>
-      <div className="px-6 py-6">
-      <form action={action} className="space-y-3">
-        <label className="block text-sm font-medium">
+    <div className="flex min-h-dvh flex-col bg-[#F4F6FB] px-5 pb-6 text-[#0B1B3B]">
+      <div className="safe-top"><Logo business={gate === 'business'} /></div>
+      <h1 className="mt-8 text-[32px] font-extrabold tracking-[-0.04em]">{gate === 'business' ? 'Welcome to work.' : 'Welcome back.'}</h1>
+      <p className="mt-1 text-[15px] text-[#5C6578]">{gate === 'business' ? 'For operators and conductors.' : 'Your next ride starts here.'}</p>
+      <form action={action} className="mt-8">
+        <label className="block text-[13px] font-medium text-[#5C6578]">
           Phone number
-          <input name="phone" inputMode="tel" autoComplete="tel" placeholder="0971 000 001" className="field mt-1.5" />
+          <input name="phone" value={phone} onChange={(event) => setPhone(event.target.value)} inputMode="tel" className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-transparent py-2 text-[18px] font-semibold outline-none focus:border-[#1F5BFF]" />
         </label>
-        <label className="block text-sm font-medium">
-          PIN
-          <input name="pin" inputMode="numeric" autoComplete="current-password" maxLength={4} placeholder="4 digits" className="field mt-1.5" />
+        <p className="mt-6 text-[13px] font-medium text-[#5C6578]">PIN</p>
+        <input type="hidden" name="pin" value={pin} />
         <input type="hidden" name="gate" value={gate} />
-        </label>
-        {message ? <p className="sr-only" role="alert">{message}</p> : null}
-        <button className={buttonClass('green')} disabled={pending}>{pending ? 'Signing in…' : 'Continue'}</button>
+        <div className="mt-2 grid grid-cols-4 gap-3">
+          {Array.from({ length: 4 }, (_, index) => (
+            <span key={index} className="grid h-14 place-items-center rounded-xl bg-white text-2xl font-bold shadow-sm">{pin[index] ? '•' : ''}</span>
+          ))}
+        </div>
+        {message ? <p className="mt-3 text-sm text-[#E5484D]" role="alert">{message}</p> : null}
+        <button className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-[#1F5BFF] text-[15px] font-bold text-white disabled:opacity-50" disabled={pending || pin.length < 4}>
+          {pending ? 'Signing in…' : 'Log in'}
+        </button>
       </form>
-      <section className="mt-8">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-[#8A918C]">Demo data</h2>
-        <p className="mt-1 text-sm text-[#5C6B63]">Tap a sample account. PIN for every demo person is 1234.</p>
-        <div className="mt-3 space-y-2">
-          {pinned.map((account) => (
-            <form key={account.id} action={demoLoginAction}>
-              <input type="hidden" name="userId" value={account.id} />
-              <input type="hidden" name="gate" value={gate} />
-              <button type="submit" className="flex min-h-16 w-full items-center justify-between rounded-2xl border border-[#E7E1D6] bg-[#F7F5F0] px-4 text-left">
-                <span>
-                  <span className="block font-semibold">{account.role === 'operator' ? account.name : account.shortName}</span>
-                  <span className="block text-sm capitalize text-[#5C6B63]">{account.role} · {account.detail}</span>
-                </span>
-                <span className="text-sm text-[#0B5D3B]">{formatPhone(account.phone)}</span>
-              </button>
-            </form>
-          ))}
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {rest.map((account) => (
-            <form key={account.id} action={demoLoginAction}>
-              <input type="hidden" name="userId" value={account.id} />
-              <input type="hidden" name="gate" value={gate} />
-              <button type="submit" className="h-10 rounded-full border border-[#E7E1D6] bg-[#F7F5F0] px-3 text-sm">{account.shortName}</button>
-            </form>
-          ))}
-        </div>
-      </section>
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
+          <button key={digit} type="button" className="h-12 rounded-xl bg-white text-lg font-bold" onClick={() => push(digit)}>{digit}</button>
+        ))}
+        <span />
+        <button type="button" className="h-12 rounded-xl bg-white text-lg font-bold" onClick={() => push('0')}>0</button>
+        <button type="button" className="h-12 rounded-xl bg-white text-sm font-semibold" onClick={() => setPin((value) => value.slice(0, -1))}>Delete</button>
+      </div>
+      <div className="mt-4 space-y-2">
+        {accounts.slice(0, 4).map((account) => (
+          <form key={account.id} action={demoLoginAction}>
+            <input type="hidden" name="userId" value={account.id} />
+            <input type="hidden" name="gate" value={gate} />
+            <button type="submit" className="flex w-full items-center justify-between rounded-xl bg-white px-3 py-2 text-left text-sm">
+              <span className="font-semibold">{account.shortName}</span>
+              <span className="text-[#5C6578]">{formatPhone(account.phone)}</span>
+            </button>
+          </form>
+        ))}
       </div>
     </div>
   );

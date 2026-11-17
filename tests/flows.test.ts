@@ -7,12 +7,12 @@ import { formatBalance, formatCompact, formatGrouped, formatPercent } from '../l
 import { confusingCodeMessage, normalizeFleetNumber, randomCode } from '../lib/codes';
 
 test('money formatting and fare codes', () => {
-  assert.equal(formatBalance(12000), 'K 120.00');
-  assert.equal(formatBalance(124500), 'K 1,245.00');
+  assert.equal(formatBalance(12000), 'K120.00');
+  assert.equal(formatBalance(124500), 'K1,245.00');
   assert.equal(formatCompact(500), 'K5');
   assert.equal(formatCompact(50050), 'K500.50');
-  assert.equal(formatGrouped(124500), 'K 1,245');
-  assert.equal(formatGrouped(34000), 'K 340');
+  assert.equal(formatGrouped(124500), 'K1,245.00');
+  assert.equal(formatGrouped(34000), 'K340.00');
   assert.deepEqual(formatPercent(124500, 105000), { text: '18.6%', up: true });
   assert.equal(normalizeFleetNumber(' Bus 12 '), '12');
   const code = randomCode(4);

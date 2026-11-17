@@ -8,9 +8,5 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   if (user) redirect(homeFor(user.role));
   const params = await searchParams;
   const accounts = (await listDemoAccounts()).filter((account) => account.role === 'passenger');
-  return (
-    <main className="safe-top mx-auto flex min-h-dvh w-full max-w-[430px] flex-col px-5 pb-10">
-      <LoginForm accounts={accounts} error={params.error} />
-    </main>
-  );
+  return <LoginForm accounts={accounts} error={params.error} />;
 }

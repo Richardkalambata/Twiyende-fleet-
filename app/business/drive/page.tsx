@@ -17,5 +17,5 @@ export default async function ConductorPage() {
       </div>
     );
   }
-  return <VerifyPad fleetNumber={home.bus.fleet_number} initialRides={home.todayRides} initialAmount={home.todayNgwee} />;
+  return <VerifyPad fleetNumber={home.bus.fleet_number} route={home.bus.route} name={home.user.shortName} initialRides={home.todayRides} initialAmount={home.todayNgwee} />;
 }
