@@ -1,10 +1,11 @@
+import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { PayoutForms } from '@/components/owner-forms';
 import { settleAction } from '@/lib/actions';
 import { formatBalance, formatGrouped } from '@/lib/money';
 import { formatPhone } from '@/lib/phone';
 import { formatRideWhen } from '@/lib/time';
-import { getPayoutSummary, networkDisplay } from '@/lib/service';
+import { getPayoutSummary, listOwnerBuses, networkDisplay } from '@/lib/service';
 
 export const metadata = { title: 'Payouts' };
 
@@ -19,6 +20,11 @@ export default async function PayoutsPage() {
         <Stat label="Available" value={formatBalance(summary.availableNgwee)} />
         <Stat label="Today" value={formatGrouped(summary.todayNgwee)} />
         <Stat label="Next payout" value={formatGrouped(summary.nextPayoutNgwee)} />
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {(await listOwnerBuses(user.id)).map((bus) => (
+          <Link key={bus.id} href={`/business/desk/payouts/${bus.fleetNumber}`} className="rounded-full bg-white px-3 py-1 text-sm font-semibold">Bus {bus.fleetNumber}</Link>
+        ))}
       </div>
       <form action={settleAction} className="flex flex-wrap gap-2 rounded-2xl bg-white p-4">
         <h2 className="w-full font-bold">Mark a bus day settled</h2>
