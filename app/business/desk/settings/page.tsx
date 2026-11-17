@@ -1,31 +1,27 @@
 import { requireUser } from '@/lib/auth';
 import { resetDemoAction, signOutAction } from '@/lib/actions';
-import { DemoSwitch } from '@/components/demo-switch';
+import { CompanyForm, ProfileForms } from '@/components/account-forms';
 import { buttonClass } from '@/components/shell';
-import { formatPhone } from '@/lib/phone';
-import { listDemoAccounts } from '@/lib/service';
+import { companyName } from '@/lib/service';
 
 export const metadata = { title: 'Settings' };
 
 export default async function SettingsPage() {
   const user = await requireUser(['operator']);
   return (
-    <div className="space-y-4 px-4 py-5 md:px-6">
-      <h1 className="text-[28px] font-semibold">Settings</h1>
-      <section className="rounded-3xl bg-white p-4 shadow-sm">
-        <h2 className="font-semibold">{user.name}</h2>
-        <p className="text-sm text-[#5C6B63]">{formatPhone(user.phone)} · Owner</p>
-        <p className="mt-3 text-sm text-[#5C6B63]">Twende is demo data for a Lusaka minibus pilot: Town–Matero, Town–Chilenje and nearby routes. Wallet top-ups and owner payouts go through a replaceable payment provider. The default provider only simulates MTN MoMo, Airtel Money and Zamtel Kwacha.</p>
-      </section>
-      <DemoSwitch gate="business" accounts={(await listDemoAccounts()).filter((account) => account.role !== 'passenger')} currentId={user.id} />
-      <form action={resetDemoAction} className="rounded-3xl bg-white p-4 shadow-sm">
-        <h2 className="font-semibold">Reset demo data</h2>
-        <p className="mt-1 text-sm text-[#5C6B63]">Restores Richard’s K120 wallet, today’s sample fares, and the lost-and-found queue. This signs other demo sessions out.</p>
-        <button className={`${buttonClass('copper')} mt-3`}>Reset demo data</button>
-      </form>
-      <form action={signOutAction}>
-        <button className={buttonClass('outline')}>Log out</button>
-      </form>
+    <div className="space-y-4 px-4 py-5 text-[#0B1B3B] md:px-6">
+      <h1 className="text-[28px] font-extrabold tracking-[-0.03em]">Settings</h1>
+      <CompanyForm name={await companyName(user.id)} />
+      <ProfileForms name={user.name} />
+      <p className="text-[12px] text-[#8A93A6]">Payments simulated. SMS is recorded and not sent.</p>
+      {user.demo ? (
+        <form action={resetDemoAction} className="rounded-2xl bg-white p-4">
+          <h2 className="font-bold">Reset demo data</h2>
+          <p className="mt-1 text-sm text-[#5C6578]">Restores the sample fleet for this demo operator.</p>
+          <button className={`${buttonClass('outline')} mt-3`}>Reset demo data</button>
+        </form>
+      ) : null}
+      <form action={signOutAction}><button className={buttonClass('outline')}>Log out</button></form>
     </div>
   );
 }

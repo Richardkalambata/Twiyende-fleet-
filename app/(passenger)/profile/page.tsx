@@ -1,11 +1,11 @@
 import { requireUser } from '@/lib/auth';
 import { signOutAction } from '@/lib/actions';
-import { DemoSwitch } from '@/components/demo-switch';
+import { ProfileForms } from '@/components/account-forms';
 import { Avatar, buttonClass } from '@/components/shell';
 import { formatBalance, formatCompact } from '@/lib/money';
 import { formatPhone } from '@/lib/phone';
 import { formatRideWhen } from '@/lib/time';
-import { getPassengerHome, listDemoAccounts, listWalletActivity } from '@/lib/service';
+import { getPassengerHome, listWalletActivity } from '@/lib/service';
 import Link from 'next/link';
 
 export const metadata = { title: 'Profile' };
@@ -42,8 +42,8 @@ export default async function ProfilePage() {
           ))}
         </ul>
       </section>
-      <p className="text-sm text-[#5C6B63]">This is demo data for Lusaka minibus routes. No real mobile money moves.</p>
-      <DemoSwitch accounts={(await listDemoAccounts()).filter((account) => account.role === 'passenger')} currentId={user.id} />
+      <ProfileForms name={user.name} />
+      <p className="text-[12px] text-[#8A93A6]">Payments simulated. No mobile-money charge is sent.</p>
       <form action={signOutAction}>
         <button className={buttonClass('outline')}>Sign out</button>
       </form>

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
 import { CancelFare, ShareReceipt } from '@/components/receipt-actions';
+import { TicketWatch, PrintButton } from '@/components/ticket-live';
 import { Logo } from '@/components/shell';
 import { formatBalance } from '@/lib/money';
 import { formatHour24 } from '@/lib/time';
@@ -35,9 +36,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
         <div className="px-4 py-5 text-center">
           <p className="text-[48px] font-extrabold tracking-[0.12em]">{receipt.code}</p>
           <p className="text-[13px] text-[#5C6578]">Show this code to your conductor</p>
-          {pending ? <p className="mt-3 text-[14px] font-bold text-[#C47B12]">Awaiting verification</p> : null}
-          {receipt.status === 'verified' ? <p className="mt-3 text-[14px] font-bold text-[#128A4E]">Verified by conductor</p> : null}
-          {receipt.status === 'void' ? <p className="mt-3 text-[14px] font-bold text-[#8A93A6]">Cancelled</p> : null}
+          {pending ? <TicketWatch id={receipt.id} initial={receipt.status} /> : receipt.status === 'verified' ? <p className="mt-3 text-[14px] font-bold text-[#128A4E]">Verified by conductor</p> : <p className="mt-3 text-[14px] font-bold text-[#8A93A6]">Cancelled</p>}
         </div>
         <div className="space-y-3 border-t border-dashed border-[#E4E8F0] px-4 py-4 text-[14px]">
           <div className="flex justify-between"><span className="text-[#5C6578]">Departure</span><span className="font-semibold">{from}</span></div>
@@ -46,7 +45,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
           <div className="flex justify-between"><span className="text-[#5C6578]">Wallet balance</span><span className="font-semibold">{formatBalance(receipt.balanceNgwee)}</span></div>
         </div>
       </section>
-      <Link href="/rides" className="mt-4 flex h-12 items-center justify-center rounded-xl bg-white font-bold ring-1 ring-[#E4E8F0]">View receipt</Link>
+      <PrintButton />
       {pending ? <ShareReceipt text={share} /> : null}
       {pending ? <CancelFare rideId={receipt.id} /> : null}
       <Link href="/lost/new" className="mt-3 block text-center text-[14px] font-semibold text-[#1F5BFF]">Report a lost item</Link>

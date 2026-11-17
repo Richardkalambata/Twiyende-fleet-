@@ -22,7 +22,7 @@ export function PassengerNav() {
       <div className="grid grid-cols-4 rounded-full bg-[#0B1B3B] p-1.5">
         <Item href="/home" label="Home" active={on('/home')}><HomeIcon className="h-5 w-5" /></Item>
         <Item href="/rides" label="Rides" active={on('/rides')}><RidesIcon className="h-5 w-5" /></Item>
-        <Item href="/lost" label="Help" active={on('/lost')}><LostIcon className="h-5 w-5" /></Item>
+        <Item href="/help" label="Help" active={on('/help') || on('/lost')}><LostIcon className="h-5 w-5" /></Item>
         <Item href="/profile" label="Profile" active={on('/profile')}><UserIcon className="h-5 w-5" /></Item>
       </div>
     </nav>

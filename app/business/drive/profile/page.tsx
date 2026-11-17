@@ -1,10 +1,10 @@
 import { requireUser } from '@/lib/auth';
 import { signOutAction } from '@/lib/actions';
-import { DemoSwitch } from '@/components/demo-switch';
+import { ProfileForms } from '@/components/account-forms';
 import { Avatar, buttonClass } from '@/components/shell';
 import { formatBalance, formatGrouped } from '@/lib/money';
 import { formatPhone } from '@/lib/phone';
-import { conductorTipBalance, getConductorHome, listDemoAccounts } from '@/lib/service';
+import { conductorTipBalance, getConductorHome } from '@/lib/service';
 
 export const metadata = { title: 'Conductor profile' };
 
@@ -33,10 +33,8 @@ export default async function ConductorProfilePage() {
           <p className="text-sm text-[#B7C2BA]">From passengers</p>
         </div>
       </section>
-      <p className="text-sm text-[#8B978F]">Demo data. Fares belong to the owner. Tips stay with you.</p>
-      <div className="text-[#14241C]">
-        <DemoSwitch gate="business" accounts={(await listDemoAccounts()).filter((account) => account.role !== 'passenger')} currentId={user.id} />
-      </div>
+      <p className="text-[12px] text-[#8A93A6]">Payments simulated. Fares belong to the operator.</p>
+      <div className="text-[#0B1B3B]"><ProfileForms name={user.name} /></div>
       <form action={signOutAction}>
         <button className={buttonClass('outline')}>Sign out</button>
       </form>

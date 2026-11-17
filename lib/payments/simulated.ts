@@ -15,6 +15,7 @@ export class SimulatedPaymentProvider implements PaymentProvider {
     if (request.amountNgwee < 100) {
       return { ok: false, providerRef: '', message: 'The smallest top-up is K1.' };
     }
+    await new Promise((resolve) => setTimeout(resolve, 600));
     return {
       ok: true,
       providerRef: reference('SIM'),

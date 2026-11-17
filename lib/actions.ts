@@ -27,6 +27,14 @@ import {
   topUp,
   verifyCode,
   verifyPickup,
+  updateProfile,
+  changePin,
+  saveCompany,
+  openSupport,
+  replySupport,
+  addRouteFare,
+  settleDay,
+  markNotificationRead,
 } from './service';
 import type { Fail } from './types';
 
@@ -206,6 +214,10 @@ export async function resetDemoAction() {
 }
 
 export async function signupPassengerAction(_prev: Fail | null, formData: FormData): Promise<Fail | null> {
+  if (String(formData.get('pin') ?? '') !== String(formData.get('confirm') ?? '')) {
+    return { ok: false, message: 'The two PINs do not match.' };
+  }
+  if (formData.get('terms') !== 'on') return { ok: false, message: 'Agree to the terms to create an account.' };
   const result = await signupPassenger({
     name: String(formData.get('name') ?? ''),
     phone: String(formData.get('phone') ?? ''),
@@ -234,5 +246,61 @@ export async function assignShiftAction(formData: FormData) {
   const user = await requireUser(['operator']);
   const conductor = String(formData.get('conductorId') ?? '');
   await saveAssignment(user.id, String(formData.get('busId') ?? ''), conductor || null);
+  refresh();
+}
+
+export async function updateProfileAction(_prev: Fail | null, formData: FormData): Promise<Fail | null> {
+  const user = await requireUser();
+  const result = await updateProfile(user.id, String(formData.get('name') ?? ''));
+  if (!result.ok) return result;
+  refresh();
+  return null;
+}
+
+export async function changePinAction(_prev: Fail | null, formData: FormData): Promise<Fail | null> {
+  const user = await requireUser();
+  const result = await changePin(user.id, String(formData.get('current') ?? ''), String(formData.get('next') ?? ''));
+  if (!result.ok) return result;
+  refresh();
+  return null;
+}
+
+export async function saveCompanyAction(_prev: Fail | null, formData: FormData): Promise<Fail | null> {
+  const user = await requireUser(['operator']);
+  const result = await saveCompany(user.id, String(formData.get('company') ?? ''));
+  if (!result.ok) return result;
+  refresh();
+  return null;
+}
+
+export async function supportAction(_prev: Fail | null, formData: FormData): Promise<Fail | null> {
+  const user = await requireUser(['passenger']);
+  const result = await openSupport(user.id, String(formData.get('subject') ?? ''), String(formData.get('body') ?? ''));
+  if (!result.ok) return result;
+  refresh();
+  return { ok: false, message: 'Sent. We will reply in the app.' };
+}
+
+export async function replySupportAction(formData: FormData) {
+  const user = await requireUser(['operator']);
+  await replySupport(user.id, String(formData.get('ticketId') ?? ''), String(formData.get('body') ?? ''), formData.get('close') === 'on');
+  refresh();
+}
+
+export async function addFareAction(formData: FormData) {
+  const user = await requireUser(['operator']);
+  await addRouteFare(user.id, String(formData.get('route') ?? ''), String(formData.get('amount') ?? ''));
+  refresh();
+}
+
+export async function settleAction(formData: FormData) {
+  const user = await requireUser(['operator']);
+  await settleDay(user.id, String(formData.get('fleet') ?? ''), String(formData.get('amount') ?? ''));
+  refresh();
+}
+
+export async function readNoticeAction(formData: FormData) {
+  const user = await requireUser();
+  await markNotificationRead(user.id, String(formData.get('id') ?? ''));
   refresh();
 }

@@ -29,6 +29,7 @@ export type Notice = {
   href: string;
   title: string;
   body: string;
+  unread?: boolean;
 };
 
 export type RideCard = {
@@ -46,6 +47,8 @@ export type BusOption = {
   fleetNumber: string;
   route: string;
   status: 'active' | 'offline';
+  defaultFareNgwee?: number;
+  fareNgwee?: number[];
 };
 
 export type Receipt = {

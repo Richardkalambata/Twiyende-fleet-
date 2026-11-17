@@ -100,8 +100,8 @@ async function seedIfNeeded(force: boolean) {
   try {
     await client.query('BEGIN');
     await client.query('SELECT pg_advisory_xact_lock($1)', [SEED_LOCK]);
-    const existing = await client.query<{ value: string }>('SELECT value FROM meta WHERE key = $1', ['seeded_for']);
-    if (force || existing.rows[0]?.value !== key) {
+    const count = await client.query<{ n: number }>('SELECT COUNT(*)::int AS n FROM users');
+    if (force || count.rows[0]?.n === 0) {
       await client.query(TRUNCATE_SQL);
       await seed(wrap(client));
       await client.query(
@@ -134,6 +134,10 @@ async function ensureReady() {
   });
   globalForDb.twendeReady = pending;
   return pending;
+}
+
+export function isInTransaction(): boolean {
+  return Boolean(txStorage.getStore());
 }
 
 export async function getDb(): Promise<Db> {

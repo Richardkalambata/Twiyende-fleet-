@@ -15,6 +15,8 @@ export default function SignupPage() {
         <Field name="name" label="Name" placeholder="Richard Kalambata" />
         <Field name="phone" label="Phone" placeholder="0971 000 001" inputMode="tel" />
         <Field name="pin" label="4-digit PIN" placeholder="1234" inputMode="numeric" maxLength={4} />
+        <Field name="confirm" label="Confirm PIN" placeholder="1234" inputMode="numeric" maxLength={4} />
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="terms" required /> I agree to the terms</label>
         <label className="block text-sm font-medium">
           Mobile money
           <select name="network" className="field mt-1.5" defaultValue="mtn">

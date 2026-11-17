@@ -17,6 +17,7 @@ const LINKS = [
   { href: '/business/desk/lost', label: 'Lost & found', icon: LostIcon },
   { href: '/business/desk/payouts', label: 'Payouts', icon: WalletIcon },
   { href: '/business/desk/settings', label: 'Settings', icon: GearIcon },
+  { href: '/business/desk/support', label: 'Support', icon: LostIcon },
 ];
 
 export function OwnerFrame({ children, openLost, operator }: { children: ReactNode; openLost: number; operator: { name: string; initials: string } }) {

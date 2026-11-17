@@ -1,4 +1,4 @@
-import { getDb, resetDatabase, withTransaction } from './db';
+import { getDb, isInTransaction, resetDatabase, withTransaction } from './db';
 import { PICKUP_PLACE, TIP_AMOUNTS_NGWEE } from './constants';
 import { confusingCodeMessage, normalizeFleetNumber, randomCode } from './codes';
 import { isCategory } from './categories';
@@ -80,6 +80,7 @@ type RideJoin = {
   status: RideStatus;
   created_at: number;
   verified_at: number | null;
+  expires_at: number | null;
   route_snapshot: string;
   fleet_number: string;
 };
@@ -134,10 +135,10 @@ export function parseRange(value: string | undefined): RangeKey {
 }
 
 async function getBalance(userId: string): Promise<number> {
-  const row = await (await getDb()).get('SELECT balance_ngwee FROM wallets WHERE user_id = ?', userId) as
-    | { balance_ngwee: number }
+  const row = await (await getDb()).get('SELECT COALESCE(SUM(amount_ngwee), 0) AS n FROM wallet_transactions WHERE user_id = ?', userId) as
+    | { n: number }
     | undefined;
-  return row?.balance_ngwee ?? 0;
+  return Number(row?.n ?? 0);
 }
 
 async function writeWallet(
@@ -147,13 +148,13 @@ async function writeWallet(
   note: string,
   extra: { rideId?: string | null; lostId?: string | null; provider?: string | null; providerRef?: string | null } = {},
 ): Promise<number> {
+  if (!isInTransaction()) return withTransaction(() => writeWallet(userId, delta, type, note, extra));
+  await (await getDb()).run('SELECT pg_advisory_xact_lock(hashtext(?))', userId);
   const current = await getBalance(userId);
   if (delta < 0 && current < -delta) {
     throw new UserError(`Not enough balance. You have ${formatBalance(current)}.`);
   }
   const next = current + delta;
-  const updated = await (await getDb()).run('UPDATE wallets SET balance_ngwee = ? WHERE user_id = ? AND balance_ngwee = ?', next, userId, current);
-  if (Number(updated.changes) !== 1) throw new UserError('Could not update the wallet. Try again.');
   await (await getDb()).run(`INSERT INTO wallet_transactions
       (id, user_id, type, amount_ngwee, balance_after, provider, provider_ref, ride_id, lost_item_id, note, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, nid('wtx'),
@@ -167,6 +168,7 @@ async function writeWallet(
       extra.lostId ?? null,
       note,
       Date.now(),);
+  await (await getDb()).run('UPDATE wallets SET balance_ngwee = ? WHERE user_id = ?', next, userId);
   return next;
 }
 
@@ -326,8 +328,21 @@ export async function listPassengerRides(userId: string): Promise<RideCard[]> {
 }
 
 export async function listBusOptions(): Promise<BusOption[]> {
-  const rows = await (await getDb()).all(`SELECT fleet_number, route, status FROM buses ORDER BY CAST(fleet_number AS INTEGER)`) as Array<{ fleet_number: string; route: string; status: 'active' | 'offline' }>;
-  return rows.map((row) => ({ fleetNumber: row.fleet_number, route: row.route, status: row.status }));
+  const rows = await (await getDb()).all(`SELECT fleet_number, route, status, default_fare_ngwee, owner_id FROM buses ORDER BY CAST(fleet_number AS INTEGER)`) as Array<{
+    fleet_number: string;
+    route: string;
+    status: 'active' | 'offline';
+    default_fare_ngwee: number;
+    owner_id: string;
+  }>;
+  const fares = await (await getDb()).all('SELECT owner_id, route, amount_ngwee FROM route_fares') as Array<{ owner_id: string; route: string; amount_ngwee: number }>;
+  return rows.map((row) => ({
+    fleetNumber: row.fleet_number,
+    route: row.route,
+    status: row.status,
+    defaultFareNgwee: row.default_fare_ngwee ?? 500,
+    fareNgwee: fares.filter((fare) => fare.owner_id === row.owner_id && fare.route === row.route).map((fare) => fare.amount_ngwee),
+  }));
 }
 
 export async function getReceipt(passengerId: string, rideId: string): Promise<Receipt | null> {
@@ -394,8 +409,8 @@ export async function payFare(passengerId: string, fleetRaw: string, fareRaw: st
         rideId = nid('ride');
         try {
           await (await getDb()).run(`INSERT INTO rides
-              (id, passenger_id, passenger_label, bus_id, conductor_id, amount_ngwee, code, status, created_at, verified_at, route_snapshot)
-              VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, NULL, ?)`, rideId, passengerId, passenger.short_name, bus.id, bus.conductor_id, amount, code, Date.now(), bus.route);
+              (id, passenger_id, passenger_label, bus_id, conductor_id, amount_ngwee, code, status, created_at, verified_at, route_snapshot, expires_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, NULL, ?, ?)`, rideId, passengerId, passenger.short_name, bus.id, bus.conductor_id, amount, code, Date.now(), bus.route, Date.now() + 3 * 60 * 60 * 1000);
           break;
         } catch (error) {
           if (!isUnique(error) || attempt === 7) throw error;
@@ -452,6 +467,9 @@ export async function verifyCode(conductorId: string, rawCode: string) {
       if (!ride) throw new UserError('Code not found. Ask the passenger to read it again.');
       const rideBus = await busById(ride.bus_id);
       const fleet = rideBus?.fleet_number ?? 'another bus';
+      if (ride.expires_at && ride.expires_at < Date.now() && ride.status === 'pending') {
+        throw new UserError('This code expired. Ask the passenger to pay again.');
+      }
       if (ride.status === 'void') throw new UserError('This fare was cancelled and the passenger was refunded.');
       if (ride.bus_id !== bus.id) {
         throw new UserError(`This code is for Bus ${fleet}, not Bus ${bus.fleet_number}.`);
@@ -588,16 +606,18 @@ async function issuePickup(itemId: string, foundBy: string) {
 }
 
 async function notifyPickup(info: { code: string; bus: BusRow; notify: boolean; passengerId: string | null; category: string; itemId: string }) {
-  if (!info.notify || !info.passengerId) return false;
+  if (!info.passengerId) return false;
   const passenger = await userById(info.passengerId);
   if (!passenger) return false;
-  const body = `Twende: your ${info.category} was found on Bus ${info.bus.fleet_number}. Pickup code ${info.code} at ${PICKUP_PLACE}.`;
+  const body = `Your ${info.category} was found on Bus ${info.bus.fleet_number}. Pickup code ${info.code}.`;
+  await notifyUser(info.passengerId, 'Item ready for pickup', body, `/lost/${info.itemId}`);
+  if (!info.notify) return true;
   try {
     const result = await getSmsProvider().send({ to: passenger.phone, body });
     await (await getDb()).run(`INSERT INTO sms_messages (id, to_phone, body, status, lost_item_id, created_at) VALUES (?, ?, ?, ?, ?, ?)`, nid('sms'), passenger.phone, body, result.status, info.itemId, Date.now());
     return true;
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -793,7 +813,8 @@ async function passengerNotices(userId: string): Promise<Notice[]> {
       JOIN buses b ON b.id = li.bus_id
       WHERE li.passenger_id = ? AND li.status IN ('reported', 'pickup_pending', 'not_found')
       ORDER BY li.created_at DESC LIMIT 6`, userId) as Array<{ id: string; category: string; status: LostStatus; fleet_number: string }>;
-  return rows.map((row) => {
+  const stored = await listNotifications(userId);
+  return [...stored, ...rows.map((row) => {
     if (row.status === 'pickup_pending') {
       return { id: row.id, href: `/lost/${row.id}`, title: `Your ${row.category} was found`, body: `Bus ${row.fleet_number} · open for the pickup code` };
     }
@@ -801,7 +822,7 @@ async function passengerNotices(userId: string): Promise<Notice[]> {
       return { id: row.id, href: `/lost`, title: `${categoryLabelSafe(row.category)} not found yet`, body: `Bus ${row.fleet_number} is still looking` };
     }
     return { id: row.id, href: `/lost`, title: `Conductor alerted`, body: `Your ${row.category} report is with Bus ${row.fleet_number}` };
-  });
+  })];
 }
 
 export async function listPassengerLost(userId: string): Promise<LostSummary[]> {
@@ -1359,6 +1380,126 @@ export async function saveAssignment(ownerId: string, busId: string, conductorId
   } catch (error) {
     return asFail(error);
   }
+}
+
+async function notifyUser(userId: string, title: string, body: string, href: string) {
+  await (await getDb()).run(
+    'INSERT INTO notifications (id, user_id, title, body, href, read_at, created_at) VALUES (?, ?, ?, ?, ?, NULL, ?)',
+    nid('ntf'), userId, title, body, href, Date.now(),
+  );
+}
+
+export async function listNotifications(userId: string): Promise<Notice[]> {
+  const rows = await (await getDb()).all(
+    'SELECT id, title, body, href, read_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 20',
+    userId,
+  ) as Array<{ id: string; title: string; body: string; href: string; read_at: number | null }>;
+  return rows.map((row) => ({ id: row.id, title: row.title, body: row.body, href: row.href, unread: row.read_at == null }));
+}
+
+export async function markNotificationRead(userId: string, id: string) {
+  await (await getDb()).run('UPDATE notifications SET read_at = ? WHERE id = ? AND user_id = ? AND read_at IS NULL', Date.now(), id, userId);
+}
+
+export async function updateProfile(userId: string, nameRaw: string) {
+  const name = cleanText(nameRaw, 60);
+  if (name.length < 2) return { ok: false as const, message: 'Enter your name.' };
+  const short = name.split(/\s+/)[0] ?? name;
+  const initials = name.split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase();
+  await (await getDb()).run('UPDATE users SET name = ?, short_name = ?, initials = ? WHERE id = ?', name, short, initials, userId);
+  return { ok: true as const };
+}
+
+export async function changePin(userId: string, currentPin: string, nextPin: string) {
+  const user = await userById(userId);
+  if (!user) return { ok: false as const, message: 'Sign in again.' };
+  if (!verifyPin(currentPin, user.pin_hash)) return { ok: false as const, message: 'Current PIN is wrong.' };
+  if (!/^\d{4}$/.test(nextPin)) return { ok: false as const, message: 'Choose a 4-digit PIN.' };
+  await (await getDb()).run('UPDATE users SET pin_hash = ? WHERE id = ?', hashPin(nextPin), userId);
+  return { ok: true as const };
+}
+
+export async function saveCompany(operatorId: string, nameRaw: string) {
+  const name = cleanText(nameRaw, 80);
+  if (name.length < 2) return { ok: false as const, message: 'Enter the company name.' };
+  const existing = await (await getDb()).get('SELECT id FROM companies WHERE operator_id = ?', operatorId) as { id: string } | null;
+  if (existing) await (await getDb()).run('UPDATE companies SET name = ? WHERE id = ?', name, existing.id);
+  else await (await getDb()).run('INSERT INTO companies (id, name, operator_id, created_at) VALUES (?, ?, ?, ?)', nid('co'), name, operatorId, Date.now());
+  return { ok: true as const };
+}
+
+export async function companyName(operatorId: string): Promise<string> {
+  const row = await (await getDb()).get('SELECT name FROM companies WHERE operator_id = ?', operatorId) as { name: string } | null;
+  return row?.name ?? 'Your company';
+}
+
+export async function openSupport(userId: string, subjectRaw: string, bodyRaw: string) {
+  const subject = cleanText(subjectRaw, 80);
+  const body = cleanText(bodyRaw, 1000);
+  if (subject.length < 3 || body.length < 5) return { ok: false as const, message: 'Add a subject and a short message.' };
+  const user = await userById(userId);
+  const company = user ? await (await getDb()).get('SELECT id FROM companies ORDER BY created_at LIMIT 1') as { id: string } | null : null;
+  const id = nid('tkt');
+  await (await getDb()).run(
+    'INSERT INTO support_tickets (id, company_id, user_id, subject, body, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    id, company?.id ?? null, userId, subject, body, 'open', Date.now(),
+  );
+  const operators = await (await getDb()).all(`SELECT id FROM users WHERE role IN ('operator', 'owner')`) as Array<{ id: string }>;
+  for (const operator of operators) await notifyUser(operator.id, 'New support ticket', subject, '/business/desk/support');
+  return { ok: true as const, id };
+}
+
+export async function listSupport(operatorId: string) {
+  return (await getDb()).all<{ id: string; subject: string; body: string; status: string; created_at: number; name: string }>(
+    `SELECT t.id, t.subject, t.body, t.status, t.created_at, u.name
+     FROM support_tickets t JOIN users u ON u.id = t.user_id
+     JOIN companies c ON c.operator_id = ?
+     WHERE t.company_id = c.id OR t.company_id IS NULL
+     ORDER BY t.created_at DESC LIMIT 40`,
+    operatorId,
+  );
+}
+
+export async function replySupport(operatorId: string, ticketId: string, bodyRaw: string, close: boolean) {
+  const body = cleanText(bodyRaw, 1000);
+  if (body.length < 2) return { ok: false as const, message: 'Write a reply.' };
+  const ticket = await (await getDb()).get('SELECT user_id FROM support_tickets WHERE id = ?', ticketId) as { user_id: string } | null;
+  if (!ticket) return { ok: false as const, message: 'Ticket not found.' };
+  await (await getDb()).run('INSERT INTO support_messages (id, ticket_id, author_id, body, created_at) VALUES (?, ?, ?, ?, ?)', nid('msg'), ticketId, operatorId, body, Date.now());
+  if (close) await (await getDb()).run(`UPDATE support_tickets SET status = 'closed' WHERE id = ?`, ticketId);
+  await notifyUser(ticket.user_id, close ? 'Support ticket closed' : 'Reply from Twende', body, '/help');
+  return { ok: true as const };
+}
+
+export async function addRouteFare(ownerId: string, routeRaw: string, amountRaw: string) {
+  const route = cleanText(routeRaw, 80);
+  const amount = parseFare(amountRaw);
+  if (route.length < 3 || amount == null) return { ok: false as const, message: 'Enter a route and a fare.' };
+  try {
+    await (await getDb()).run('INSERT INTO route_fares (id, owner_id, route, amount_ngwee) VALUES (?, ?, ?, ?)', nid('fare'), ownerId, route, amount);
+    return { ok: true as const };
+  } catch (error) {
+    if (isUnique(error)) return { ok: false as const, message: 'That fare is already on the route.' };
+    return asFail(error);
+  }
+}
+
+export async function listRouteFares(ownerId: string) {
+  return (await getDb()).all<{ id: string; route: string; amount_ngwee: number }>('SELECT id, route, amount_ngwee FROM route_fares WHERE owner_id = ? ORDER BY route, amount_ngwee', ownerId);
+}
+
+export async function settleDay(ownerId: string, fleet: string, amountRaw: string) {
+  const amount = parseFare(amountRaw);
+  if (amount == null) return { ok: false as const, message: 'Enter the amount to settle.' };
+  const bus = await busByFleet(fleet);
+  if (!bus || bus.owner_id !== ownerId) return { ok: false as const, message: 'That bus is not in your fleet.' };
+  const ref = `SET-${Date.now().toString(36).toUpperCase()}`;
+  await (await getDb()).run(
+    `INSERT INTO payouts (id, owner_id, amount_ngwee, status, network, destination, provider_ref, created_at)
+     VALUES (?, ?, ?, 'paid', 'settlement', ?, ?, ?)`,
+    nid('pay'), ownerId, amount, `Bus ${fleet}`, ref, Date.now(),
+  );
+  return { ok: true as const, ref };
 }
 
 export async function restoreDemoData() {

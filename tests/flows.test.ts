@@ -225,3 +225,31 @@ test('passenger pay, conductor verify, lost and found, owner totals', async () =
   process.env.DEMO_ROLE_SWITCHER = '0';
   assert.equal((await service.authenticateDemo(IDS.owner)).ok, false);
 });
+
+test('signup, pin, support, fare options, and code expiry', async () => {
+  process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgres://twende:twende@127.0.0.1:5432/twende_test';
+  process.env.PAYMENT_PROVIDER = 'simulated';
+  const service = await import('../lib/service.ts');
+  const { resetDatabase } = await import('../lib/db.ts');
+  const { IDS } = await import('../lib/constants.ts');
+  await resetDatabase();
+  const created = await service.signupPassenger({ name: 'Amina Banda', phone: '0973333444', pin: '4321', network: 'mtn' });
+  assert.equal(created.ok, true);
+  if (!created.ok) return;
+  assert.equal((await service.changePin(created.id, '0000', '1111')).ok, false);
+  assert.equal((await service.changePin(created.id, '4321', '1111')).ok, true);
+  assert.equal((await service.authenticate('0973333444', '1111')).ok, true);
+  const topped = await service.topUp(created.id, 'mtn', '0973333444', '20');
+  assert.equal(topped.ok, true);
+  const paid = await service.payFare(created.id, '12', '5');
+  assert.equal(paid.ok, true);
+  if (!paid.ok) return;
+  const verified = await service.verifyCode(IDS.mwila, paid.code);
+  assert.equal(verified.ok, true);
+  const ticket = await service.openSupport(created.id, 'Card reader', 'The conductor could not see my code.');
+  assert.equal(ticket.ok, true);
+  const fare = await service.addRouteFare(IDS.owner, 'Town to Matero', '7');
+  assert.equal(fare.ok, true);
+  const settled = await service.settleDay(IDS.owner, '12', '10');
+  assert.equal(settled.ok, true);
+});

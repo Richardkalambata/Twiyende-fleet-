@@ -13,7 +13,7 @@ export default async function BusesPage() {
   return (
     <div className="space-y-4 px-4 py-5 md:px-6">
       <h1 className="text-[28px] font-semibold">Buses</h1>
-      <p className="text-sm text-[#5C6B63]">Register a bus by the fleet number painted on the minibus. Demo data.</p>
+      <p className="text-sm text-[#5C6B63]">Buses, plates, routes and default fares are saved for your company. Payments simulated.</p>
       <RegisterBusForm />
       <div className="space-y-3">
         {buses.map((bus) => (

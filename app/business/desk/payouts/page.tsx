@@ -1,5 +1,6 @@
 import { requireUser } from '@/lib/auth';
 import { PayoutForms } from '@/components/owner-forms';
+import { settleAction } from '@/lib/actions';
 import { formatBalance, formatGrouped } from '@/lib/money';
 import { formatPhone } from '@/lib/phone';
 import { formatRideWhen } from '@/lib/time';
@@ -19,6 +20,12 @@ export default async function PayoutsPage() {
         <Stat label="Today" value={formatGrouped(summary.todayNgwee)} />
         <Stat label="Next payout" value={formatGrouped(summary.nextPayoutNgwee)} />
       </div>
+      <form action={settleAction} className="flex flex-wrap gap-2 rounded-2xl bg-white p-4">
+        <h2 className="w-full font-bold">Mark a bus day settled</h2>
+        <input name="fleet" required placeholder="Bus number" aria-label="Bus number" className="h-11 w-32 rounded-xl bg-[#F4F6FB] px-3" />
+        <input name="amount" required placeholder="Amount in K" aria-label="Amount" className="h-11 w-40 rounded-xl bg-[#F4F6FB] px-3" />
+        <button className="h-11 rounded-xl bg-[#1F5BFF] px-4 font-bold text-white">Mark settled</button>
+      </form>
       <PayoutForms phone={summary.payoutPhone ?? user.phone} network={summary.payoutNetwork ?? 'mtn'} today={formatGrouped(summary.todayNgwee)} />
       <section className="rounded-3xl bg-white p-4 shadow-sm">
         <h2 className="font-semibold">History</h2>

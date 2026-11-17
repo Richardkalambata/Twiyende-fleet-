@@ -8,8 +8,6 @@ import type { BusOption } from '@/lib/types';
 import { Bus } from 'lucide-react';
 import { toast } from './toast';
 
-const PRESETS = ['5', '10', '15', '20'] as const;
-
 export function PayForm({ buses, balanceNgwee, onClose }: { buses: BusOption[]; balanceNgwee: number; onClose?: () => void }) {
   const router = useRouter();
   const [fleet, setFleet] = useState('');
@@ -19,6 +17,7 @@ export function PayForm({ buses, balanceNgwee, onClose }: { buses: BusOption[]; 
   const active = buses.filter((bus) => bus.status === 'active');
   const match = useMemo(() => active.find((bus) => bus.fleetNumber === fleet.trim().replace(/^bus\s*/i, '')), [active, fleet]);
   const amount = parseFare(fare) ?? 0;
+  const chips = (match?.fareNgwee && match.fareNgwee.length > 0 ? match.fareNgwee : [match?.defaultFareNgwee ?? 500, 1000, 1500, 2000].filter((value, index, all) => all.indexOf(value) === index)).map((value) => String(value / 100));
   const short = Math.max(0, amount - balanceNgwee);
 
   async function submit() {
@@ -51,7 +50,7 @@ export function PayForm({ buses, balanceNgwee, onClose }: { buses: BusOption[]; 
       ) : null}
       <p className="mt-6 text-[13px] font-semibold">Select fare</p>
       <div className="mt-2 flex gap-2">
-        {PRESETS.map((value) => (
+        {chips.map((value) => (
           <button key={value} type="button" onClick={() => setFare(value)} className={`h-10 flex-1 rounded-lg text-sm font-bold ${fare === value ? 'bg-[#1F5BFF] text-white' : 'bg-white text-[#0B1B3B]'}`}>K{value}</button>
         ))}
       </div>
