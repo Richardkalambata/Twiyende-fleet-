@@ -18,7 +18,7 @@ export default async function OwnerLostPage() {
           <li key={item.id} className="rounded-3xl bg-white px-4 py-3 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <p className="font-semibold">{categoryLabel(item.category)} · Bus {item.fleetNumber}</p>
-              <span className="text-xs font-semibold uppercase tracking-wide text-[#E8833A]">{item.status.replaceAll('_', ' ')}</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-[#C47B12]">{item.status.replaceAll('_', ' ')}</span>
             </div>
             <p className="text-sm text-[#5C6B63]">{item.description}</p>
             <p className="text-xs text-[#8A918C]">{item.passenger ?? 'Found on the bus'} · {item.whenLabel}</p>

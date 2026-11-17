@@ -6,8 +6,8 @@ export function Button({
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'copper' | 'ghost' }) {
   const styles = {
-    primary: 'bg-[#0B5D3B] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_24px_rgba(7,61,39,0.18)]',
-    copper: 'bg-gradient-to-b from-[#F4A15C] to-[#E8833A] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_8px_24px_rgba(232,131,58,0.28)]',
+    primary: 'bg-[#1F5BFF] text-white',
+    copper: 'bg-[#1F5BFF] text-white',
     ghost: 'bg-white text-[#0F1A14] shadow-[inset_0_0_0_1px_rgba(15,26,20,0.08)]',
   }[variant];
   return (
@@ -36,8 +36,8 @@ export function Card({ children, className = '' }: { children: ReactNode; classN
 
 export function Badge({ children, tone = 'green' }: { children: ReactNode; tone?: 'green' | 'copper' | 'muted' }) {
   const styles = {
-    green: 'bg-[#E7F6EE] text-[#0B5D3B]',
-    copper: 'bg-[#FFF1E6] text-[#C2611E]',
+    green: 'bg-[#E8F8EF] text-[#128A4E]',
+    copper: 'bg-[#FFF6E8] text-[#C47B12]',
     muted: 'bg-[#F1EEE8] text-[#6B7570]',
   }[tone];
   return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${styles}`}>{children}</span>;
@@ -58,7 +58,7 @@ export function ListRow({
 }) {
   return (
     <div className="flex items-center gap-3 px-4 py-3">
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#E7F3EC] text-[#0B5D3B]">{icon}</span>
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#EEF3FF] text-[#1F5BFF]">{icon}</span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2 text-[15px] font-semibold">{title}</span>
         <span className="mt-0.5 block truncate text-[13px] text-[#6B7570]">{meta}</span>
@@ -93,16 +93,16 @@ export function StatCard({
   return (
     <article className="rounded-2xl bg-white p-4 shadow-card">
       <div className="flex items-start justify-between gap-3">
-        <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#F6F1E8] text-[#E8833A]">{icon}</span>
+        <span className="grid h-9 w-9 place-items-center rounded-lg text-[#0B1B3B] ring-1 ring-[#D5DCE8]">{icon}</span>
         {spark && spark.length > 1 ? (
           <svg viewBox="0 0 72 24" className="h-6 w-[72px]" aria-hidden>
-            <polyline fill="none" stroke="#1DB972" strokeWidth="1.75" strokeLinejoin="round" strokeLinecap="round" points={points} />
+            <polyline fill="none" stroke="#1F5BFF" strokeWidth="1.75" strokeLinejoin="round" strokeLinecap="round" points={points} />
           </svg>
         ) : null}
       </div>
       <p className="mt-3 text-[13px] text-[#6B7570]">{label}</p>
       <p className="num mt-1 text-[24px] font-semibold tracking-tight text-[#0F1A14]">{value}</p>
-      <p className={`mt-1 text-[13px] ${up ? 'text-[#0B5D3B]' : down ? 'text-[#9A3B1A]' : 'text-[#6B7570]'}`}>{detail}</p>
+      <p className={`mt-1 text-[13px] ${up ? 'text-[#128A4E]' : down ? 'text-[#C53434]' : 'text-[#5C6578]'}`}>{detail}</p>
     </article>
   );
 }
@@ -119,7 +119,7 @@ export function EmptyState({ title, body }: { title: string; body: string }) {
 export function Avatar({ initials, size = 40 }: { initials: string; size?: number }) {
   return (
     <span
-      className="inline-grid shrink-0 place-items-center rounded-full bg-[#0B5D3B] font-semibold text-white ring-2 ring-white/30"
+      className="inline-grid shrink-0 place-items-center rounded-full bg-[#0B1B3B] font-semibold text-white"
       style={{ width: size, height: size, fontSize: size < 36 ? 11 : 13 }}
     >
       {initials.slice(0, 2)}

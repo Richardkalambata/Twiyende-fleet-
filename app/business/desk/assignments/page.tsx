@@ -30,7 +30,7 @@ export default async function AssignmentsPage() {
                 <option key={conductor.id} value={conductor.id}>{conductor.shortName}</option>
               ))}
             </select>
-            <button className="h-12 rounded-full bg-[#0B5D3B] px-4 text-sm font-semibold text-white">Save</button>
+            <button className="h-12 rounded-xl bg-[#1F5BFF] px-4 text-sm font-bold text-white">Save</button>
           </form>
         ))}
       </div>

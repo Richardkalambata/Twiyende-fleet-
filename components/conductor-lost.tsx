@@ -48,7 +48,7 @@ export function ConductorLostBoard({
   return (
     <div className="px-4 pb-6 pt-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-[#E8833A]">Twende Conductor</p>
+        <p className="text-sm font-semibold text-[#1F5BFF]">Twende Conductor</p>
         <button type="button" className="grid h-11 w-11 place-items-center rounded-full bg-white/10" aria-label="Menu" onClick={() => setMenu((value) => !value)}>
           <MenuIcon className="h-5 w-5" />
         </button>
@@ -64,14 +64,14 @@ export function ConductorLostBoard({
         <span className="inline-flex h-9 items-center gap-2 rounded-full bg-white/10 px-3"><BusIcon className="h-4 w-4" /> Bus {fleetNumber ?? '—'}</span>
       </div>
       <h1 className="mt-4 text-[34px] font-semibold tracking-tight">Lost & found</h1>
-      <p className="text-sm text-[#1DB972]">Help keep things moving.</p>
+      <p className="text-sm text-[#128A4E]">Help keep things moving.</p>
 
       {alerts.map((alert) => (
-        <article key={alert.id} className="mt-4 rounded-3xl border border-[#E8833A]/70 bg-[#2A1C12] p-4 shadow-[0_0_30px_rgba(232,131,58,0.18)]">
-          <p className="text-sm font-semibold text-[#E8833A]">New report · {categoryLabel(alert.category)}</p>
+        <article key={alert.id} className="mt-4 rounded-3xl border border-[#1F5BFF]/40 bg-[#EEF3FF] p-4 shadow-[0_0_30px_rgba(232,131,58,0.18)]">
+          <p className="text-sm font-semibold text-[#1F5BFF]">New report · {categoryLabel(alert.category)}</p>
           <p className="mt-1 text-[15px]">{alert.description} · {alert.tripLabel} trip</p>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <button type="button" className="flex h-12 items-center justify-center gap-2 rounded-full bg-[#1DB972] font-semibold text-[#062117]" disabled={pending === alert.id} onClick={() => run(alert.id, () => markFoundAction(alert.id))}>
+            <button type="button" className="flex h-12 items-center justify-center gap-2 rounded-full bg-[#1F5BFF] font-semibold text-[#062117]" disabled={pending === alert.id} onClick={() => run(alert.id, () => markFoundAction(alert.id))}>
               <CheckIcon className="h-4 w-4" /> Found it
             </button>
             <button type="button" className="flex h-12 items-center justify-center gap-2 rounded-full bg-[#1C2622] font-semibold" disabled={pending === `${alert.id}-no`} onClick={() => run(`${alert.id}-no`, () => markNotFoundAction(alert.id))}>
@@ -97,7 +97,7 @@ export function ConductorLostBoard({
         </label>
         <div className="grid grid-cols-2 gap-2">
           {CONDUCTOR_CATEGORIES.map((id) => (
-            <button key={id} type="button" onClick={() => setCategory(id)} className={`flex h-12 items-center gap-2 rounded-xl px-2 text-left text-xs ${category === id ? 'bg-[#1DB972] text-[#062117]' : 'bg-[#1C2622]'}`}>
+            <button key={id} type="button" onClick={() => setCategory(id)} className={`flex h-12 items-center gap-2 rounded-xl px-2 text-left text-xs ${category === id ? 'bg-[#1F5BFF] text-[#062117]' : 'bg-[#1C2622]'}`}>
               <CategoryIcon id={id} className="h-4 w-4" /> {categoryLabel(id)}
             </button>
           ))}
@@ -121,12 +121,12 @@ export function ConductorLostBoard({
         {items.length === 0 ? <li className="text-sm text-[#8B978F]">Nothing logged yet.</li> : null}
         {items.map((item) => (
           <li key={item.id} className="flex min-h-16 items-center gap-3 rounded-2xl bg-[#1A221E] px-3">
-            <span className="grid h-10 w-10 place-items-center rounded-full bg-[#E8833A]/15 text-[#E8833A]"><CategoryIcon id={item.category} className="h-5 w-5" /></span>
+            <span className="grid h-10 w-10 place-items-center rounded-full bg-[#EEF3FF] text-[#1F5BFF]"><CategoryIcon id={item.category} className="h-5 w-5" /></span>
             <span className="min-w-0 flex-1">
               <span className="block font-semibold">{categoryLabel(item.category)}</span>
               <span className="block truncate text-xs text-[#8B978F]">{item.meta}</span>
             </span>
-            <span className="text-xs text-[#E8833A]">{item.status === 'pickup_pending' ? 'Pickup pending' : item.status === 'waiting' ? 'Waiting' : 'Closed'}</span>
+            <span className="text-xs text-[#1F5BFF]">{item.status === 'pickup_pending' ? 'Pickup pending' : item.status === 'waiting' ? 'Waiting' : 'Closed'}</span>
           </li>
         ))}
       </ul>
@@ -135,10 +135,10 @@ export function ConductorLostBoard({
         <label className="text-sm font-medium" htmlFor="pickup-code">Passenger is here? Enter pickup code</label>
         <div className="mt-2 flex gap-2">
           <input id="pickup-code" value={pickup} onChange={(event) => setPickup(event.target.value.toUpperCase())} maxLength={4} className="h-14 min-w-0 flex-1 rounded-2xl bg-[#111614] px-4 tracking-[0.2em] outline-none" />
-          <button type="submit" className="h-14 rounded-full bg-[#1DB972] px-4 font-semibold text-[#062117]" disabled={pending === 'pickup'}>Close</button>
+          <button type="submit" className="h-14 rounded-full bg-[#1F5BFF] px-4 font-semibold text-[#062117]" disabled={pending === 'pickup'}>Close</button>
         </div>
       </form>
-      {message ? <p className="mt-3 text-sm text-[#1DB972]" role="status">{message}</p> : null}
+      {message ? <p className="mt-3 text-sm text-[#128A4E]" role="status">{message}</p> : null}
       {error ? <p className="mt-3 text-sm text-[#FFB089]" role="alert">{error}</p> : null}
     </div>
   );

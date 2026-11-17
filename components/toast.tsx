@@ -31,7 +31,7 @@ export function Toaster() {
   const error = item.tone === 'error';
   return (
     <div className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4" role="status">
-      <p className={`pointer-events-auto max-w-sm rounded-full px-4 py-3 text-sm font-medium shadow-[0_12px_40px_rgba(15,26,20,0.18)] ${error ? 'bg-[#3A2418] text-[#FFD7BF]' : 'bg-[#0B5D3B] text-white'}`}>
+      <p className={`pointer-events-auto max-w-sm rounded-full px-4 py-3 text-sm font-medium shadow-[0_12px_40px_rgba(15,26,20,0.18)] ${error ? 'bg-[#3A2418] text-[#FFD7BF]' : 'bg-[#1F5BFF] text-white'}`}>
         {item.message}
       </p>
     </div>

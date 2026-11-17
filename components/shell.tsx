@@ -33,16 +33,16 @@ export function buttonClass(variant: 'copper' | 'green' | 'mint' | 'outline' | '
 }
 
 export function Logo({ tone = 'dark', business = false }: { tone?: 'dark' | 'light'; business?: boolean }) {
-  const ink = tone === 'light' ? '#FFFFFF' : '#0B1B3B';
+  const word = tone === 'light' ? '#FFFFFF' : '#0B1B3B';
   return (
     <span className="inline-flex items-center gap-2">
-      <svg width="22" height="16" viewBox="0 0 22 16" aria-hidden>
-        <path d="M3 0h4.2L3.2 16H-1L3 0z" fill="#1F5BFF" />
-        <path d="M10 0h4.2L10.2 16H6L10 0z" fill={ink} />
+      <svg width="20" height="16" viewBox="0 0 20 16" aria-hidden>
+        <path d="M1 0h5.2L2.4 16H-2.8L1 0z" fill="#8FB0FF" />
+        <path d="M8.2 0h5.2L9.6 16H4.4L8.2 0z" fill="#1F5BFF" />
       </svg>
       <span className="leading-none">
-        <span className="block text-[18px] font-extrabold lowercase tracking-[-0.05em]" style={{ color: ink }}>twende</span>
-        {business ? <span className={`block text-[10px] font-semibold ${tone === 'light' ? 'text-white/70' : 'text-[#5C6578]'}`}>Fleet Business</span> : null}
+        <span className="block text-[18px] font-extrabold lowercase leading-none tracking-[-0.05em]" style={{ color: word }}>twende</span>
+        {business ? <span className={`mt-0.5 block text-[10px] font-semibold leading-none ${tone === 'light' ? 'text-white/75' : 'text-[#5C6578]'}`}>Fleet Business</span> : null}
       </span>
     </span>
   );

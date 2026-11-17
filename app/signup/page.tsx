@@ -26,7 +26,7 @@ export default function SignupPage() {
         {state ? <p className="text-sm text-[#9A3B1A]" role="alert">{state.message}</p> : null}
         <button className={buttonClass('green')} disabled={pending}>{pending ? 'Creating…' : 'Create account'}</button>
       </form>
-      <Link href="/login" className="mt-4 text-center text-sm text-[#0B5D3B]">I already have an account</Link>
+      <Link href="/login" className="mt-4 text-center text-sm font-semibold text-[#1F5BFF]">I already have an account</Link>
     </main>
   );
 }

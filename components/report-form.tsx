@@ -53,10 +53,10 @@ export function ReportForm({ trips }: { trips: RideCard[] }) {
   return (
     <div className="space-y-5 px-4 pb-8">
       <button type="button" className="flex min-h-[72px] w-full items-center gap-3 rounded-3xl bg-white px-3 text-left shadow-sm" onClick={() => setOpenTrips(true)}>
-        <span className="grid h-14 w-14 place-items-center rounded-full bg-[#0B5D3B] text-white"><BusIcon /></span>
+        <span className="grid h-14 w-14 place-items-center rounded-full bg-[#1F5BFF] text-white"><BusIcon /></span>
         <span className="min-w-0 flex-1">
           <span className="block font-semibold">Bus {trip.fleetNumber}, {trip.route}</span>
-          <span className="block text-sm text-[#E8833A]">{trip.whenLabel.replace(', ', ' ')}</span>
+          <span className="block text-sm text-[#1F5BFF]">{trip.whenLabel.replace(', ', ' ')}</span>
           <span className="block text-sm font-semibold">{formatCompact(trip.amountNgwee)}</span>
         </span>
         <span className="pr-2 text-[#8A918C]">›</span>
@@ -71,7 +71,7 @@ export function ReportForm({ trips }: { trips: RideCard[] }) {
                 key={id}
                 type="button"
                 onClick={() => setCategory(id)}
-                className={`flex h-16 flex-col items-center justify-center gap-1 rounded-2xl border text-xs font-medium ${selected ? 'border-[#E8833A] bg-[#FFF4EC] text-[#C2611E]' : 'border-[#E8E2D8] bg-white text-[#5C6B63]'}`}
+                className={`flex h-16 flex-col items-center justify-center gap-1 rounded-2xl border text-xs font-medium ${selected ? 'border-[#1F5BFF] bg-[#EEF3FF] text-[#1F5BFF]' : 'border-[#E8E2D8] bg-white text-[#5C6B63]'}`}
               >
                 <CategoryIcon id={id} className="h-5 w-5" />
                 {categoryLabel(id)}
@@ -91,14 +91,14 @@ export function ReportForm({ trips }: { trips: RideCard[] }) {
           placeholder="Black Samsung phone, blue case"
           className="h-12 min-w-0 flex-1 bg-transparent outline-none"
         />
-        <PencilIcon className="h-5 w-5 text-[#E8833A]" />
+        <PencilIcon className="h-5 w-5 text-[#1F5BFF]" />
       </label>
       <label className="block rounded-3xl border border-dashed border-[#E7B089] bg-[#FFF8F3] px-4 py-5 text-center">
         {photo ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={photo} alt="Lost item" className="mx-auto mb-3 h-28 rounded-xl object-cover" />
-        ) : <CameraIcon className="mx-auto h-7 w-7 text-[#E8833A]" />}
-        <span className="mt-2 block font-semibold text-[#E8833A]">Add photo (optional)</span>
+        ) : <CameraIcon className="mx-auto h-7 w-7 text-[#1F5BFF]" />}
+        <span className="mt-2 block font-semibold text-[#1F5BFF]">Add photo (optional)</span>
         <span className="mt-1 block text-sm text-[#8A5A3A]">Helps the conductor spot it faster</span>
         <input type="file" accept="image/*" className="sr-only" onChange={(event) => onPhoto(event.target.files?.[0])} />
       </label>
@@ -107,7 +107,7 @@ export function ReportForm({ trips }: { trips: RideCard[] }) {
         <span className="toggle" data-on={notify}><i /></span>
       </button>
       <p className="flex items-start gap-2 text-sm text-[#3E5348]">
-        <ShieldIcon className="mt-0.5 h-5 w-5 text-[#0B5D3B]" />
+        <ShieldIcon className="mt-0.5 h-5 w-5 text-[#1F5BFF]" />
         We’ll alert the conductor and owner of Bus {trip.fleetNumber}
       </p>
       {error ? <p className="text-sm text-[#9A3B1A]" role="alert">{error}</p> : null}
@@ -123,7 +123,7 @@ export function ReportForm({ trips }: { trips: RideCard[] }) {
                 <button
                   key={item.id}
                   type="button"
-                  className="flex min-h-14 w-full items-center justify-between rounded-2xl bg-[#F7F5F0] px-4 text-left"
+                  className="flex min-h-14 w-full items-center justify-between rounded-2xl bg-[#F4F6FB] px-4 text-left"
                   onClick={() => {
                     setRideId(item.id);
                     setOpenTrips(false);

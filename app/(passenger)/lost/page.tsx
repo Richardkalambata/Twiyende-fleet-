@@ -23,7 +23,7 @@ export default async function LostPage() {
       <h1 className="text-[32px] font-semibold tracking-[-0.02em]">Lost & found</h1>
       <p className="text-sm text-[#5C6B63]">Report something from a trip you already paid for.</p>
       {found ? (
-        <Link href={`/lost/${found.id}`} className="mt-4 block rounded-3xl bg-[#0B5D3B] p-4 text-white">
+        <Link href={`/lost/${found.id}`} className="mt-4 block rounded-3xl bg-[#1F5BFF] p-4 text-white">
           <p className="text-sm text-white/80">Good news</p>
           <p className="text-xl font-semibold">Your {found.category} was found</p>
           <p className="text-sm text-white/80">Bus {found.fleetNumber} · open the pickup code</p>

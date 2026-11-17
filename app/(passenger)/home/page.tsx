@@ -7,7 +7,7 @@ export default async function HomePage() {
   const home = await getPassengerHome(user.id);
   return (
     <HomeApp
-      name={home.user.shortName}
+      name={home.user.name}
       initials={home.user.initials}
       balanceNgwee={home.balanceNgwee}
       rides={home.rides}

@@ -50,7 +50,7 @@ export function BusControls({ bus, conductors }: { bus: BusPerformance; conducto
           <option value="">Unassigned</option>
           {conductors.map((conductor) => <option key={conductor.id} value={conductor.id}>{conductor.shortName}</option>)}
         </select>
-        <button className="h-10 rounded-full bg-[#0B5D3B] px-3 text-sm font-semibold text-white">Assign</button>
+        <button className="h-10 rounded-xl bg-[#1F5BFF] px-3 text-sm font-bold text-white">Assign</button>
       </form>
     </div>
   );
@@ -78,7 +78,7 @@ export function PayoutForms({ phone, network, today }: { phone: string; network:
         <p className="mt-1 text-sm text-[#5C6B63]">Simulated. Today’s takings are {today}. No Twende fee is deducted yet.</p>
         <input name="amount" defaultValue={today.replace(/[^\d.]/g, '')} aria-label="Amount in kwacha" className="mt-3 h-14 w-full rounded-2xl border border-[#E8E2D8] px-4" />
         <button className={`${buttonClass('copper')} mt-3`} disabled={paying}>{paying ? 'Sending…' : 'Pay out'}</button>
-        {paid && 'message' in paid ? <p className={`mt-2 text-sm ${paid.ok ? 'text-[#0B5D3B]' : 'text-[#9A3B1A]'}`}>{paid.message}</p> : null}
+        {paid && 'message' in paid ? <p className={`mt-2 text-sm ${paid.ok ? 'text-[#1F5BFF]' : 'text-[#9A3B1A]'}`}>{paid.message}</p> : null}
       </form>
     </div>
   );
@@ -106,9 +106,9 @@ export function PickupClose() {
       <p className="mt-1 text-sm text-[#5C6B63]">Ask the passenger for the code on their phone. It is not shown here.</p>
       <div className="mt-3 flex gap-2">
         <input value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} maxLength={4} aria-label="Pickup code" className="h-14 min-w-0 flex-1 rounded-2xl border border-[#E8E2D8] px-4 tracking-[0.2em]" />
-        <button className="h-14 rounded-full bg-[#0B5D3B] px-5 font-semibold text-white" disabled={pending}>{pending ? '…' : 'Close'}</button>
+        <button className="h-12 rounded-xl bg-[#1F5BFF] px-5 font-bold text-white" disabled={pending}>{pending ? '…' : 'Close'}</button>
       </div>
-      {message ? <p className="mt-2 text-sm text-[#0B5D3B]">{message}</p> : null}
+      {message ? <p className="mt-2 text-sm text-[#1F5BFF]">{message}</p> : null}
       {error ? <p className="mt-2 text-sm text-[#9A3B1A]">{error}</p> : null}
     </form>
   );

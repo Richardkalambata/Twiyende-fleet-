@@ -44,7 +44,7 @@ export function CancelFare({ rideId }: { rideId: string }) {
     router.refresh();
   }
 
-  if (balance != null) return <p className="text-center text-sm text-[#0B5D3B]">Fare cancelled. Balance {formatBalance(balance)}.</p>;
+  if (balance != null) return <p className="text-center text-sm text-[#1F5BFF]">Fare cancelled. Balance {formatBalance(balance)}.</p>;
   return (
     <div>
       <button type="button" className="h-12 w-full text-sm font-semibold text-[#9A3B1A]" disabled={pending} onClick={cancel}>

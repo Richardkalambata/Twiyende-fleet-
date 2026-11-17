@@ -19,7 +19,7 @@ export default async function TripsPage() {
               <span className="block font-semibold">{trip.passenger}</span>
               <span className="text-xs tracking-[0.14em] text-[#8B978F]">{trip.code} · {trip.timeLabel}</span>
             </span>
-            <span className="font-semibold text-[#1DB972]">{formatBalance(trip.amountNgwee)}</span>
+            <span className="font-semibold text-[#128A4E]">{formatBalance(trip.amountNgwee)}</span>
           </li>
         ))}
       </ul>

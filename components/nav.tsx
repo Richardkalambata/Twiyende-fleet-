@@ -7,7 +7,7 @@ import { BusIcon, HomeIcon, LostIcon, RidesIcon, ShieldIcon, UserIcon } from './
 
 function Item({ href, label, active, children }: { href: string; label: string; active: boolean; dark?: boolean; children: ReactNode }) {
   return (
-    <Link href={href} className={`flex h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[10px] font-semibold ${active ? 'bg-white text-[#0B1B3B]' : 'text-white/70'}`}>
+    <Link href={href} className={`flex h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[12px] font-semibold ${active ? 'bg-white text-[#0B1B3B]' : 'text-white/70'}`}>
       {children}
       <span>{label}</span>
     </Link>

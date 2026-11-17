@@ -21,7 +21,7 @@ export function DemoSwitch({ accounts, currentId, gate = 'passenger' }: { accoun
                 <span className="block font-semibold">{account.shortName}</span>
                 <span className="block text-xs capitalize text-[#5C6B63]">{account.role} · {account.detail}</span>
               </span>
-              <span className="text-sm text-[#0B5D3B]">{account.id === currentId ? 'Signed in' : 'Switch'}</span>
+              <span className="text-sm text-[#1F5BFF]">{account.id === currentId ? 'Signed in' : 'Switch'}</span>
             </button>
           </form>
         ))}

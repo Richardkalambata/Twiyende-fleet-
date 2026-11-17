@@ -23,7 +23,7 @@ export default async function ProfilePage() {
           <p className="text-sm text-[#5C6B63]">{formatPhone(user.phone)} · Passenger</p>
         </div>
       </div>
-      <section className="rounded-3xl bg-[#0B5D3B] p-5 text-white">
+      <section className="rounded-3xl bg-[#1F5BFF] p-5 text-white">
         <p className="text-sm text-white/75">Wallet</p>
         <p className="text-4xl font-semibold">{formatBalance(home.balanceNgwee)}</p>
         <Link href="/topup" className={`${buttonClass('copper')} mt-4`}>Top up</Link>
@@ -37,7 +37,7 @@ export default async function ProfilePage() {
                 <span className="block font-medium capitalize">{item.type}</span>
                 <span className="text-[#6A756E]">{item.note} · {formatRideWhen(item.createdAt)}</span>
               </span>
-              <span className={item.amountNgwee < 0 ? 'text-[#9A3B1A]' : 'text-[#0B5D3B]'}>{formatCompact(item.amountNgwee)}</span>
+              <span className={item.amountNgwee < 0 ? 'text-[#9A3B1A]' : 'text-[#1F5BFF]'}>{formatCompact(item.amountNgwee)}</span>
             </li>
           ))}
         </ul>

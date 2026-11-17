@@ -24,7 +24,7 @@ export default async function ConductorProfilePage() {
       <section className="grid grid-cols-2 gap-2">
         <div className="rounded-3xl bg-[#1A221E] p-4">
           <p className="text-xs text-[#8B978F]">Today</p>
-          <p className="text-2xl font-semibold text-[#1DB972]">{formatGrouped(home.todayNgwee)}</p>
+          <p className="text-2xl font-semibold text-[#128A4E]">{formatGrouped(home.todayNgwee)}</p>
           <p className="text-sm text-[#B7C2BA]">{home.todayRides} rides</p>
         </div>
         <div className="rounded-3xl bg-[#1A221E] p-4">

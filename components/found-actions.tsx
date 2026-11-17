@@ -52,13 +52,13 @@ export function FoundActions({
               type="button"
               disabled={tip > 0 || pending != null}
               onClick={() => send(amount)}
-              className={`h-12 rounded-full border font-semibold ${tip === amount ? 'border-[#0B5D3B] bg-[#0B5D3B] text-white' : 'border-[#E4DDD2] bg-white'}`}
+              className={`h-12 rounded-full border font-semibold ${tip === amount ? 'border-[#1F5BFF] bg-[#1F5BFF] text-white' : 'border-[#E4DDD2] bg-white'}`}
             >
               {pending === amount ? '…' : formatCompact(amount)}
             </button>
           ))}
         </div>
-        {tip > 0 ? <p className="mt-2 text-sm text-[#0B5D3B]">Thanks sent · {formatCompact(tip)}</p> : null}
+        {tip > 0 ? <p className="mt-2 text-sm text-[#1F5BFF]">Thanks sent · {formatCompact(tip)}</p> : null}
         {error ? <p className="mt-2 text-sm text-[#9A3B1A]" role="alert">{error}</p> : null}
       </div>
       <a className={buttonClass('green')} href={maps} target="_blank" rel="noreferrer">Get directions</a>

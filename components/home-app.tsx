@@ -22,15 +22,16 @@ export function HomeApp({
   buses: BusOption[];
 }) {
   const [paying, setPaying] = useState(false);
+  const letters = name.split(/\s+/).filter(Boolean).map((part) => part[0]).slice(0, 2).join('').toUpperCase() || initials;
   if (paying) return <PayForm buses={buses} balanceNgwee={balanceNgwee} onClose={() => setPaying(false)} />;
   return (
     <div className="px-5 pb-4 text-[#0B1B3B]">
       <header className="safe-top flex items-center justify-between">
         <Logo />
-        <Avatar initials={initials} size={36} />
+        <Avatar initials={letters} size={36} />
       </header>
       <p className="mt-5 text-[15px] text-[#5C6578]">Good morning,</p>
-      <h1 className="text-[32px] font-extrabold leading-none tracking-[-0.04em]">{name}</h1>
+      <h1 className="text-[32px] font-extrabold leading-none tracking-[-0.04em]">{name.split(' ')[0]}</h1>
       <section className="mt-4 rounded-2xl bg-[#0B1B3B] p-4 text-white">
         <p className="text-[12px] text-white/70">Available balance</p>
         <p className="mt-1 text-[36px] font-extrabold tracking-[-0.04em]">{formatBalance(balanceNgwee)}</p>
