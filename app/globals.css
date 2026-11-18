@@ -339,6 +339,23 @@ input:-webkit-autofill {
 
 .float-card { animation: float-card 5s ease-in-out infinite; }
 
+.status-wait,
+.status-ok { animation-duration: 5s; animation-iteration-count: infinite; animation-timing-function: ease-in-out; }
+.status-wait { animation-name: status-wait; }
+.status-ok { animation-name: status-ok; }
+
+@keyframes status-wait {
+  0%, 40% { opacity: 1; }
+  52%, 90% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes status-ok {
+  0%, 40% { opacity: 0; }
+  52%, 90% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 @keyframes float-card {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-8px); }
@@ -348,5 +365,8 @@ input:-webkit-autofill {
   .land-wait { opacity: 1; transform: none; }
   .land-in,
   .hero-enter,
-  .float-card { animation: none; }
+  .float-card,
+  .status-wait,
+  .status-ok { animation: none; }
+  .status-ok { opacity: 0; }
 }

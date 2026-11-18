@@ -20,14 +20,14 @@ const FAQ = [
 export function Onboarding() {
   return (
     <div className="bg-[#F4F6FB] text-[#0B1B3B]">
-      <section className="hero-stage relative overflow-x-hidden text-white">
+      <section className="hero-stage relative min-h-0 overflow-x-hidden text-white md:min-h-[720px]">
         <div className="hero-grid pointer-events-none absolute inset-0" />
         <div className="hero-grain pointer-events-none absolute inset-0" />
         <SiteHeader />
-        <div className="relative mx-auto grid max-w-[1200px] items-center gap-4 px-5 pb-10 pt-20 md:grid-cols-2 md:gap-8 md:px-8 md:pb-24 md:pt-32">
+        <div className="relative mx-auto grid max-w-[1200px] items-center gap-2 px-5 pb-4 pt-20 md:min-h-[720px] md:grid-cols-2 md:gap-8 md:px-8 md:pb-12 md:pt-28">
           <div>
             <p className="hero-enter text-[12px] font-bold tracking-[0.16em] text-[#8FB0FF]">CASHLESS MINIBUS FARES</p>
-            <h1 className="hero-enter mt-3 max-w-[16ch] text-[34px] font-extrabold leading-[1.02] tracking-[-0.045em] md:max-w-[14ch] md:text-[64px]" style={{ animationDelay: '80ms' }}>
+            <h1 className="hero-enter mt-3 max-w-[16ch] text-[34px] font-extrabold leading-[1.02] tracking-[-0.045em] md:max-w-[12ch] md:text-[72px]" style={{ animationDelay: '80ms' }}>
               Pay your bus fare <span className="text-[#1F5BFF]">in seconds.</span>
             </h1>
             <p className="hero-enter mt-4 max-w-md text-[16px] leading-6 text-[#D5DCEC] md:text-[18px]" style={{ animationDelay: '160ms' }}>
