@@ -25,11 +25,11 @@ export function Onboarding() {
     <div className="bg-[#F7F8FB] text-[#0B1B3B]">
       <section className="relative h-[100svh] min-h-[640px] overflow-hidden text-white md:h-[88vh]">
         <Image
-          src="/brand/campaign-rider.webp"
+          src="/brand/campaign-rider.jpg"
           alt="A woman laughing at her phone beside a Lusaka minibus"
           fill
           priority
-          quality={90}
+          quality={85}
           placeholder="blur"
           blurDataURL={blur['campaign-rider']}
           sizes="100vw"
@@ -58,7 +58,7 @@ export function Onboarding() {
 
       <section className="mx-auto grid max-w-[1200px] items-center gap-10 px-5 py-16 md:grid-cols-12 md:gap-16 md:px-8 md:py-28">
         <Reveal className="md:col-span-6">
-          <Still src="/brand/moment-ride.webp" blur={blur['moment-ride']} alt="A mother and child looking at a phone on a minibus" />
+          <Still src="/brand/moment-ride.jpg" blur={blur['moment-ride']} alt="A mother and child looking at a phone on a minibus" />
         </Reveal>
         <Reveal delay={80} className="md:col-span-6">
           <p className="text-[12px] font-bold tracking-[0.16em] text-[#1F5BFF]">ON BOARD</p>
@@ -87,7 +87,7 @@ export function Onboarding() {
 
       <section className="mx-auto grid max-w-[1200px] items-center gap-10 px-5 py-16 md:grid-cols-12 md:gap-16 md:px-8 md:py-28">
         <Reveal className="md:order-2 md:col-span-6">
-          <Still src="/brand/moment-verify.webp" blur={blur['moment-verify']} alt="A passenger showing his phone to a smiling conductor" />
+          <Still src="/brand/moment-verify.jpg" blur={blur['moment-verify']} alt="A passenger showing his phone to a smiling conductor" />
         </Reveal>
         <Reveal delay={80} className="md:order-1 md:col-span-6">
           <p className="text-[12px] font-bold tracking-[0.16em] text-[#1F5BFF]">THE CONDUCTOR</p>
@@ -124,7 +124,7 @@ export function Onboarding() {
       </section>
 
       <section className="relative overflow-hidden text-white">
-        <Image src="/brand/campaign-rider.webp" alt="" fill className="object-cover object-[70%_center]" sizes="100vw" />
+        <Image src="/brand/campaign-rider.jpg" alt="" fill quality={85} className="object-cover object-[70%_center]" sizes="100vw" />
         <div className="absolute inset-0 bg-[#071230]/78" />
         <div className="relative mx-auto flex max-w-[1200px] flex-col items-start gap-5 px-5 py-24 md:px-8 md:py-32">
           <h2 className="max-w-xl text-[40px] font-extrabold leading-[1.05] tracking-[-0.04em] md:text-[56px]">Your next ride starts here.</h2>
