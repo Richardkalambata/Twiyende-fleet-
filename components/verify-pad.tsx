@@ -78,7 +78,7 @@ export function VerifyPad({
 
   if (paid) {
     return (
-      <div className="flex min-h-full flex-col px-5 pb-6 pt-4 text-[#0B1B3B]">
+      <div className="flex h-full min-h-full flex-col bg-[#F4F6FB] px-5 pb-6 pt-4 text-[#0B1B3B]">
         <div className="rounded-2xl bg-[#0B1B3B] px-4 py-3 text-white">
           <p className="text-[11px] font-bold tracking-[0.14em] text-white/60">TODAY&apos;S BUS</p>
           <p className="num text-[44px] font-extrabold leading-none">{fleetNumber}</p>
@@ -104,7 +104,7 @@ export function VerifyPad({
 
   if (wrongBus || used) {
     return (
-      <div className="flex min-h-full flex-col px-5 pb-6 pt-4 text-[#0B1B3B]">
+      <div className="flex h-full min-h-full flex-col bg-[#F4F6FB] px-5 pb-6 pt-4 text-[#0B1B3B]">
         <div className="flex items-center justify-between">
           <h1 className="text-[22px] font-extrabold">Hello, {name}</h1>
           <span className="rounded-full bg-[#E8F8EF] px-2 py-1 text-[12px] font-bold text-[#128A4E]">On shift</span>

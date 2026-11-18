@@ -1,10 +1,10 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { Bus, QrCode, Wallet } from 'lucide-react';
 import { blur } from '@/components/marketing/blur';
+import { Phone } from '@/components/marketing/devices';
 import { jakarta } from '@/components/marketing/font';
 import { SiteFooter, SiteHeader } from '@/components/marketing/chrome';
-import { Still, StepRail } from '@/components/marketing/motion';
+import { Still } from '@/components/marketing/motion';
 import { Faq, Reveal, StickyBar } from '@/components/marketing/ui';
 
 const FAQ = [
@@ -16,9 +16,9 @@ const FAQ = [
 ];
 
 const STEPS = [
-  { icon: Wallet, title: 'Top up', body: 'Add money to your Twende wallet and choose MTN, Airtel, or Zamtel.' },
-  { icon: Bus, title: 'Enter the bus number', body: 'Type the number on the bus and pick the fare for that route.' },
-  { icon: QrCode, title: 'Show the code', body: 'One code. The conductor verifies it once, on that bus.' },
+  { src: '/mockups/screen-home.png', alt: 'Twende home with the rider wallet balance', title: 'Top up', body: 'Add money to your Twende wallet and choose MTN, Airtel, or Zamtel.' },
+  { src: '/mockups/screen-pay.png', alt: 'Pay a fare by entering bus 12', title: 'Enter the bus number', body: 'Type the number on the bus and pick the fare for that route.' },
+  { src: '/mockups/screen-ticket.png', alt: 'A live ride ticket with the code MWVP', title: 'Show the code', body: 'One code. The conductor verifies it once, on that bus.' },
 ];
 
 export function Onboarding() {
@@ -71,18 +71,18 @@ export function Onboarding() {
       <section className="bg-white">
         <div className="mx-auto max-w-[1200px] px-5 py-20 md:px-8 md:py-32">
           <Reveal><h2 className="text-[32px] md:text-[48px]">How it works</h2></Reveal>
-          <StepRail>
-            <ol className="relative mt-10 grid gap-8 md:grid-cols-3">
-              {STEPS.map((step, index) => (
-                <li key={step.title} className="relative">
-                  <span className="relative z-10 grid h-14 w-14 place-items-center rounded-2xl bg-[#E7EEFF] text-[#1F5BFF]"><step.icon className="h-6 w-6" /></span>
-                  <p className="mt-4 text-[13px] font-bold tracking-[0.14em] text-[#1F5BFF]">0{index + 1}</p>
-                  <h3 className="mt-2 text-[22px]">{step.title}</h3>
-                  <p className="mt-2 max-w-[36ch] text-[16px] leading-[1.6] text-[#3E4A63]">{step.body}</p>
-                </li>
-              ))}
-            </ol>
-          </StepRail>
+          <ol className="mt-12 grid items-start gap-14 md:grid-cols-3 md:gap-8">
+            {STEPS.map((step, index) => (
+              <li key={step.title} className="flex flex-col items-center md:items-start">
+                <Reveal delay={index * 80} className="flex flex-col items-center md:items-start">
+                  <Phone src={step.src} alt={step.alt} className="w-[230px]" />
+                  <p className="mt-6 text-[13px] font-bold tracking-[0.14em] text-[#1F5BFF]">0{index + 1}</p>
+                  <h3 className="mt-2 text-center text-[22px] md:text-left">{step.title}</h3>
+                  <p className="mt-2 max-w-[32ch] text-center text-[16px] leading-[1.6] text-[#3E4A63] md:text-left">{step.body}</p>
+                </Reveal>
+              </li>
+            ))}
+          </ol>
         </div>
       </section>
 
