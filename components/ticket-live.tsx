@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Check } from 'lucide-react';
 
-export function TicketWatch({ id, initial }: { id: string; initial: string }) {
+export function TicketWatch({ id, initial, code }: { id: string; initial: string; code: string }) {
   const [status, setStatus] = useState(initial);
   useEffect(() => {
     if (status !== 'pending') return;
@@ -10,23 +11,38 @@ export function TicketWatch({ id, initial }: { id: string; initial: string }) {
       const response = await fetch(`/api/rides/${id}`);
       if (!response.ok) return;
       const body = await response.json() as { status?: string };
-      if (body.status) setStatus(body.status);
+      if (body.status && body.status !== 'pending') setStatus(body.status);
     }, 4000);
     return () => clearInterval(timer);
   }, [id, status]);
-  if (status === 'verified') return <p className="mt-3 text-[14px] font-bold text-[#128A4E]">Verified by conductor</p>;
-  if (status === 'void') return <p className="mt-3 text-[14px] font-bold text-[#8A93A6]">Cancelled</p>;
+  const verified = status === 'verified';
   return (
-    <p className="mt-3 inline-flex items-center gap-2 text-[14px] font-bold text-[#C47B12]">
-      <span className="pulse-dot inline-block h-2 w-2 rounded-full bg-[#E8833A]" />
-      Awaiting verification
-    </p>
+    <div className="text-center">
+      <div className={`relative mx-auto inline-block ${verified ? 'code-ok' : status === 'pending' ? 'code-wait glow-code' : ''}`}>
+        <span className="code-ring" aria-hidden />
+        <p className="num relative rounded-2xl bg-white px-3 py-1 text-[48px] font-extrabold tracking-[0.12em] text-[#0B1B3B]">{code}</p>
+      </div>
+      <p className="mt-2 text-[13px] font-semibold text-[#3E4A63]">Show this code to your conductor</p>
+      {verified ? (
+        <p className="check-pop mt-3 inline-flex items-center gap-1 text-[14px] font-bold text-[#0E7A45]">
+          <Check className="h-4 w-4" strokeWidth={2.5} />
+          Verified by conductor
+        </p>
+      ) : status === 'void' ? (
+        <p className="mt-3 text-[14px] font-bold text-[#3E4A63]">Cancelled</p>
+      ) : (
+        <p className="mt-3 inline-flex items-center gap-2 text-[14px] font-bold text-[#9A5B00]">
+          <span className="pulse-dot inline-block h-2 w-2 rounded-full bg-[#E8833A]" />
+          Awaiting verification
+        </p>
+      )}
+    </div>
   );
 }
 
 export function PrintButton() {
   return (
-    <button type="button" onClick={() => window.print()} className="mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-[#1F5BFF] font-bold text-white">
+    <button type="button" onClick={() => window.print()} className="press mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-[#1F5BFF] font-bold text-white">
       Download receipt
     </button>
   );

@@ -120,48 +120,46 @@ export function VerifyPad({
   }
 
   return (
-    <div className="flex min-h-full flex-col px-5 pb-4 pt-4 text-[#0B1B3B]">
+    <div className="flex min-h-[calc(100dvh-7.5rem)] flex-col bg-[#071433] px-5 pb-4 pt-4 text-white">
       <div className="flex items-center justify-between">
-        <Logo business />
-        <span className="rounded-full bg-[#E8F8EF] px-2 py-1 text-[12px] font-bold text-[#128A4E]">On shift</span>
+        <Logo tone="light" business />
+        <span className="rounded-full bg-[#128A4E] px-2 py-1 text-[12px] font-bold text-white">On shift</span>
       </div>
       <h1 className="mt-5 text-[28px] font-extrabold tracking-[-0.03em]">Hello, {name}</h1>
-      <div className="mt-3 rounded-2xl bg-[#0B1B3B] px-4 py-3 text-white">
-        <p className="text-[11px] tracking-[0.12em] text-white/60">TODAY&apos;S BUS</p>
+      <div className="mt-3 rounded-2xl bg-[#0B1B3B] px-4 py-3">
+        <p className="text-[11px] font-bold tracking-[0.12em] text-[#D5DCEC]">TODAY&apos;S BUS</p>
         <div className="flex items-end justify-between">
-          <p className="text-[40px] font-extrabold leading-none">{fleetNumber}</p>
-          <p className="text-right text-[13px] text-white/70">{route}<br />{formatGrouped(amount)} · {rides} rides</p>
+          <p className="num text-[40px] font-extrabold leading-none text-white">{fleetNumber}</p>
+          <p className="text-right text-[13px] font-semibold text-[#D5DCEC]">{route}<br />{formatGrouped(amount)} · {rides} rides</p>
         </div>
       </div>
       <h2 className="mt-5 text-[20px] font-extrabold">Verify ride code</h2>
-      <p className="text-[13px] text-[#5C6578]">Enter the code shown by the passenger.</p>
+      <p className="text-[13px] font-semibold text-[#D5DCEC]">Enter the code shown by the passenger.</p>
       <div className="mt-3 grid grid-cols-4 gap-2">
         {Array.from({ length: 4 }, (_, index) => (
-          <div key={index} className="grid h-16 place-items-center rounded-2xl bg-white text-[28px] font-extrabold">{code[index] ?? ''}</div>
+          <div key={index} className="grid h-16 place-items-center rounded-2xl bg-[#0B1B3B] text-[28px] font-extrabold text-white ring-1 ring-[#8FB0FF]">{code[index] ?? ''}</div>
         ))}
       </div>
-      {wrongBus ? <p className="mt-3 rounded-xl bg-[#FDECEC] px-3 py-3 text-sm font-semibold text-[#C53434]" role="alert">{error}</p> : null}
-      {used ? <p className="mt-3 rounded-xl bg-[#FFF6E8] px-3 py-3 text-sm font-semibold text-[#9A5B00]" role="alert">{error}</p> : null}
-      {error && !wrongBus && !used ? <p className="mt-3 text-sm text-[#E5484D]" role="alert">{error}</p> : null}
+      {error && !wrongBus && !used ? <p className="mt-3 text-sm font-semibold text-[#FFD0D0]" role="alert">{error}</p> : null}
       {letters ? (
-        <div className="mt-3 grid grid-cols-6 gap-1">
+        <div className="glow-code mt-3 grid grid-cols-6 gap-1 rounded-2xl bg-[#0B1B3B] p-2">
           {LETTERS.map((letter) => (
-            <button key={letter} type="button" className="h-10 rounded-lg bg-white text-sm font-bold" onClick={() => push(letter)}>{letter}</button>
+            <button key={letter} type="button" className="press h-11 rounded-lg bg-[#16305C] text-sm font-bold text-white" onClick={() => push(letter)}>{letter}</button>
           ))}
         </div>
       ) : (
-        <div className="mt-3 grid grid-cols-3 gap-2">
+        <div className="glow-code mt-3 grid grid-cols-3 gap-2 rounded-2xl bg-[#0B1B3B] p-2">
           {['1','2','3','4','5','6','7','8','9'].map((digit) => (
-            <button key={digit} type="button" className="h-11 rounded-xl bg-white font-bold" onClick={() => push(digit)}>{digit}</button>
+            <button key={digit} type="button" className="press h-14 rounded-xl bg-[#16305C] text-[20px] font-extrabold text-white" onClick={() => push(digit)}>{digit}</button>
           ))}
-          <button type="button" className="h-11 rounded-xl bg-white text-xs font-bold" onClick={() => setLetters(true)}>ABC</button>
-          <button type="button" className="h-11 rounded-xl bg-white font-bold" onClick={() => push('0')}>0</button>
-          <button type="button" className="h-11 rounded-xl bg-white" aria-label="Delete" onClick={() => setCode((value) => value.slice(0, -1))}>⌫</button>
+          <button type="button" className="press h-14 rounded-xl bg-[#16305C] text-xs font-bold text-white" onClick={() => setLetters(true)}>ABC</button>
+          <button type="button" className="press h-14 rounded-xl bg-[#16305C] text-[20px] font-extrabold text-white" onClick={() => push('0')}>0</button>
+          <button type="button" className="press h-14 rounded-xl bg-[#16305C] text-[20px] font-bold text-white" aria-label="Delete" onClick={() => setCode((value) => value.slice(0, -1))}>⌫</button>
         </div>
       )}
-      {letters ? <button type="button" className="mt-2 h-10 rounded-xl bg-white text-sm font-bold" onClick={() => setLetters(false)}>123</button> : null}
-      <button type="button" disabled={pending || code.length < 4} onClick={verify} className="mt-3 h-12 rounded-xl bg-[#1F5BFF] font-bold text-white disabled:opacity-50">{pending ? 'Checking…' : 'Verify code'}</button>
-      <p className="mt-2 text-center text-[12px] text-[#8A93A6]">Codes are valid once, on your assigned bus only.</p>
+      {letters ? <button type="button" className="press mt-2 h-11 rounded-xl bg-[#16305C] text-sm font-bold text-white" onClick={() => setLetters(false)}>123</button> : null}
+      <button type="button" disabled={pending || code.length < 4} onClick={verify} className="press mt-3 h-12 rounded-xl bg-[#1F5BFF] font-bold text-white disabled:opacity-50">{pending ? 'Checking…' : 'Verify code'}</button>
+      <p className="mt-2 text-center text-[12px] font-semibold text-[#D5DCEC]">Codes are valid once, on your assigned bus only.</p>
     </div>
   );
 }

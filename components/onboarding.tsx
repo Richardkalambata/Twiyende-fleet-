@@ -21,6 +21,7 @@ export function Onboarding() {
             alt="Passengers boarding a Lusaka bus"
             className="absolute inset-0 h-full w-full object-cover object-[28%_38%]"
           />
+          <div className="mesh pointer-events-none absolute inset-0 opacity-70" />
           <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-[#0B1B3B]/90 via-[#0B1B3B]/45 to-transparent" />
           <div className="absolute left-5 top-[max(14px,env(safe-area-inset-top))]"><Logo tone="light" /></div>
         </div>

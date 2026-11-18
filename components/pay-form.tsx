@@ -72,7 +72,7 @@ export function PayForm({ buses, balanceNgwee, onClose }: { buses: BusOption[]; 
       {short > 0 ? (
         <a href="/topup" className="mt-4 flex h-12 items-center justify-center rounded-xl bg-[#1F5BFF] font-bold text-white">Top up wallet</a>
       ) : (
-        <button type="button" disabled={pending} onClick={submit} className="press mt-4 flex h-12 items-center justify-center rounded-xl bg-[#1F5BFF] text-[15px] font-bold text-white shadow-[0_8px_20px_rgba(31,91,255,0.28)] disabled:opacity-50">{pending ? 'Paying…' : `Pay ${formatBalance(amount)}`}</button>
+        <button type="button" disabled={pending} onClick={submit} className="glow-pay press mt-4 flex h-12 items-center justify-center rounded-xl bg-[#1F5BFF] text-[15px] font-bold text-white disabled:opacity-50">{pending ? 'Paying…' : `Pay ${formatBalance(amount)}`}</button>
       )}
       <p className="mt-2 text-center text-[12px] text-[#8A93A6]">Paid from your Twende wallet.</p>
     </div>

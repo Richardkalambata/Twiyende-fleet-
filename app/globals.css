@@ -138,6 +138,103 @@ input[type='time'] {
   50% { opacity: 0.45; transform: scale(0.86); }
 }
 
+.mesh {
+  background:
+    radial-gradient(140px 100px at 92% 8%, rgba(31, 91, 255, 0.55), transparent 68%),
+    radial-gradient(180px 120px at 0% 100%, rgba(143, 176, 255, 0.28), transparent 70%),
+    #0b1b3b;
+}
+
+.glass {
+  background: rgba(11, 27, 59, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 8px 24px rgba(11, 27, 59, 0.2);
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass {
+    background: rgba(11, 27, 59, 0.84);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass {
+    background: #0b1b3b;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass {
+    background: #0b1b3b;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+.glow-pay {
+  box-shadow: 0 0 0 1px rgba(31, 91, 255, 0.55), 0 8px 16px rgba(31, 91, 255, 0.4);
+}
+
+.glow-code {
+  box-shadow: 0 0 0 1px rgba(31, 91, 255, 0.45), 0 0 16px rgba(31, 91, 255, 0.38);
+}
+
+.rise {
+  animation: rise 0.25s ease-out;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+.code-ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: 18px;
+  border: 2px solid #1f5bff;
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.code-wait .code-ring {
+  animation: code-wait 1.6s ease-in-out infinite;
+}
+
+@keyframes code-wait {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.03); }
+}
+
+.code-ok .code-ring {
+  border-color: #12b76a;
+  opacity: 1;
+  animation: code-ok 0.25s ease-out;
+}
+
+@keyframes code-ok {
+  from { transform: scale(0.96); opacity: 0.7; }
+  to { transform: none; opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-dot,
+  .check-pop,
+  .rise,
+  .code-wait,
+  .code-wait .code-ring,
+  .code-ok,
+  .code-ok .code-ring,
+  .press {
+    animation: none;
+    transition: none;
+  }
+}
+
 .keypad-key {
   transition: transform 0.08s ease, background 0.08s ease;
 }
