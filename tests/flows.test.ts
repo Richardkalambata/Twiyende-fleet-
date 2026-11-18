@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import { formatBalance, formatCompact, formatGrouped, formatPercent } from '../lib/money';
 import { confusingCodeMessage, normalizeFleetNumber, randomCode } from '../lib/codes';
 import { timeGreeting } from '../lib/time';
+import { assertLocalServer, assertSafeDatabase } from './db-guard';
 
 const UNIT_URL = 'postgres://twende:twende@127.0.0.1:5432/twende_unit';
 
@@ -23,6 +24,18 @@ async function useIsolatedDatabase() {
   process.env.DATABASE_URL = UNIT_URL;
   process.env.DATABASE_URL_UNPOOLED = UNIT_URL;
 }
+
+test('e2e and capture refuse the production database', () => {
+  assert.throws(() => assertSafeDatabase('postgres://user:secret@ep.neon.tech/neondb', 'e2e'), /production database/);
+  assert.throws(() => assertSafeDatabase('postgres://twende:twende@127.0.0.1:5432/twende_test', 'capture'), /production database/);
+  assert.throws(() => assertSafeDatabase('postgres://twende:twende@127.0.0.1:5432/twende', 'e2e'), /production database/);
+  assert.throws(() => assertSafeDatabase('postgres://twende:twende@127.0.0.1:5432/twende_unit', 'capture'), /twende_e2e/);
+  assert.doesNotThrow(() => assertSafeDatabase(undefined, 'e2e'));
+  assert.doesNotThrow(() => assertSafeDatabase('postgres://twende:twende@127.0.0.1:5432/twende_e2e', 'capture'));
+  assert.throws(() => assertLocalServer('https://twende-zm.vercel.app', 'capture'), /local server/);
+  assert.throws(() => assertLocalServer('http://127.0.0.1:3040', 'e2e'), /3050/);
+  assert.doesNotThrow(() => assertLocalServer('http://127.0.0.1:3050', 'e2e'));
+});
 
 test('money formatting and fare codes', () => {
   assert.equal(formatBalance(12000), 'K120.00');

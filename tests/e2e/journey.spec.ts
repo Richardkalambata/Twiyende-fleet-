@@ -1,10 +1,8 @@
 import { test, expect } from '@playwright/test';
 
-const base = process.env.BASE_URL || 'http://127.0.0.1:3040';
-
 test('rider pays, conductor verifies, operator sees the fare', async ({ page }) => {
   const phone = `097${String(Date.now()).slice(-7)}`;
-  await page.goto(`${base}/signup`);
+  await page.goto('/signup');
   await page.getByLabel('Name').fill('Test Rider');
   await page.getByLabel('Phone').fill(phone);
   await page.getByLabel('4-digit PIN').fill('2468');
@@ -12,11 +10,11 @@ test('rider pays, conductor verifies, operator sees the fare', async ({ page }) 
   await page.getByLabel('I agree to the terms').check();
   await page.getByRole('button', { name: 'Create account' }).click();
   await page.waitForURL('**/home');
-  await page.goto(`${base}/topup`);
+  await page.goto('/topup');
   await page.getByRole('button', { name: 'K20', exact: true }).click();
   await page.getByRole('button', { name: /Continue/ }).click();
   await expect(page.getByText('Simulated top-up complete')).toBeVisible({ timeout: 15000 });
-  await page.goto(`${base}/home`);
+  await page.goto('/home');
   await page.getByRole('button', { name: /Pay a fare/ }).click();
   await page.getByLabel('Bus number').fill('12');
   await page.locator('button').filter({ hasText: /^K\d+$/ }).first().click();

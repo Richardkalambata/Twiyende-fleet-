@@ -10,7 +10,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/flows.test.ts",
+    "test": "tsx --test --test-concurrency=1 tests/flows.test.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

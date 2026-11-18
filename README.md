@@ -53,13 +53,13 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000). The first request creates the tables and loads demo data for the current Lusaka day. A second instance waits on a Postgres advisory lock, so seeding does not run twice. Sessions, fares, and photos live in Postgres.
 
 ```bash
-DATABASE_URL=postgres://USER:PASSWORD@127.0.0.1:5432/twende_test npm test
+npm test
 npm run typecheck
 npm run lint
 npm run build
 ```
 
-`npm test` falls back to `postgres://twende:twende@127.0.0.1:5432/twende_test` when `DATABASE_URL` is unset.
+`npm test` always uses the local `twende_unit` database and refuses a remote `DATABASE_URL`. End-to-end tests and `npx tsx tests/capture.ts` use only the local `twende_e2e` database on `127.0.0.1:3050`. They refuse a remote URL, the live site, and the demo databases `twende` and `twende_test`.
 
 ## Vercel
 
