@@ -1433,6 +1433,16 @@ export async function companyName(operatorId: string): Promise<string> {
   return row?.name ?? 'Your company';
 }
 
+export async function operatorLabel(userId: string): Promise<string> {
+  const row = await (await getDb()).get(
+    `SELECT c.name FROM users u
+     LEFT JOIN companies c ON c.operator_id = COALESCE(u.operator_id, u.id)
+     WHERE u.id = ?`,
+    userId,
+  ) as { name: string | null } | null;
+  return row?.name ?? 'Your operator';
+}
+
 export async function openSupport(userId: string, subjectRaw: string, bodyRaw: string) {
   const subject = cleanText(subjectRaw, 80);
   const body = cleanText(bodyRaw, 1000);
