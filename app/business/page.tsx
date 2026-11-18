@@ -1,58 +1,152 @@
 import Link from 'next/link';
-import { Bus, CalendarDays, Wallet } from 'lucide-react';
-import { Logo } from '@/components/shell';
+import { CtaBand, SiteFooter, SiteHeader } from '@/components/marketing/chrome';
+import { KeypadMock, OperatorLaptop } from '@/components/marketing/frames';
+import { Faq, Reveal, StickyBar } from '@/components/marketing/ui';
 
 export const metadata = { title: 'Twende Fleet Business' };
 
-const STEPS = [
-  { icon: Wallet, title: 'Collections', body: 'See today’s takings' },
-  { icon: Bus, title: 'Fleet', body: 'Buses and conductors' },
-  { icon: CalendarDays, title: 'Shifts', body: 'One bus each day' },
+const FLOW = [
+  { n: '01', title: 'Add buses', body: 'Fleet number, plate, route, and the default fare.' },
+  { n: '02', title: 'Add conductors', body: 'You create their phone number and PIN. They do not sign themselves up.' },
+  { n: '03', title: 'Assign the day', body: 'One conductor on one bus. That is the only bus their codes will verify.' },
+  { n: '04', title: 'Watch fares come in', body: 'Verified tickets show on the desk as they happen.' },
+];
+
+const FAQ = [
+  { q: 'How does a conductor get an account?', a: 'The operator adds them and sets the phone number and PIN. There is no conductor sign-up.' },
+  { q: 'Can a code be used twice?', a: 'No. After a conductor verifies it, the same code is refused.' },
+  { q: 'What if the code is for another bus?', a: 'The conductor sees which bus it belongs to and cannot verify it on theirs.' },
+  { q: 'How do payouts work?', a: 'The desk shows what was collected. You can record a payout and mark a bus day settled. No fee is taken in this version.' },
+  { q: 'Where do passengers sign in?', a: 'On the Twende rider app. This door is for operators and conductors only.' },
 ];
 
 export default function BusinessHome() {
   return (
-    <main className="min-h-dvh bg-[#E8EDF5] text-[#0B1B3B] md:grid md:place-items-center md:p-8">
-      <section className="mx-auto flex h-dvh w-full max-w-[430px] flex-col overflow-hidden bg-white md:h-[844px] md:rounded-[28px] md:shadow-[0_24px_60px_rgba(11,27,59,0.12)]">
-        <div className="relative h-[38dvh] min-h-[190px] max-h-[340px] shrink-0 bg-[#0B1B3B] md:h-[320px] md:max-h-none">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/brand/hero-business.webp"
-            srcSet="/brand/hero-business.webp 1x, /brand/hero-business@2x.webp 2x"
-            alt="Two conductors beside a Lusaka bus"
-            className="absolute inset-0 h-full w-full object-cover object-[center_30%]"
-          />
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-[#0B1B3B]/90 via-[#0B1B3B]/40 to-transparent" />
-          <div className="absolute left-5 top-[max(14px,env(safe-area-inset-top))]"><Logo tone="light" business /></div>
-        </div>
-        <div className="relative z-10 -mt-6 flex min-h-0 flex-1 flex-col rounded-t-[28px] bg-white px-5 pb-[max(12px,env(safe-area-inset-bottom))] pt-4">
-          <p className="text-[11px] font-bold tracking-[0.16em] text-[#6B7288]">FLEET BUSINESS</p>
-          <h1 className="mt-1 text-[clamp(26px,7vw,34px)] font-extrabold leading-[1.05] tracking-[-0.045em]">Every fare. Every bus. In view.</h1>
-          <p className="mt-1 text-[14px] text-[#5C6578]">A simpler way to manage your fleet.</p>
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            {STEPS.map((step) => (
-              <div key={step.title} className="rounded-2xl bg-[#F4F6FB] px-2 py-2.5 text-center">
-                <span className="mx-auto grid h-8 w-8 place-items-center rounded-full bg-[#E7EEFF] text-[#1F5BFF]">
-                  <step.icon className="h-4 w-4" strokeWidth={1.75} />
-                </span>
-                <p className="mt-1.5 text-[12px] font-bold leading-tight">{step.title}</p>
-                <p className="mt-0.5 text-[11px] leading-4 text-[#5C6578]">{step.body}</p>
-              </div>
-            ))}
+    <div className="bg-[#F4F6FB] text-[#0B1B3B]">
+      <section className="hero-stage relative overflow-x-hidden text-white">
+        <div className="hero-grid pointer-events-none absolute inset-0" />
+        <div className="hero-grain pointer-events-none absolute inset-0" />
+        <SiteHeader business />
+        <div className="relative mx-auto grid max-w-[1200px] items-center gap-4 px-5 pb-10 pt-20 md:grid-cols-2 md:gap-8 md:px-8 md:pb-20 md:pt-32">
+          <div>
+            <p className="hero-enter text-[12px] font-bold tracking-[0.16em] text-[#8FB0FF]">FLEET BUSINESS</p>
+            <h1 className="hero-enter mt-3 text-[34px] font-extrabold leading-[1.02] tracking-[-0.045em] md:text-[60px]" style={{ animationDelay: '80ms' }}>
+              Run your fleet. <span className="text-[#1F5BFF]">Every kwacha counted.</span>
+            </h1>
+            <p className="hero-enter mt-4 max-w-md text-[16px] leading-6 text-[#D5DCEC] md:text-[18px]" style={{ animationDelay: '160ms' }}>
+              Today’s fares, the buses, and the conductors, on one desk.
+            </p>
+            <div id="hero-ctas" className="hero-enter mt-6 flex flex-wrap gap-3" style={{ animationDelay: '240ms' }}>
+              <Link href="/business/signup" className="inline-flex h-12 items-center rounded-xl bg-[#1F5BFF] px-5 text-[15px] font-bold text-white">Create a company</Link>
+              <Link href="/business/login" className="inline-flex h-12 items-center rounded-xl bg-white/10 px-5 text-[15px] font-bold text-white ring-1 ring-white/25">Operator sign in</Link>
+            </div>
           </div>
-          <div className="mt-auto grid grid-cols-2 gap-2 pt-3">
-            <Link href="/business/login" className="flex min-h-[76px] flex-col justify-center rounded-2xl bg-[#1F5BFF] px-3 py-3 text-white">
-              <span className="text-[14px] font-bold leading-tight">I&apos;m an operator</span>
-              <span className="mt-1 text-[12px] leading-4 text-white/80">Sign in or create a company</span>
-            </Link>
-            <Link href="/business/conductor/login" className="flex min-h-[76px] flex-col justify-center rounded-2xl bg-[#0B1B3B] px-3 py-3 text-white">
-              <span className="text-[14px] font-bold leading-tight">I&apos;m a conductor</span>
-              <span className="mt-1 text-[12px] leading-4 text-white/80">Sign in</span>
-            </Link>
+          <div className="hero-enter w-full min-w-0" style={{ animationDelay: '180ms' }}>
+            <OperatorLaptop />
           </div>
-          <Link href="/" className="block pb-1 pt-2 text-center text-[12px] font-semibold text-[#5C6578]">Passenger? Open Twende</Link>
         </div>
       </section>
-    </main>
+
+      <section className="mx-auto grid max-w-[1200px] gap-4 px-5 py-10 md:grid-cols-2 md:px-8 md:py-14">
+        <Reveal>
+          <Link href="/business/login" className="flex h-full flex-col rounded-[20px] bg-[#1F5BFF] p-6 text-white">
+            <span className="text-[13px] font-bold text-white/80">Sign in or create a company</span>
+            <span className="mt-2 text-[28px] font-extrabold tracking-[-0.03em]">I&apos;m an operator</span>
+            <span className="mt-3 text-[15px] leading-6 text-white/85">Open the desk for your buses, conductors, and today’s collections.</span>
+          </Link>
+        </Reveal>
+        <Reveal delay={80}>
+          <Link href="/business/conductor/login" className="flex h-full flex-col rounded-[20px] bg-[#0B1B3B] p-6 text-white">
+            <span className="text-[13px] font-bold text-white/70">Sign in</span>
+            <span className="mt-2 text-[28px] font-extrabold tracking-[-0.03em]">I&apos;m a conductor</span>
+            <span className="mt-3 text-[15px] leading-6 text-[#D5DCEC]">Use the phone number and PIN your operator gave you. No self sign-up.</span>
+          </Link>
+        </Reveal>
+      </section>
+
+      <section className="mx-auto max-w-[1200px] px-5 py-8 md:px-8 md:py-16">
+        <Reveal><h2 className="text-[32px] font-extrabold tracking-[-0.04em] md:text-[40px]">What the desk actually does</h2></Reveal>
+        <div className="mt-8 grid gap-4 md:grid-cols-6">
+          <Reveal className="md:col-span-3">
+            <article className="h-full rounded-[20px] bg-white p-6">
+              <h3 className="text-[20px] font-extrabold">Collections as they are verified</h3>
+              <p className="mt-2 text-[15px] leading-6 text-[#3E4A63]">The overview lists today’s earnings, rides, and the latest fares once a conductor accepts the code.</p>
+            </article>
+          </Reveal>
+          <Reveal delay={60} className="md:col-span-3">
+            <article className="h-full rounded-[20px] bg-white p-6">
+              <h3 className="text-[20px] font-extrabold">Assign conductors to buses</h3>
+              <p className="mt-2 text-[15px] leading-6 text-[#3E4A63]">One conductor, one bus, for the Lusaka day. That assignment is what the verify screen uses.</p>
+            </article>
+          </Reveal>
+          <Reveal delay={100} className="md:col-span-2">
+            <article className="h-full rounded-[20px] bg-[#0B1B3B] p-6 text-white">
+              <h3 className="text-[18px] font-extrabold">Codes that cannot be reused</h3>
+              <p className="mt-2 text-[14px] leading-6 text-[#D5DCEC]">A verified code is refused the next time. A code for another bus is refused too.</p>
+            </article>
+          </Reveal>
+          <Reveal delay={140} className="md:col-span-2">
+            <article className="h-full rounded-[20px] bg-white p-6">
+              <h3 className="text-[18px] font-extrabold">Payouts and settlement</h3>
+              <p className="mt-2 text-[14px] leading-6 text-[#3E4A63]">Record a payout and mark a bus day settled. No fee is taken in this version.</p>
+            </article>
+          </Reveal>
+          <Reveal delay={180} className="md:col-span-2">
+            <article className="h-full rounded-[20px] bg-white p-6">
+              <h3 className="text-[18px] font-extrabold">Lost & found desk</h3>
+              <p className="mt-2 text-[14px] leading-6 text-[#3E4A63]">Passenger reports land with the conductor, then show as ready for pickup.</p>
+            </article>
+          </Reveal>
+        </div>
+      </section>
+
+      <section className="bg-white">
+        <div className="mx-auto max-w-[1200px] px-5 py-16 md:px-8">
+          <Reveal><h2 className="text-[32px] font-extrabold tracking-[-0.04em]">How it works for your fleet</h2></Reveal>
+          <ol className="mt-8 grid gap-4 md:grid-cols-4">
+            {FLOW.map((step, index) => (
+              <Reveal key={step.n} delay={index * 70}>
+                <li className="h-full list-none rounded-[20px] bg-[#F4F6FB] p-5">
+                  <p className="text-[13px] font-extrabold text-[#1F5BFF]">{step.n}</p>
+                  <h3 className="mt-2 text-[18px] font-extrabold">{step.title}</h3>
+                  <p className="mt-2 text-[14px] leading-6 text-[#3E4A63]">{step.body}</p>
+                </li>
+              </Reveal>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <section className="mx-auto grid max-w-[1200px] items-center gap-8 px-5 py-16 md:grid-cols-2 md:px-8">
+        <Reveal>
+          <p className="text-[12px] font-bold tracking-[0.16em] text-[#1F5BFF]">CONDUCTORS</p>
+          <h2 className="mt-2 text-[32px] font-extrabold tracking-[-0.04em]">A dark keypad for the person on the bus</h2>
+          <p className="mt-3 text-[16px] leading-7 text-[#3E4A63]">They sign in with the account you created, see today’s bus, and type the passenger’s code. Wrong bus and used codes stop on that screen.</p>
+          <Link href="/business/conductor/login" className="mt-5 inline-flex h-12 items-center rounded-xl bg-[#0B1B3B] px-5 text-[15px] font-bold text-white">Conductor sign in</Link>
+        </Reveal>
+        <Reveal delay={80}><KeypadMock /></Reveal>
+      </section>
+
+      <section className="mx-auto grid max-w-[1200px] items-center gap-8 px-5 pb-8 md:grid-cols-2 md:px-8">
+        <Reveal>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/hero-business.webp" alt="Two conductors beside a Lusaka bus" width={960} height={640} className="h-72 w-full rounded-[24px] object-cover md:h-80" />
+        </Reveal>
+        <Reveal delay={80}>
+          <h2 className="text-[28px] font-extrabold tracking-[-0.04em]">The people beside the bus</h2>
+          <p className="mt-3 text-[16px] leading-7 text-[#3E4A63]">Operators stay on the desk. Conductors stay on the verify screen. Passengers stay in the rider app.</p>
+          <Link href="/" className="mt-4 inline-block text-[15px] font-bold text-[#1F5BFF]">Passenger? Open Twende</Link>
+        </Reveal>
+      </section>
+
+      <section id="faq" className="mx-auto max-w-[800px] px-5 py-16">
+        <Reveal><h2 className="text-[32px] font-extrabold tracking-[-0.04em]">Questions</h2></Reveal>
+        <div className="mt-6"><Faq items={FAQ} /></div>
+      </section>
+
+      <CtaBand title="Open the desk for your company." body="Create an operator account, then add the buses and the people who work them." href="/business/signup" label="Create a company" />
+      <SiteFooter business />
+      <StickyBar primary={{ href: '/business/signup', label: 'Create a company' }} secondary={{ href: '/business/login', label: 'Sign in' }} />
+    </div>
   );
 }
