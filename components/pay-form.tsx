@@ -8,9 +8,9 @@ import type { BusOption } from '@/lib/types';
 import { Bus } from 'lucide-react';
 import { toast } from './toast';
 
-export function PayForm({ buses, balanceNgwee, onClose }: { buses: BusOption[]; balanceNgwee: number; onClose?: () => void }) {
+export function PayForm({ buses, balanceNgwee, onClose, initialFleet = '' }: { buses: BusOption[]; balanceNgwee: number; onClose?: () => void; initialFleet?: string }) {
   const router = useRouter();
-  const [fleet, setFleet] = useState('');
+  const [fleet, setFleet] = useState(initialFleet);
   const [fare, setFare] = useState('5');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);

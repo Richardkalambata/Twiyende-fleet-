@@ -47,7 +47,7 @@ export function CancelFare({ rideId }: { rideId: string }) {
   if (balance != null) return <p className="text-center text-sm text-[#1F5BFF]">Fare cancelled. Balance {formatBalance(balance)}.</p>;
   return (
     <div>
-      <button type="button" className="h-12 w-full text-sm font-semibold text-[#9A3B1A]" disabled={pending} onClick={cancel}>
+      <button type="button" className="w-full py-2 text-center text-[13px] font-semibold text-[#5C6578]" disabled={pending} onClick={cancel}>
         {pending ? 'Cancelling…' : 'Wrong bus? Cancel this fare'}
       </button>
       {error ? <p className="text-center text-sm text-[#9A3B1A]">{error}</p> : null}

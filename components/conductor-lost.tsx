@@ -46,7 +46,7 @@ export function ConductorLostBoard({
   }
 
   return (
-    <div className="px-4 pb-6 pt-3">
+    <div className="safe-top px-4 pb-6">
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold text-[#1F5BFF]">Twende Conductor</p>
         <button type="button" className="grid h-11 w-11 place-items-center rounded-full bg-white/10" aria-label="Menu" onClick={() => setMenu((value) => !value)}>

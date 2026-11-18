@@ -13,7 +13,7 @@ export default async function ConductorProfilePage() {
   const home = await getConductorHome(user.id);
   const operator = await operatorLabel(user.id);
   return (
-    <div className="space-y-4 px-5 pb-6 pt-2">
+    <div className="safe-top space-y-4 px-5 pb-6">
       <div className="flex items-center gap-3">
         <Avatar initials={user.initials} size={64} />
         <div>

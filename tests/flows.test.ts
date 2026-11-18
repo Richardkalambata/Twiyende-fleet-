@@ -2,9 +2,27 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { Client } from 'pg';
 import { test } from 'node:test';
 import { formatBalance, formatCompact, formatGrouped, formatPercent } from '../lib/money';
 import { confusingCodeMessage, normalizeFleetNumber, randomCode } from '../lib/codes';
+import { timeGreeting } from '../lib/time';
+
+const UNIT_URL = 'postgres://twende:twende@127.0.0.1:5432/twende_unit';
+
+async function useIsolatedDatabase() {
+  const incoming = process.env.DATABASE_URL ?? '';
+  if (incoming && !/localhost|127\.0\.0\.1/.test(incoming)) {
+    throw new Error('Refusing to run tests against a non-local DATABASE_URL.');
+  }
+  const admin = new Client({ connectionString: 'postgres://twende:twende@127.0.0.1:5432/postgres' });
+  await admin.connect();
+  const found = await admin.query('SELECT 1 FROM pg_database WHERE datname = $1', ['twende_unit']);
+  if (found.rowCount === 0) await admin.query('CREATE DATABASE twende_unit');
+  await admin.end();
+  process.env.DATABASE_URL = UNIT_URL;
+  process.env.DATABASE_URL_UNPOOLED = UNIT_URL;
+}
 
 test('money formatting and fare codes', () => {
   assert.equal(formatBalance(12000), 'K120.00');
@@ -19,11 +37,13 @@ test('money formatting and fare codes', () => {
   assert.match(code, /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}$/);
   assert.match(confusingCodeMessage('A0K3') ?? '', /0, O, 1 and I/);
   assert.equal(confusingCodeMessage('A7K3'), null);
+  assert.equal(timeGreeting(new Date('2026-11-18T21:32:00Z')), 'Good evening');
+  assert.equal(timeGreeting(new Date('2026-11-18T08:00:00Z')), 'Good morning');
 });
 
 test('passenger pay, conductor verify, lost and found, owner totals', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'twende-'));
-  process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgres://twende:twende@127.0.0.1:5432/twende_test';
+  await useIsolatedDatabase();
   process.env.DEMO_ROLE_SWITCHER = '1';
   process.env.PAYMENT_PROVIDER = 'simulated';
 
@@ -227,7 +247,7 @@ test('passenger pay, conductor verify, lost and found, owner totals', async () =
 });
 
 test('signup, pin, support, fare options, and code expiry', async () => {
-  process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgres://twende:twende@127.0.0.1:5432/twende_test';
+  await useIsolatedDatabase();
   process.env.PAYMENT_PROVIDER = 'simulated';
   const service = await import('../lib/service.ts');
   const { resetDatabase } = await import('../lib/db.ts');

@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { Check } from 'lucide-react';
-import { CancelFare } from './receipt-actions';
 
-export function TicketWatch({ id, initial, code, rideId }: { id: string; initial: string; code: string; rideId: string }) {
+export function TicketWatch({ id, initial, code }: { id: string; initial: string; code: string }) {
   const [status, setStatus] = useState(initial);
   useEffect(() => {
     if (status !== 'pending') return;
@@ -19,9 +18,8 @@ export function TicketWatch({ id, initial, code, rideId }: { id: string; initial
   const verified = status === 'verified';
   return (
     <div className="text-center">
-      <div className={`relative mx-auto inline-block ${verified ? 'code-ok' : status === 'pending' ? 'code-wait glow-code' : ''}`}>
-        <span className="code-ring" aria-hidden />
-        <p className="num relative rounded-2xl bg-white px-3 py-1 text-[48px] font-extrabold tracking-[0.12em] text-[#0B1B3B]">{code}</p>
+      <div className={verified ? 'code-ok' : status === 'pending' ? 'code-wait' : ''}>
+        <p className="fare-code num px-2 py-1 text-[52px] font-extrabold leading-none">{code}</p>
       </div>
       <p className="mt-2 text-[13px] font-semibold text-[#3E4A63]">Show this code to your conductor</p>
       {verified ? (
@@ -37,7 +35,6 @@ export function TicketWatch({ id, initial, code, rideId }: { id: string; initial
           Awaiting verification
         </p>
       )}
-      {status === 'pending' ? <div className="mt-4"><CancelFare rideId={rideId} /></div> : null}
     </div>
   );
 }

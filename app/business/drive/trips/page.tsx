@@ -10,7 +10,7 @@ export default async function TripsPage() {
   const user = await requireUser(['conductor']);
   const data = await listConductorTrips(user.id);
   return (
-    <div className="space-y-4 px-5 pb-6 pt-2">
+    <div className="safe-top space-y-4 px-5 pb-6">
       <header>
         <h1 className="text-[28px] font-extrabold tracking-[-0.04em]">Today&apos;s trips</h1>
         <p className="text-[14px] text-[#5C6578]">Bus {data.bus?.fleet_number ?? '—'} · {data.bus?.route ?? 'No route yet'}</p>

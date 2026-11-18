@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { verifyAction } from '@/lib/actions';
-import { Bus, Check, RefreshCw } from 'lucide-react';
+import { signOutAction, verifyAction } from '@/lib/actions';
+import { Bus, Check, LogOut, RefreshCw } from 'lucide-react';
 import { formatBalance, formatGrouped } from '@/lib/money';
 import { formatHour24 } from '@/lib/time';
 import { Logo } from './shell';
@@ -120,10 +120,17 @@ export function VerifyPad({
   }
 
   return (
-    <div className="flex min-h-[calc(100dvh-7.5rem)] flex-col bg-[#071433] px-5 pb-4 pt-4 text-white">
-      <div className="flex items-center justify-between">
+    <div className="flex min-h-full flex-col bg-[#071433] px-5 pb-4 pt-[max(12px,env(safe-area-inset-top))] text-white">
+      <div className="flex items-center justify-between gap-3">
         <Logo tone="light" business />
-        <span className="rounded-full bg-[#128A4E] px-2 py-1 text-[12px] font-bold text-white">On shift</span>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-[#128A4E] px-2 py-1 text-[12px] font-bold text-white">On shift</span>
+          <form action={signOutAction}>
+            <button type="submit" aria-label="Log out" className="press grid h-10 w-10 place-items-center rounded-full bg-white/10 text-white">
+              <LogOut className="h-5 w-5" />
+            </button>
+          </form>
+        </div>
       </div>
       <h1 className="mt-5 text-[28px] font-extrabold tracking-[-0.03em]">Hello, {name}</h1>
       <div className="mt-3 rounded-2xl bg-[#0B1B3B] px-4 py-3">
