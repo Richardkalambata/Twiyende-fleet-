@@ -21,7 +21,7 @@ export function PhoneShell({
 }
 
 export function buttonClass(variant: 'copper' | 'green' | 'mint' | 'outline' | 'ghost' = 'copper', extra = '') {
-  const base = 'inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-[15px] font-bold tracking-[-0.02em] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50';
+  const base = 'press inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-[15px] font-bold tracking-[-0.02em] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50';
   const styles = {
     copper: 'bg-[#1F5BFF] text-white',
     green: 'bg-[#1F5BFF] text-white',

@@ -88,7 +88,7 @@ button, a, input, select, textarea {
 }
 
 ::selection {
-  background: #0b5d3b;
+  background: #1f5bff;
   color: white;
 }
 
@@ -96,8 +96,46 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 button:focus-visible {
-  outline: 2px solid #0b5d3b;
+  outline: 2px solid #1f5bff;
   outline-offset: 2px;
+}
+
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%230B1B3B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' viewBox='0 0 24 24'><path d='m6 9 6 6 6-6'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  padding-right: 2.4rem;
+}
+
+input[type='date'],
+input[type='time'] {
+  appearance: none;
+  min-height: 48px;
+  border-radius: 14px;
+  border: 0;
+  background: #f4f6fb;
+  padding: 0 14px;
+  font-size: 16px;
+  color: #0b1b3b;
+}
+
+.press {
+  transition: transform 0.12s ease, background 0.12s ease, opacity 0.12s ease;
+}
+
+.press:active {
+  transform: scale(0.98);
+}
+
+.pulse-dot {
+  animation: pulse-dot 1.3s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.86); }
 }
 
 .keypad-key {
