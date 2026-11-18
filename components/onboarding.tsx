@@ -130,7 +130,7 @@ export function Onboarding() {
         <div className="relative mx-auto flex max-w-[1200px] flex-col items-start gap-6 px-5 py-20 md:px-8 md:py-32">
           <h2 className="max-w-xl text-[32px] md:text-[52px]">Your next ride starts here.</h2>
           <p className="lead text-[#E7ECF8]">Create a passenger account with your phone number and a 4-digit PIN.</p>
-          <Link href="/signup" className="inline-flex h-[52px] items-center rounded-xl bg-[#1F5BFF] px-6 text-[15px] font-bold">Create account</Link>
+          <Link href="/signup" className="inline-flex h-[52px] items-center rounded-xl bg-[#1F5BFF] px-6 text-[15px] font-bold text-white">Create account</Link>
         </div>
       </section>
       <SiteFooter />

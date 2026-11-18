@@ -43,7 +43,7 @@ export function TopUpForm({ phone, balanceNgwee }: { phone: string; balanceNgwee
       <p className="text-[40px] font-extrabold tracking-[-0.04em]">K{Number(amount || 0).toFixed(2)}</p>
       <div className="grid grid-cols-4 gap-2">
         {AMOUNTS.map((value) => (
-          <button key={value} type="button" onClick={() => setAmount(value)} className={`h-10 rounded-lg font-bold ${amount === value ? 'bg-[#1F5BFF] text-white' : 'bg-white'}`}>K{value}</button>
+          <button key={value} type="button" onClick={() => setAmount(value)} className={`h-10 rounded-lg font-bold ${amount === value ? 'bg-[#1F5BFF] text-white' : 'border border-[#E4E8F0] bg-white text-[#0B1B3B]'}`}>K{value}</button>
         ))}
       </div>
       <p className="text-[13px] font-semibold">Pay with mobile money</p>
@@ -58,7 +58,7 @@ export function TopUpForm({ phone, balanceNgwee }: { phone: string; balanceNgwee
       </div>
       <label className="block text-[13px] text-[#5C6578]">
         Phone number
-        <input value={number} onChange={(event) => setNumber(event.target.value)} inputMode="tel" className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-transparent py-2 text-[18px] font-semibold outline-none" />
+        <input value={number} onChange={(event) => setNumber(event.target.value)} inputMode="tel" className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[18px] font-semibold text-[#0B1B3B] outline-none placeholder:text-[#5C6578]" />
       </label>
       {error ? <p className="text-sm text-[#E5484D]" role="alert">{error}</p> : null}
       {done != null ? <p className="rounded-xl bg-[#E8F8EF] px-3 py-3 text-sm text-[#128A4E]" role="status">Simulated top-up complete. New balance {formatBalance(done)} on {formatPhone(number)}.</p> : null}

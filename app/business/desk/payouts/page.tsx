@@ -29,8 +29,8 @@ export default async function PayoutsPage() {
       </div>
       <form action={settleAction} className="flex flex-wrap gap-2 rounded-2xl bg-white p-4">
         <h2 className="w-full font-bold">Mark a bus day settled</h2>
-        <input name="fleet" required placeholder="Bus number" aria-label="Bus number" className="h-11 w-32 rounded-xl bg-[#F4F6FB] px-3" />
-        <input name="amount" required placeholder="Amount in K" aria-label="Amount" className="h-11 w-40 rounded-xl bg-[#F4F6FB] px-3" />
+        <input name="fleet" required placeholder="Bus number" aria-label="Bus number" className="h-11 w-32 rounded-xl bg-white px-3 text-[#0B1B3B] placeholder:text-[#5C6578]" />
+        <input name="amount" required placeholder="Amount in K" aria-label="Amount" className="h-11 w-40 rounded-xl bg-white px-3 text-[#0B1B3B] placeholder:text-[#5C6578]" />
         <button className="h-11 rounded-xl bg-[#1F5BFF] px-4 font-bold text-white">Mark settled</button>
       </form>
       <PayoutForms phone={summary.payoutPhone ?? user.phone} network={summary.payoutNetwork ?? 'mtn'} today={formatGrouped(summary.todayNgwee)} />

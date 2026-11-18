@@ -42,7 +42,7 @@ function Field(props: { name: string; label: string; placeholder: string; inputM
   return (
     <label className="block text-sm font-medium">
       {props.label}
-      <input name={props.name} placeholder={props.placeholder} inputMode={props.inputMode} maxLength={props.maxLength} className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-transparent py-2 text-[18px] font-semibold outline-none focus:border-[#1F5BFF]" />
+      <input name={props.name} placeholder={props.placeholder} inputMode={props.inputMode} maxLength={props.maxLength} className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[18px] font-semibold text-[#0B1B3B] outline-none placeholder:text-[#5C6578] focus:border-[#1F5BFF]" />
     </label>
   );
 }

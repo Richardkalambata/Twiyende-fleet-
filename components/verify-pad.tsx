@@ -70,7 +70,7 @@ export function VerifyPad({
           <h1 className="mt-5 text-[26px] font-extrabold tracking-[-0.04em]">No bus assigned today</h1>
           <p className="mt-2 text-[15px] leading-6 text-[#5C6578]">Your operator needs to assign your bus before you can verify fares.</p>
         </div>
-        <button type="button" disabled className="mt-auto h-12 rounded-xl bg-[#D5DCE8] font-bold text-white">Verify code</button>
+        <button type="button" disabled className="mt-auto h-12 rounded-xl bg-[#E4E8F0] font-bold text-[#5C6578]">Verify code</button>
         <button type="button" className="press mt-3 flex h-12 items-center justify-center gap-2 rounded-xl bg-[#1F5BFF] font-bold text-white" onClick={() => router.refresh()}><RefreshCw className="h-4 w-4" /> Refresh assignment</button>
       </div>
     );
@@ -124,7 +124,7 @@ export function VerifyPad({
       <div className="flex items-center justify-between gap-3">
         <Logo tone="light" business />
         <div className="flex items-center gap-2">
-          <span className="rounded-full bg-[#128A4E] px-2 py-1 text-[12px] font-bold text-white">On shift</span>
+          <span className="rounded-full bg-[#0E7A45] px-2 py-1 text-[12px] font-bold text-white">On shift</span>
           <form action={signOutAction}>
             <button type="submit" aria-label="Log out" className="press grid h-10 w-10 place-items-center rounded-full bg-white/10 text-white">
               <LogOut className="h-5 w-5" />

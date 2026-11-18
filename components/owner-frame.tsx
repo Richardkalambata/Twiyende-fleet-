@@ -116,7 +116,7 @@ export function OwnerFrame({ children, openLost, operator }: { children: ReactNo
           <div id="operator-account-menu" className="absolute inset-x-3 top-full z-40 mt-2 rounded-2xl bg-white p-3 text-[#0B1B3B] shadow-[0_16px_40px_rgba(11,27,59,0.18)] md:hidden">
             <p className="px-1 text-[15px] font-bold">{operator.name}</p>
             <p className="px-1 text-[13px] text-[#5C6578]">Operator</p>
-            <Link href="/business/desk/settings" onClick={() => setMenuOpen(false)} className="mt-3 flex h-12 items-center gap-3 rounded-xl bg-[#F4F6FB] px-3 text-[15px] font-semibold">
+            <Link href="/business/desk/settings" onClick={() => setMenuOpen(false)} className="mt-3 flex h-12 items-center gap-3 rounded-xl bg-[#F4F6FB] px-3 text-[15px] font-semibold text-[#0B1B3B]">
               <GearIcon className="h-5 w-5" />
               Settings
             </Link>
@@ -147,7 +147,7 @@ export function RangeLinks({ range, route }: { range: string; route?: string }) 
         if (route && route !== 'all') params.set('route', route);
         const active = range === item.id;
         return (
-          <Link key={item.id} href={`/business/desk?${params.toString()}`} className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${active ? 'bg-[#1F5BFF] text-white' : 'text-[#5C6578]'}`}>
+          <Link key={item.id} href={`/business/desk?${params.toString()}`} className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${active ? 'bg-[#1F5BFF] text-white' : 'bg-white text-[#0B1B3B]'}`}>
             {item.label}
           </Link>
         );
@@ -164,7 +164,7 @@ export function RouteSelect({ range, route, routes }: { range: string; route: st
         name="route"
         defaultValue={route}
         aria-label="Route"
-        className="h-10 rounded-full border border-[#E4DDD2] bg-white px-3 text-sm"
+        className="h-10 rounded-full border border-[#E4E8F0] bg-white px-3 text-sm text-[#0B1B3B]"
         onChange={(event) => event.currentTarget.form?.requestSubmit()}
       >
         <option value="all">All routes</option>

@@ -89,7 +89,7 @@ export function ReportForm({ trips }: { trips: RideCard[] }) {
             setError(null);
           }}
           placeholder="Black Samsung phone, blue case"
-          className="h-12 min-w-0 flex-1 bg-transparent outline-none"
+          className="h-12 min-w-0 flex-1 bg-white text-[#0B1B3B] outline-none placeholder:text-[#5C6578]"
         />
         <PencilIcon className="h-5 w-5 text-[#1F5BFF]" />
       </label>
@@ -123,7 +123,7 @@ export function ReportForm({ trips }: { trips: RideCard[] }) {
                 <button
                   key={item.id}
                   type="button"
-                  className="flex min-h-14 w-full items-center justify-between rounded-2xl bg-[#F4F6FB] px-4 text-left"
+                  className="flex min-h-14 w-full items-center justify-between rounded-2xl bg-white px-4 text-left text-[#0B1B3B]"
                   onClick={() => {
                     setRideId(item.id);
                     setOpenTrips(false);

@@ -78,7 +78,7 @@ export function HomeApp({
         {usual.length === 0 ? <p className="mt-1 text-[13px] text-[#5C6578]">Pay a fare and your routes will show up here.</p> : (
           <div className="mt-2 flex flex-wrap gap-2">
             {usual.map((route) => (
-              <button key={route.fleetNumber} type="button" onClick={() => { setPreset(route.fleetNumber); setPaying(true); }} className="press rounded-full bg-white px-3 py-2 text-left">
+              <button key={route.fleetNumber} type="button" onClick={() => { setPreset(route.fleetNumber); setPaying(true); }} className="press rounded-full border border-[#E4E8F0] bg-white px-3 py-2 text-left text-[#0B1B3B]">
                 <span className="block text-[13px] font-extrabold">Bus {route.fleetNumber}</span>
                 <span className="block max-w-[140px] truncate text-[11px] font-semibold text-[#3E4A63]">{route.route}</span>
               </button>

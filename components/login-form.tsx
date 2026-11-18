@@ -35,14 +35,14 @@ export function LoginForm({ accounts, error, gate = 'passenger' }: { accounts: D
       <form action={action} className="mt-6">
         <label className="block text-[13px] font-medium text-[#5C6578]">
           Phone number
-          <input name="phone" value={phone} onChange={(event) => setPhone(event.target.value)} inputMode="tel" className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-transparent py-2 text-[18px] font-semibold outline-none focus:border-[#1F5BFF]" />
+          <input name="phone" value={phone} onChange={(event) => setPhone(event.target.value)} inputMode="tel" className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[18px] font-semibold text-[#0B1B3B] outline-none placeholder:text-[#5C6578] focus:border-[#1F5BFF]" />
         </label>
         <p className="mt-5 text-[13px] font-medium text-[#5C6578]">PIN</p>
         <input type="hidden" name="pin" value={pin} />
         <input type="hidden" name="gate" value={resolved} />
         <div className="mt-2 grid grid-cols-4 gap-2">
           {Array.from({ length: 4 }, (_, index) => (
-            <span key={index} className="grid h-12 place-items-center rounded-xl bg-white text-2xl font-bold shadow-sm">{pin[index] ? '•' : ''}</span>
+            <span key={index} className="grid h-12 place-items-center rounded-xl bg-white text-2xl font-bold text-[#0B1B3B] shadow-sm">{pin[index] ? '•' : ''}</span>
           ))}
         </div>
         {message ? <p className="mt-3 text-sm text-[#E5484D]" role="alert">{message}</p> : null}
@@ -52,11 +52,11 @@ export function LoginForm({ accounts, error, gate = 'passenger' }: { accounts: D
       </form>
       <div className="mt-3 grid grid-cols-3 gap-2">
         {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
-          <button key={digit} type="button" className="h-11 rounded-xl bg-white text-lg font-bold" onClick={() => push(digit)}>{digit}</button>
+          <button key={digit} type="button" className="h-11 rounded-xl bg-white text-lg font-bold text-[#0B1B3B]" onClick={() => push(digit)}>{digit}</button>
         ))}
         <span />
-        <button type="button" className="h-11 rounded-xl bg-white text-lg font-bold" onClick={() => push('0')}>0</button>
-        <button type="button" className="h-11 rounded-xl bg-white text-sm font-semibold" onClick={() => setPin((value) => value.slice(0, -1))}>Delete</button>
+        <button type="button" className="h-11 rounded-xl bg-white text-lg font-bold text-[#0B1B3B]" onClick={() => push('0')}>0</button>
+        <button type="button" className="h-11 rounded-xl bg-white text-sm font-semibold text-[#0B1B3B]" onClick={() => setPin((value) => value.slice(0, -1))}>Delete</button>
       </div>
       <div className="mt-4 space-y-2 text-center text-[13px] font-semibold">
         {resolved === 'operator' ? (
@@ -78,7 +78,7 @@ export function LoginForm({ accounts, error, gate = 'passenger' }: { accounts: D
             <form key={account.id} action={demoLoginAction}>
               <input type="hidden" name="userId" value={account.id} />
               <input type="hidden" name="gate" value={resolved} />
-              <button type="submit" className="flex w-full items-center justify-between rounded-xl bg-white px-3 py-2 text-left text-sm">
+              <button type="submit" className="flex w-full items-center justify-between rounded-xl bg-white px-3 py-2 text-left text-sm text-[#0B1B3B]">
                 <span className="font-semibold">{account.shortName}</span>
                 <span className="text-[#5C6578]">{formatPhone(account.phone)}</span>
               </button>

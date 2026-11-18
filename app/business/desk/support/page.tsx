@@ -23,7 +23,7 @@ export default async function SupportPage() {
           {ticket.status === 'open' ? (
             <form action={replySupportAction} className="mt-3 space-y-2">
               <input type="hidden" name="ticketId" value={ticket.id} />
-              <textarea name="body" required aria-label="Reply" className="h-20 w-full rounded-xl bg-[#F4F6FB] px-3 py-2" />
+              <textarea name="body" required aria-label="Reply" className="h-20 w-full rounded-xl bg-white px-3 py-2 text-[#0B1B3B] placeholder:text-[#5C6578]" />
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="close" /> Close ticket</label>
               <button className="h-10 rounded-xl bg-[#1F5BFF] px-4 text-sm font-bold text-white">Reply</button>
             </form>

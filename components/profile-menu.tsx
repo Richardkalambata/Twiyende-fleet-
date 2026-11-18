@@ -36,7 +36,7 @@ export function ProfileMenu({ name, notices }: { name: string; notices: Notice[]
         <ChevronRight className="ml-auto h-4 w-4 text-[#8A93A6]" />
       </Link>
       <form action={signOutAction} className="border-t border-[#E6EAF2]">
-        <button type="submit" className="press flex min-h-14 w-full items-center gap-3 px-4 text-left text-[15px] font-semibold">
+        <button type="submit" className="press flex min-h-14 w-full items-center gap-3 bg-white px-4 text-left text-[15px] font-semibold text-[#0B1B3B]">
           <LogOut className="h-5 w-5 text-[#5C6578]" />
           Log out
         </button>
@@ -47,7 +47,7 @@ export function ProfileMenu({ name, notices }: { name: string; notices: Notice[]
 
 function Row({ icon, label, detail, onClick }: { icon: ReactNode; label: string; detail?: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="press flex min-h-14 w-full items-center gap-3 border-t border-[#E6EAF2] px-4 text-left text-[15px] font-semibold first:border-t-0">
+    <button type="button" onClick={onClick} className="press flex min-h-14 w-full items-center gap-3 border-t border-[#E6EAF2] bg-white px-4 text-left text-[15px] font-semibold text-[#0B1B3B] first:border-t-0">
       <span className="text-[#5C6578]">{icon}</span>
       {label}
       {detail ? <span className="ml-auto rounded-full bg-[#E7EEFF] px-2 py-0.5 text-[12px] font-bold text-[#1F5BFF]">{detail}</span> : <ChevronRight className="ml-auto h-4 w-4 text-[#8A93A6]" />}

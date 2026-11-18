@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+/* Dark styles apply only with a .dark class, which this app never sets. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme inline {
   --font-sans: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
   --color-cream: #f7f5f0;
@@ -14,8 +17,36 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+:root {
+  color-scheme: only light;
+}
+
 html {
+  color-scheme: only light;
   touch-action: manipulation;
+  background: #e8edf5;
+  color: #0b1b3b;
+}
+
+@layer base {
+  button,
+  input,
+  textarea,
+  select {
+    color: #0b1b3b;
+  }
+
+  input:not([type='checkbox']):not([type='radio']):not([type='hidden']):not([type='file']):not([type='range']),
+  textarea,
+  select {
+    background-color: #ffffff;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #5c6578;
+    opacity: 1;
+  }
 }
 
 body {

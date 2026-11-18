@@ -43,7 +43,7 @@ export function PayForm({ buses, balanceNgwee, onClose, initialFleet = '' }: { b
       <p className="text-[14px] text-[#5C6578]">Check the number on your bus.</p>
       <label className="mt-6 block text-[13px] text-[#5C6578]">
         Bus number
-        <input value={fleet} onChange={(event) => setFleet(event.target.value)} inputMode="numeric" aria-label="Bus number" className="mt-1 w-full border-0 border-b-2 border-[#0B1B3B] bg-transparent py-1 text-[40px] font-extrabold tracking-[-0.04em] outline-none" />
+        <input value={fleet} onChange={(event) => setFleet(event.target.value)} inputMode="numeric" aria-label="Bus number" className="mt-1 w-full border-0 border-b-2 border-[#0B1B3B] bg-white py-1 text-[40px] font-extrabold tracking-[-0.04em] text-[#0B1B3B] outline-none placeholder:text-[#5C6578]" />
       </label>
       {match ? (
         <div className="mt-4 flex items-center gap-3 rounded-2xl bg-white px-3 py-3">

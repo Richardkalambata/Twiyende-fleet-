@@ -24,7 +24,7 @@ export default async function AssignmentsPage() {
               <div className="text-sm text-[#5C6B63]">{bus.route}</div>
             </div>
             <input type="hidden" name="busId" value={bus.id} />
-            <select name="conductorId" defaultValue={onBus.get(bus.id) ?? ''} className="h-12 w-full rounded-xl bg-[#F4F6FB] px-3 sm:w-56">
+            <select name="conductorId" defaultValue={onBus.get(bus.id) ?? ''} className="h-12 w-full rounded-xl bg-white px-3 text-[#0B1B3B] sm:w-56">
               <option value="">Unassigned</option>
               {conductors.map((conductor) => (
                 <option key={conductor.id} value={conductor.id}>{conductor.shortName}</option>

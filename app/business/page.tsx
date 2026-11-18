@@ -153,7 +153,7 @@ export default function BusinessHome() {
         <div className="absolute inset-0 bg-[#071230]/78" />
         <div className="relative mx-auto flex max-w-[1200px] flex-col items-start gap-6 px-5 py-20 md:px-8 md:py-32">
           <h2 className="max-w-xl text-[32px] md:text-[52px]">Open the desk for your company.</h2>
-          <Link href="/business/signup" className="inline-flex h-[52px] items-center rounded-xl bg-[#1F5BFF] px-6 text-[15px] font-bold">Create a company</Link>
+          <Link href="/business/signup" className="inline-flex h-[52px] items-center rounded-xl bg-[#1F5BFF] px-6 text-[15px] font-bold text-white">Create a company</Link>
         </div>
       </section>
       <SiteFooter business />

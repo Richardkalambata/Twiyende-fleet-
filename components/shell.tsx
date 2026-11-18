@@ -25,7 +25,7 @@ export function buttonClass(variant: 'copper' | 'green' | 'mint' | 'outline' | '
   const styles = {
     copper: 'bg-[#1F5BFF] text-white',
     green: 'bg-[#1F5BFF] text-white',
-    mint: 'bg-[#12B76A] text-white',
+    mint: 'bg-[#0E7A45] text-white',
     outline: 'bg-white text-[#0B1B3B] ring-1 ring-[#E4E8F0]',
     ghost: 'h-11 text-[#5C6578]',
   } as const;

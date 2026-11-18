@@ -52,7 +52,7 @@ export function FoundActions({
               type="button"
               disabled={tip > 0 || pending != null}
               onClick={() => send(amount)}
-              className={`h-12 rounded-full border font-semibold ${tip === amount ? 'border-[#1F5BFF] bg-[#1F5BFF] text-white' : 'border-[#E4DDD2] bg-white'}`}
+              className={`h-12 rounded-full border font-semibold ${tip === amount ? 'border-[#1F5BFF] bg-[#1F5BFF] text-white' : 'border-[#E4E8F0] bg-white text-[#0B1B3B]'}`}
             >
               {pending === amount ? '…' : formatCompact(amount)}
             </button>

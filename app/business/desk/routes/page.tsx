@@ -12,8 +12,8 @@ export default async function RoutesPage() {
     <div className="space-y-4 px-4 py-5 md:px-6">
       <h1 className="text-[28px] font-semibold">Routes & fares</h1>
       <form action={addFareAction} className="flex flex-wrap gap-2 rounded-2xl bg-white p-4">
-        <input name="route" required placeholder="Route" aria-label="Route" className="h-11 flex-1 rounded-xl bg-[#F4F6FB] px-3" />
-        <input name="amount" required placeholder="Fare in K" aria-label="Fare" className="h-11 w-32 rounded-xl bg-[#F4F6FB] px-3" />
+        <input name="route" required placeholder="Route" aria-label="Route" className="h-11 flex-1 rounded-xl bg-white px-3 text-[#0B1B3B] placeholder:text-[#5C6578]" />
+        <input name="amount" required placeholder="Fare in K" aria-label="Fare" className="h-11 w-32 rounded-xl bg-white px-3 text-[#0B1B3B] placeholder:text-[#5C6578]" />
         <button className="h-11 rounded-xl bg-[#1F5BFF] px-4 font-bold text-white">Add fare</button>
       </form>
       <ul className="text-sm">
