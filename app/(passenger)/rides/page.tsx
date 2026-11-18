@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { BusIcon } from '@/components/icons';
-import { EmptyState, ListRow } from '@/components/ui';
+import { Badge, EmptyState, ListRow } from '@/components/ui';
 import { formatCompact } from '@/lib/money';
 import { listPassengerRides } from '@/lib/service';
 
@@ -47,7 +47,7 @@ export default async function RidesPage({ searchParams }: { searchParams: Promis
               title={<>Bus {ride.fleetNumber}</>}
               meta={`${ride.route} · ${ride.whenLabel}`}
               amount={formatCompact(ride.amountNgwee)}
-              trailing={<span className="sr-only">{ride.status === 'pending' ? ride.code : ride.status}</span>}
+              trailing={ride.status === 'verified' ? <Badge>Verified</Badge> : ride.status === 'pending' ? <Badge tone="copper">Pending</Badge> : <Badge tone="muted">Cancelled</Badge>}
             />
           </Link>
         ))}

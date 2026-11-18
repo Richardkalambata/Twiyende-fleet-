@@ -4,24 +4,28 @@ import { useActionState } from 'react';
 import { changePinAction, updateProfileAction, saveCompanyAction } from '@/lib/actions';
 import type { Fail } from '@/lib/types';
 
-export function ProfileForms({ name }: { name: string }) {
+export function ProfileForms({ name, mode = 'both' }: { name: string; mode?: 'both' | 'name' | 'pin' }) {
   const [profile, saveProfile, saving] = useActionState(updateProfileAction, null as Fail | null);
   const [pin, savePin, pinning] = useActionState(changePinAction, null as Fail | null);
   return (
     <div className="space-y-3">
-      <form action={saveProfile} className="rounded-2xl bg-white p-4">
-        <h2 className="font-bold">Personal details</h2>
-        <input name="name" defaultValue={name} aria-label="Name" className="mt-2 w-full border-0 border-b border-[#D5DCE8] bg-transparent py-2 text-[16px] font-semibold outline-none" />
-        {profile?.message ? <p className="mt-2 text-sm text-[#E5484D]">{profile.message}</p> : null}
-        <button className="mt-3 h-11 rounded-xl bg-[#1F5BFF] px-4 font-bold text-white" disabled={saving}>{saving ? 'Saving…' : 'Save name'}</button>
-      </form>
-      <form action={savePin} className="rounded-2xl bg-white p-4">
-        <h2 className="font-bold">Change PIN</h2>
-        <input name="current" inputMode="numeric" maxLength={4} placeholder="Current PIN" aria-label="Current PIN" className="mt-2 w-full border-0 border-b border-[#D5DCE8] bg-transparent py-2 outline-none" />
-        <input name="next" inputMode="numeric" maxLength={4} placeholder="New 4-digit PIN" aria-label="New PIN" className="mt-2 w-full border-0 border-b border-[#D5DCE8] bg-transparent py-2 outline-none" />
-        {pin?.message ? <p className="mt-2 text-sm text-[#E5484D]">{pin.message}</p> : null}
-        <button className="mt-3 h-11 rounded-xl bg-[#0B1B3B] px-4 font-bold text-white" disabled={pinning}>{pinning ? 'Saving…' : 'Update PIN'}</button>
-      </form>
+      {mode !== 'pin' ? (
+        <form action={saveProfile} className="rounded-2xl bg-white p-4">
+          <h2 className="font-bold">Personal details</h2>
+          <input name="name" defaultValue={name} aria-label="Name" className="mt-2 w-full border-0 border-b border-[#D5DCE8] bg-transparent py-2 text-[16px] font-semibold outline-none" />
+          {profile?.message ? <p className="mt-2 text-sm text-[#E5484D]">{profile.message}</p> : null}
+          <button className="press mt-3 h-11 rounded-xl bg-[#1F5BFF] px-4 font-bold text-white" disabled={saving}>{saving ? 'Saving…' : 'Save name'}</button>
+        </form>
+      ) : null}
+      {mode !== 'name' ? (
+        <form action={savePin} className="rounded-2xl bg-white p-4">
+          <h2 className="font-bold">Change PIN</h2>
+          <input name="current" inputMode="numeric" maxLength={4} placeholder="Current PIN" aria-label="Current PIN" className="mt-2 w-full border-0 border-b border-[#D5DCE8] bg-transparent py-2 text-[16px] outline-none" />
+          <input name="next" inputMode="numeric" maxLength={4} placeholder="New 4-digit PIN" aria-label="New PIN" className="mt-2 w-full border-0 border-b border-[#D5DCE8] bg-transparent py-2 text-[16px] outline-none" />
+          {pin?.message ? <p className="mt-2 text-sm text-[#E5484D]">{pin.message}</p> : null}
+          <button className="press mt-3 h-11 rounded-xl bg-[#0B1B3B] px-4 font-bold text-white" disabled={pinning}>{pinning ? 'Saving…' : 'Update PIN'}</button>
+        </form>
+      ) : null}
     </div>
   );
 }

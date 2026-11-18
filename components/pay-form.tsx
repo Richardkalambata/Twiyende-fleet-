@@ -51,14 +51,14 @@ export function PayForm({ buses, balanceNgwee, onClose }: { buses: BusOption[]; 
       <p className="mt-6 text-[13px] font-semibold">Select fare</p>
       <div className="mt-2 flex gap-2">
         {chips.map((value) => (
-          <button key={value} type="button" onClick={() => setFare(value)} className={`h-10 flex-1 rounded-lg text-sm font-bold ${fare === value ? 'bg-[#1F5BFF] text-white' : 'bg-white text-[#0B1B3B]'}`}>K{value}</button>
+          <button key={value} type="button" onClick={() => setFare(value)} className={`press h-11 flex-1 rounded-xl text-[15px] font-bold ${fare === value ? 'bg-[#1F5BFF] text-white' : 'bg-white text-[#0B1B3B] shadow-[0_4px_14px_rgba(11,27,59,0.06)]'}`}>K{value}</button>
         ))}
       </div>
       <div className="mt-6 space-y-2 text-[14px]">
         <div className="flex justify-between"><span className="text-[#5C6578]">Available</span><span className="font-semibold">{formatBalance(balanceNgwee)}</span></div>
         <div className="flex justify-between"><span className="text-[#5C6578]">After payment</span><span className="font-semibold">{formatBalance(balanceNgwee - amount)}</span></div>
       </div>
-      <p className="mt-4 text-center text-[44px] font-extrabold tracking-[-0.04em]">{formatBalance(amount)}</p>
+      <p className="num mt-4 text-center text-[44px] font-extrabold tracking-[-0.04em]">{formatBalance(amount)}</p>
       {short > 0 ? (
         <div className="mt-3 rounded-2xl bg-[#FFF6E8] px-4 py-3 text-[14px] text-[#9A5B00]">
           <p className="font-bold">Add {formatBalance(short)} to pay this fare.</p>
@@ -69,7 +69,7 @@ export function PayForm({ buses, balanceNgwee, onClose }: { buses: BusOption[]; 
       {short > 0 ? (
         <a href="/topup" className="mt-4 flex h-12 items-center justify-center rounded-xl bg-[#1F5BFF] font-bold text-white">Top up wallet</a>
       ) : (
-        <button type="button" disabled={pending} onClick={submit} className="mt-4 flex h-12 items-center justify-center rounded-xl bg-[#1F5BFF] font-bold text-white disabled:opacity-50">{pending ? 'Paying…' : `Pay ${formatBalance(amount)}`}</button>
+        <button type="button" disabled={pending} onClick={submit} className="press mt-4 flex h-12 items-center justify-center rounded-xl bg-[#1F5BFF] text-[15px] font-bold text-white shadow-[0_8px_20px_rgba(31,91,255,0.28)] disabled:opacity-50">{pending ? 'Paying…' : `Pay ${formatBalance(amount)}`}</button>
       )}
       <p className="mt-2 text-center text-[12px] text-[#8A93A6]">Paid from your Twende wallet.</p>
     </div>

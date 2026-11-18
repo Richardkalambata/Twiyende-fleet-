@@ -16,7 +16,12 @@ export function TicketWatch({ id, initial }: { id: string; initial: string }) {
   }, [id, status]);
   if (status === 'verified') return <p className="mt-3 text-[14px] font-bold text-[#128A4E]">Verified by conductor</p>;
   if (status === 'void') return <p className="mt-3 text-[14px] font-bold text-[#8A93A6]">Cancelled</p>;
-  return <p className="mt-3 text-[14px] font-bold text-[#C47B12]">Awaiting verification</p>;
+  return (
+    <p className="mt-3 inline-flex items-center gap-2 text-[14px] font-bold text-[#C47B12]">
+      <span className="pulse-dot inline-block h-2 w-2 rounded-full bg-[#E8833A]" />
+      Awaiting verification
+    </p>
+  );
 }
 
 export function PrintButton() {
