@@ -309,23 +309,24 @@ input:-webkit-autofill {
 
 .toggle[data-on='true'] i { transform: translateX(20px); }
 
-.hero-stage {
-  background:
-    radial-gradient(520px 280px at 78% 18%, rgba(31, 91, 255, 0.45), transparent 68%),
-    radial-gradient(420px 240px at 12% 80%, rgba(143, 176, 255, 0.18), transparent 70%),
-    linear-gradient(180deg, #0b1b3b 0%, #071230 100%);
+.ken-burns {
+  transform-origin: 70% center;
+  animation: ken-burns 12s ease-out forwards;
 }
 
-.hero-grid {
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
-  background-size: 48px 48px;
+@keyframes ken-burns {
+  from { transform: scale(1); }
+  to { transform: scale(1.06); }
 }
 
-.hero-grain {
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='80' height='80' filter='url(%23n)' opacity='.35'/></svg>");
-  opacity: 0.18;
+.line-reveal {
+  opacity: 0;
+  animation: land-in 0.7s ease forwards;
+}
+
+.card-rise {
+  opacity: 0;
+  animation: land-in 0.8s ease 0.7s forwards;
 }
 
 .land-wait { opacity: 0; transform: translateY(12px); }
@@ -366,7 +367,9 @@ input:-webkit-autofill {
   .land-in,
   .hero-enter,
   .float-card,
+  .ken-burns,
+  .line-reveal,
+  .card-rise,
   .status-wait,
-  .status-ok { animation: none; }
-  .status-ok { opacity: 0; }
+  .status-ok { animation: none; opacity: 1; }
 }
