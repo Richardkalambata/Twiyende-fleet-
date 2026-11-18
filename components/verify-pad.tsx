@@ -46,7 +46,8 @@ export function VerifyPad({
     if (!result.ok) {
       setPaid(null);
       setError(result.message);
-      toast(result.message);
+      const dedicated = result.message.includes('This code is for Bus') || /already used|just used/i.test(result.message);
+      if (!dedicated) toast(result.message);
       return;
     }
     setPaid({ amountNgwee: result.amountNgwee, verifiedAt: result.verifiedAt, passenger: result.passenger });
@@ -113,7 +114,7 @@ export function VerifyPad({
           <p className="mt-1 text-[14px] leading-5">{error}</p>
         </div>
         <p className="mt-6 text-center text-[32px] font-extrabold tracking-[0.18em]">{code}</p>
-        <button type="button" className="press mt-auto h-12 rounded-xl bg-[#1F5BFF] font-bold text-white" onClick={() => { setError(null); setCode(''); }}>Enter another code</button>
+        <button type="button" className="press mt-8 h-12 rounded-xl bg-[#1F5BFF] font-bold text-white" onClick={() => { setError(null); setCode(''); }}>Enter another code</button>
       </div>
     );
   }
