@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
-import { CancelFare, ShareReceipt } from '@/components/receipt-actions';
+import { ShareReceipt } from '@/components/receipt-actions';
 import { TicketWatch, PrintButton } from '@/components/ticket-live';
 import { Logo } from '@/components/shell';
 import { formatBalance } from '@/lib/money';
@@ -34,7 +34,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
           <div className="mt-2 h-1 rounded-full bg-[#E8833A]" />
         </div>
         <div className="px-4 py-5">
-          <TicketWatch id={receipt.id} initial={receipt.status} code={receipt.code} />
+          <TicketWatch id={receipt.id} initial={receipt.status} code={receipt.code} rideId={receipt.id} />
         </div>
         <div className="space-y-3 border-t border-dashed border-[#E4E8F0] px-4 py-4 text-[14px]">
           <div className="flex justify-between"><span className="text-[#5C6578]">Departure</span><span className="font-semibold">{from}</span></div>
@@ -45,7 +45,6 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
       </section>
       <PrintButton />
       {pending ? <ShareReceipt text={share} /> : null}
-      {pending ? <CancelFare rideId={receipt.id} /> : null}
       <Link href="/lost/new" className="mt-3 block text-center text-[14px] font-semibold text-[#1F5BFF]">Report a lost item</Link>
     </div>
   );

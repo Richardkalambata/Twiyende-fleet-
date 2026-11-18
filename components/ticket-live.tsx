@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { Check } from 'lucide-react';
+import { CancelFare } from './receipt-actions';
 
-export function TicketWatch({ id, initial, code }: { id: string; initial: string; code: string }) {
+export function TicketWatch({ id, initial, code, rideId }: { id: string; initial: string; code: string; rideId: string }) {
   const [status, setStatus] = useState(initial);
   useEffect(() => {
     if (status !== 'pending') return;
@@ -36,6 +37,7 @@ export function TicketWatch({ id, initial, code }: { id: string; initial: string
           Awaiting verification
         </p>
       )}
+      {status === 'pending' ? <div className="mt-4"><CancelFare rideId={rideId} /></div> : null}
     </div>
   );
 }
