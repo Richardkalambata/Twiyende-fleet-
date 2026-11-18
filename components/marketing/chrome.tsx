@@ -13,7 +13,7 @@ export function SiteHeader({ business = false }: { business?: boolean }) {
         </nav>
         <div className="flex items-center gap-2">
           <Link href={business ? '/business/login' : '/login'} className="hidden h-10 items-center rounded-xl px-3 text-[14px] font-bold text-white sm:inline-flex">Sign in</Link>
-          <Link href={business ? '/business/signup' : '/signup'} className="inline-flex h-10 items-center rounded-xl bg-[#1F5BFF] px-3 text-[14px] font-bold text-white">{business ? 'Create a company' : 'Create account'}</Link>
+          <Link href={business ? '/business/signup' : '/signup'} className="inline-flex h-12 items-center rounded-xl bg-[#1F5BFF] px-5 text-[14px] font-bold text-white">{business ? 'Create a company' : 'Create account'}</Link>
         </div>
       </div>
     </header>

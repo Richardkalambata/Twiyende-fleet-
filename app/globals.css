@@ -309,6 +309,35 @@ input:-webkit-autofill {
 
 .toggle[data-on='true'] i { transform: translateX(20px); }
 
+.marketing h1,
+.marketing h2,
+.marketing h3 {
+  font-family: var(--font-jakarta), var(--font-inter), sans-serif;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.marketing h1 {
+  font-weight: 800;
+  line-height: 1.04;
+}
+
+.marketing h2 {
+  font-weight: 800;
+  line-height: 1.06;
+}
+
+.marketing h3 {
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.marketing .lead {
+  max-width: 60ch;
+  font-size: 19px;
+  line-height: 1.6;
+}
+
 .ken-burns {
   transform-origin: 70% center;
   animation: ken-burns 12s ease-out forwards;
