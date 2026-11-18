@@ -49,8 +49,24 @@ export async function loginAction(_prev: Fail | null, formData: FormData): Promi
   if (gate === 'passenger' && result.user.role !== 'passenger') {
     return { ok: false, message: 'Operators and conductors sign in to Twende Fleet Business.' };
   }
-  if (gate === 'business' && result.user.role === 'passenger') {
-    return { ok: false, message: 'Passengers sign in on the Twende rider app.' };
+  if (gate === 'operator' && result.user.role !== 'operator') {
+    return {
+      ok: false,
+      message: result.user.role === 'conductor'
+        ? 'This sign-in is for operators. Conductors use Conductor sign in.'
+        : 'Passengers sign in on the Twende rider app.',
+    };
+  }
+  if (gate === 'conductor' && result.user.role !== 'conductor') {
+    return {
+      ok: false,
+      message: result.user.role === 'operator'
+        ? 'This sign-in is for conductors. Operators use Operator sign in.'
+        : 'Passengers sign in on the Twende rider app.',
+    };
+  }
+  if (gate === 'business' && result.user.role !== 'operator') {
+    return { ok: false, message: 'Passengers and conductors use their own sign-in.' };
   }
   await createSession(result.user.id);
   redirect(homeFor(result.user.role));
@@ -58,14 +74,17 @@ export async function loginAction(_prev: Fail | null, formData: FormData): Promi
 
 export async function demoLoginAction(formData: FormData) {
   const gate = String(formData.get('gate') ?? 'passenger');
-  const back = gate === 'business' ? '/business/login' : '/login';
+  const back = gate === 'conductor' ? '/business/conductor/login' : gate === 'operator' || gate === 'business' ? '/business/login' : '/login';
   const result = await authenticateDemo(String(formData.get('userId') ?? ''));
   if (!result.ok) redirect(`${back}?error=${encodeURIComponent(result.message)}`);
   if (gate === 'passenger' && result.user.role !== 'passenger') {
     redirect(`${back}?error=${encodeURIComponent('Open Twende Fleet Business for this account.')}`);
   }
-  if (gate === 'business' && result.user.role === 'passenger') {
-    redirect(`${back}?error=${encodeURIComponent('Open the rider app for this account.')}`);
+  if (gate === 'operator' && result.user.role !== 'operator') {
+    redirect(`${back}?error=${encodeURIComponent('This sign-in is for operators. Conductors use Conductor sign in.')}`);
+  }
+  if (gate === 'conductor' && result.user.role !== 'conductor') {
+    redirect(`${back}?error=${encodeURIComponent('This sign-in is for conductors. Operators use Operator sign in.')}`);
   }
   await createSession(result.user.id);
   redirect(homeFor(result.user.role));
@@ -74,6 +93,7 @@ export async function demoLoginAction(formData: FormData) {
 export async function signOutAction() {
   const user = await getCurrentUser();
   await destroySession();
+  if (user?.role === 'conductor') redirect('/business/conductor/login');
   redirect(user && user.role !== 'passenger' ? '/business' : '/');
 }
 

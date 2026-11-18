@@ -51,8 +51,9 @@ export const getCurrentUser = cache(async (): Promise<PublicUser | null> => {
 export async function requireUser(roles?: Role[]): Promise<PublicUser> {
   const user = await getCurrentUser();
   if (!user) {
+    const conductorOnly = Boolean(roles?.length === 1 && roles[0] === 'conductor');
     const business = Boolean(roles && roles.length > 0 && roles.every((role) => role !== 'passenger'));
-    redirect(business ? '/business/login' : '/login');
+    redirect(conductorOnly ? '/business/conductor/login' : business ? '/business/login' : '/login');
   }
   if (roles && !roles.includes(user.role)) redirect(homeFor(user.role));
   return user;

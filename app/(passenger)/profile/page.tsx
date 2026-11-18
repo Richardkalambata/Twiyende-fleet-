@@ -1,6 +1,7 @@
 import { requireUser } from '@/lib/auth';
 import { signOutAction } from '@/lib/actions';
 import { ProfileForms } from '@/components/account-forms';
+import { LogoutIcon } from '@/components/icons';
 import { Avatar, buttonClass } from '@/components/shell';
 import { formatBalance, formatCompact } from '@/lib/money';
 import { formatPhone } from '@/lib/phone';
@@ -23,6 +24,12 @@ export default async function ProfilePage() {
           <p className="text-sm text-[#5C6B63]">{formatPhone(user.phone)} · Passenger</p>
         </div>
       </div>
+      <form action={signOutAction}>
+        <button className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0B1B3B] text-[15px] font-bold text-white">
+          <LogoutIcon className="h-5 w-5" />
+          Log out
+        </button>
+      </form>
       <section className="rounded-3xl bg-[#1F5BFF] p-5 text-white">
         <p className="text-sm text-white/75">Wallet</p>
         <p className="text-4xl font-semibold">{formatBalance(home.balanceNgwee)}</p>
@@ -44,9 +51,6 @@ export default async function ProfilePage() {
       </section>
       <ProfileForms name={user.name} />
       <p className="text-[12px] text-[#8A93A6]">Payments simulated. No mobile-money charge is sent.</p>
-      <form action={signOutAction}>
-        <button className={buttonClass('outline')}>Sign out</button>
-      </form>
     </div>
   );
 }

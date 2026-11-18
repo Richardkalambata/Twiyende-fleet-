@@ -40,11 +40,17 @@ export default function BusinessHome() {
               </div>
             ))}
           </div>
-          <div className="mt-auto space-y-2 pt-3">
-            <Link href="/business/signup" className="flex h-12 w-full items-center justify-center rounded-xl bg-[#1F5BFF] text-[15px] font-bold text-white">Create operator account</Link>
-            <Link href="/business/login" className="flex h-12 w-full items-center justify-center rounded-xl bg-white text-[15px] font-bold text-[#0B1B3B] ring-1 ring-[#D5DCE8]">I already have an account</Link>
-            <Link href="/" className="block pb-1 pt-0.5 text-center text-[12px] font-semibold text-[#5C6578]">Passenger? Open Twende</Link>
+          <div className="mt-auto grid grid-cols-2 gap-2 pt-3">
+            <Link href="/business/login" className="flex min-h-[76px] flex-col justify-center rounded-2xl bg-[#1F5BFF] px-3 py-3 text-white">
+              <span className="text-[14px] font-bold leading-tight">I&apos;m an operator</span>
+              <span className="mt-1 text-[12px] leading-4 text-white/80">Sign in or create a company</span>
+            </Link>
+            <Link href="/business/conductor/login" className="flex min-h-[76px] flex-col justify-center rounded-2xl bg-[#0B1B3B] px-3 py-3 text-white">
+              <span className="text-[14px] font-bold leading-tight">I&apos;m a conductor</span>
+              <span className="mt-1 text-[12px] leading-4 text-white/80">Sign in</span>
+            </Link>
           </div>
+          <Link href="/" className="block pb-1 pt-2 text-center text-[12px] font-semibold text-[#5C6578]">Passenger? Open Twende</Link>
         </div>
       </section>
     </main>

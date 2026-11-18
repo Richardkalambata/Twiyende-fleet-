@@ -1,7 +1,8 @@
 import { requireUser } from '@/lib/auth';
 import { signOutAction } from '@/lib/actions';
 import { ProfileForms } from '@/components/account-forms';
-import { Avatar, buttonClass } from '@/components/shell';
+import { LogoutIcon } from '@/components/icons';
+import { Avatar } from '@/components/shell';
 import { formatBalance, formatGrouped } from '@/lib/money';
 import { formatPhone } from '@/lib/phone';
 import { conductorTipBalance, getConductorHome } from '@/lib/service';
@@ -21,6 +22,12 @@ export default async function ConductorProfilePage() {
           <p className="text-sm">Bus {home.bus?.fleet_number ?? 'unassigned'} · {home.bus?.route ?? 'Ask the owner to assign you'}</p>
         </div>
       </div>
+      <form action={signOutAction}>
+        <button className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0B1B3B] text-[15px] font-bold text-white">
+          <LogoutIcon className="h-5 w-5" />
+          Log out
+        </button>
+      </form>
       <section className="grid grid-cols-2 gap-2">
         <div className="rounded-3xl bg-[#1A221E] p-4">
           <p className="text-xs text-[#8B978F]">Today</p>
@@ -35,9 +42,6 @@ export default async function ConductorProfilePage() {
       </section>
       <p className="text-[12px] text-[#8A93A6]">Payments simulated. Fares belong to the operator.</p>
       <div className="text-[#0B1B3B]"><ProfileForms name={user.name} /></div>
-      <form action={signOutAction}>
-        <button className={buttonClass('outline')}>Sign out</button>
-      </form>
     </div>
   );
 }
