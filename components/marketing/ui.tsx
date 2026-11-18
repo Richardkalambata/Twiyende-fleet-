@@ -5,18 +5,30 @@ import Link from 'next/link';
 
 export function Reveal({ children, className = '', delay = 0 }: { children: ReactNode; className?: string; delay?: number }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [shown, setShown] = useState(false);
+  const [motion, setMotion] = useState<'still' | 'wait' | 'in'>('still');
   useEffect(() => {
     const node = ref.current;
     if (!node) return;
+    if (typeof IntersectionObserver === 'undefined') return;
+    const near = () => {
+      const rect = node.getBoundingClientRect();
+      return rect.top < window.innerHeight + 240 && rect.bottom > -240;
+    };
+    if (near()) return;
+    setMotion('wait');
     const observer = new IntersectionObserver(([entry]) => {
-      if (entry?.isIntersecting) setShown(true);
-    }, { threshold: 0.16 });
+      if (entry?.isIntersecting) setMotion('in');
+    }, { threshold: 0, rootMargin: '240px 0px' });
     observer.observe(node);
-    return () => observer.disconnect();
+    const timer = window.setTimeout(() => setMotion('in'), 1200);
+    return () => {
+      observer.disconnect();
+      window.clearTimeout(timer);
+    };
   }, []);
+  const state = motion === 'wait' ? 'land-wait' : motion === 'in' ? 'land-in' : '';
   return (
-    <div ref={ref} className={`${className} ${shown ? 'land-in' : 'land-wait'}`} style={{ animationDelay: `${delay}ms` }}>
+    <div ref={ref} className={`${className} ${state}`} style={motion === 'in' ? { animationDelay: `${delay}ms` } : undefined}>
       {children}
     </div>
   );

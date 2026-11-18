@@ -29,6 +29,7 @@ export function Onboarding() {
           alt="A woman laughing at her phone beside a Lusaka minibus"
           fill
           priority
+          quality={90}
           placeholder="blur"
           blurDataURL={blur['campaign-rider']}
           sizes="100vw"

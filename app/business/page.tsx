@@ -31,6 +31,7 @@ export default function BusinessHome() {
           alt="A fleet owner with a tablet in front of a row of minibuses"
           fill
           priority
+          quality={90}
           placeholder="blur"
           blurDataURL={blur['campaign-business']}
           sizes="100vw"
@@ -60,7 +61,7 @@ export default function BusinessHome() {
       <section className="mx-auto grid max-w-[1200px] gap-4 px-5 py-16 md:grid-cols-2 md:px-8 md:py-24">
         <Reveal>
           <Link href="/business/login" className="flex h-full gap-4 rounded-[24px] bg-white p-5 shadow-[0_16px_40px_rgba(11,27,59,0.06)]">
-            <Image src="/brand/campaign-business-800.webp" alt="" width={112} height={112} className="h-28 w-28 shrink-0 rounded-2xl object-cover object-[70%_center]" />
+            <Image src="/brand/campaign-business-1080.webp" alt="" width={112} height={112} quality={80} className="h-28 w-28 shrink-0 rounded-2xl object-cover object-[70%_center]" />
             <span>
               <span className="text-[13px] font-bold text-[#1F5BFF]">Sign in or create a company</span>
               <span className="mt-1 block text-[28px] font-extrabold tracking-[-0.03em]">I&apos;m an operator</span>
@@ -70,7 +71,7 @@ export default function BusinessHome() {
         </Reveal>
         <Reveal delay={80}>
           <Link href="/business/conductor/login" className="flex h-full gap-4 rounded-[24px] bg-[#0B1B3B] p-5 text-white">
-            <Image src="/brand/moment-verify-800.webp" alt="" width={112} height={112} className="h-28 w-28 shrink-0 rounded-2xl object-cover" />
+            <Image src="/brand/moment-verify-1080.webp" alt="" width={112} height={112} quality={80} className="h-28 w-28 shrink-0 rounded-2xl object-cover" />
             <span>
               <span className="text-[13px] font-bold text-[#8FB0FF]">Sign in</span>
               <span className="mt-1 block text-[28px] font-extrabold tracking-[-0.03em]">I&apos;m a conductor</span>

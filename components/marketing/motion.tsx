@@ -29,7 +29,7 @@ export function Still({ src, blur, alt, className = '' }: { src: string; blur: s
   return (
     <div className={`overflow-hidden rounded-[24px] shadow-[0_24px_60px_rgba(11,27,59,0.16)] ${className}`}>
       <div ref={ref} className="scale-[1.08]">
-        <Image src={src} alt={alt} width={1600} height={1000} placeholder="blur" blurDataURL={blur} sizes="(min-width: 768px) 46vw, 100vw" className="aspect-[4/3] h-auto w-full object-cover" />
+        <Image src={src} alt={alt} width={1600} height={1000} quality={88} placeholder="blur" blurDataURL={blur} sizes="(min-width: 768px) 46vw, 100vw" className="aspect-[4/3] h-auto w-full object-cover" />
       </div>
     </div>
   );
