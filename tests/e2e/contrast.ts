@@ -53,10 +53,18 @@ export async function assertLightControls(page: Page) {
       if (!control) return;
       seen.add(node);
       const fg = parse(style.color);
-      const own = parse(style.backgroundColor);
       if (!fg) return;
-      const back = backdrop(node);
-      const bg = own && own.a > 0 ? composite(own, back) : back;
+      const stack = document.elementsFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      const layers: { r: number; g: number; b: number; a: number }[] = [];
+      for (const el of stack) {
+        if (el === node) continue;
+        const color = parse(getComputedStyle(el).backgroundColor);
+        if (color && color.a > 0.2) layers.push(color);
+      }
+      let bg = { r: 255, g: 255, b: 255, a: 1 };
+      for (let index = layers.length - 1; index >= 0; index -= 1) bg = composite(layers[index], bg);
+      const own = parse(style.backgroundColor);
+      if (own && own.a > 0.2) bg = composite(own, bg);
       const paint = composite(fg, bg);
       const score = ratio(paint, bg);
       const size = parseFloat(style.fontSize);

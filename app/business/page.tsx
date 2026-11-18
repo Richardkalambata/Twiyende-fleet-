@@ -27,19 +27,21 @@ const FAQ = [
 export default function BusinessHome() {
   return (
     <div className={`${jakarta.variable} marketing bg-[#F7F8FB] text-[#0B1B3B]`}>
-      <section className="relative h-[100svh] min-h-[640px] overflow-hidden text-white md:h-[88vh]">
-        <Image
-          src="/brand/campaign-business.jpg"
-          alt="A fleet owner with a tablet in front of a row of minibuses"
-          fill
-          priority
-          quality={85}
-          placeholder="blur"
-          blurDataURL={blur['campaign-business']}
-          sizes="100vw"
-          className="ken-burns object-cover object-[72%_center]"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#071230] via-[#071230]/75 to-[#071230]/25 md:bg-gradient-to-r md:from-[#071230] md:via-[#071230]/80 md:to-[#071230]/10" />
+      <section data-hero className="relative h-[100svh] min-h-[640px] overflow-hidden text-white md:h-[88vh]">
+        <div className="parallax-photo absolute inset-[-4%]">
+          <Image
+            src="/brand/campaign-business.jpg"
+            alt="A fleet owner with a tablet in front of a row of minibuses"
+            fill
+            priority
+            quality={85}
+            placeholder="blur"
+            blurDataURL={blur['campaign-business']}
+            sizes="100vw"
+            className="ken-burns object-cover object-[72%_center]"
+          />
+        </div>
+        <div className="parallax-shade absolute inset-0 bg-gradient-to-t from-[#071230] via-[#071230]/75 to-[#071230]/25 md:bg-gradient-to-r md:from-[#071230] md:via-[#071230]/80 md:to-[#071230]/10" />
         <SiteHeader business />
         <div className="relative z-10 mx-auto grid h-full max-w-[1200px] grid-cols-12 items-end px-5 pb-24 md:items-center md:px-8 md:pb-0">
           <div className="col-span-12 md:col-span-7">
@@ -57,7 +59,7 @@ export default function BusinessHome() {
             </div>
           </div>
         </div>
-        <p className="card-rise glass absolute bottom-[24%] right-[14%] hidden rounded-2xl px-4 py-3 text-[14px] font-semibold text-white md:block">✓ Fare verified · Bus 12 · K5.00</p>
+        <p className="parallax-glass card-rise glass absolute bottom-[24%] right-[14%] hidden rounded-2xl px-4 py-3 text-[14px] font-semibold text-white md:block">✓ Fare verified · Bus 12 · K5.00</p>
       </section>
 
       <section className="mx-auto max-w-[1200px] px-5 py-20 md:px-8 md:py-32">
@@ -68,7 +70,7 @@ export default function BusinessHome() {
         </Reveal>
         <Reveal delay={80}>
           <div className="mt-12 rounded-[32px] bg-[radial-gradient(120%_90%_at_80%_0%,#8FB4FF_0%,#2457D6_46%,#071230_100%)] px-4 py-10 md:px-12 md:py-16">
-            <div className="mock-float relative mx-auto max-w-[920px]">
+            <div data-depth className="mock-float relative mx-auto max-w-[920px]">
               <Laptop src="/mockups/screen-desk.png" alt="Kalambata Transport operator dashboard on a laptop" />
               <div className="absolute bottom-[7%] right-[1%] z-10 w-[34%] max-w-[200px] md:w-[23%]">
                 <Phone src="/mockups/screen-verify.png" alt="Conductor phone after a fare is verified" />

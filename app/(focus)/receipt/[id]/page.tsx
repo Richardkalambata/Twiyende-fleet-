@@ -25,7 +25,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
       <Link href="/home" className="text-2xl" aria-label="Back">←</Link>
       <div className="mt-2 flex items-center justify-between"><Logo /><span className="text-[12px] text-[#8A93A6]">{formatHour24(receipt.createdAt)}</span></div>
       <h1 className="mt-4 text-[28px] font-extrabold tracking-[-0.04em]">{pending ? 'Your ride ticket' : 'Ride receipt'}</h1>
-      <section className="mt-4 overflow-hidden rounded-2xl bg-white">
+      <section className="flip-card elevate mt-4 overflow-hidden rounded-2xl bg-white">
         <div className="bg-[#0B1B3B] px-4 py-3 text-white">
           <div className="flex items-center justify-between">
             <span className="text-[18px] font-extrabold">BUS {receipt.fleetNumber}</span>

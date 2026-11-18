@@ -18,7 +18,8 @@ export function TicketWatch({ id, initial, code }: { id: string; initial: string
   const verified = status === 'verified';
   return (
     <div className="text-center">
-      <div className={verified ? 'code-ok' : status === 'pending' ? 'code-wait' : ''}>
+      <div className={`code-stage ${verified ? 'code-ok' : status === 'pending' ? 'code-wait' : ''}`}>
+        <span className="conic-ring" aria-hidden />
         <p className="fare-code num px-2 py-1 text-[52px] font-extrabold leading-none">{code}</p>
       </div>
       <p className="mt-2 text-[13px] font-semibold text-[#3E4A63]">Show this code to your conductor</p>

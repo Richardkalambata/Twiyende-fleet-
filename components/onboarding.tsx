@@ -24,19 +24,21 @@ const STEPS = [
 export function Onboarding() {
   return (
     <div className={`${jakarta.variable} marketing bg-[#F7F8FB] text-[#0B1B3B]`}>
-      <section className="relative h-[100svh] min-h-[640px] overflow-hidden text-white md:h-[88vh]">
-        <Image
-          src="/brand/campaign-rider.jpg"
-          alt="A woman laughing at her phone beside a Lusaka minibus"
-          fill
-          priority
-          quality={85}
-          placeholder="blur"
-          blurDataURL={blur['campaign-rider']}
-          sizes="100vw"
-          className="ken-burns object-cover object-[70%_center]"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#071230] via-[#071230]/75 to-[#071230]/20 md:bg-gradient-to-r md:from-[#071230] md:via-[#071230]/78 md:to-[#071230]/15" />
+      <section data-hero className="relative h-[100svh] min-h-[640px] overflow-hidden text-white md:h-[88vh]">
+        <div className="parallax-photo absolute inset-[-4%]">
+          <Image
+            src="/brand/campaign-rider.jpg"
+            alt="A woman laughing at her phone beside a Lusaka minibus"
+            fill
+            priority
+            quality={85}
+            placeholder="blur"
+            blurDataURL={blur['campaign-rider']}
+            sizes="100vw"
+            className="ken-burns object-cover object-[70%_center]"
+          />
+        </div>
+        <div className="parallax-shade absolute inset-0 bg-gradient-to-t from-[#071230] via-[#071230]/75 to-[#071230]/20 md:bg-gradient-to-r md:from-[#071230] md:via-[#071230]/78 md:to-[#071230]/15" />
         <SiteHeader />
         <div className="relative z-10 mx-auto grid h-full max-w-[1200px] grid-cols-12 items-end px-5 pb-24 md:items-center md:px-8 md:pb-0">
           <div className="col-span-12 md:col-span-7">
@@ -54,7 +56,7 @@ export function Onboarding() {
             </div>
           </div>
         </div>
-        <p className="card-rise glass absolute bottom-[22%] right-[12%] hidden rounded-2xl px-4 py-3 text-[14px] font-semibold text-white md:block">✓ Fare verified · Bus 12 · K5.00</p>
+        <p className="parallax-glass card-rise glass absolute bottom-[22%] right-[12%] hidden rounded-2xl px-4 py-3 text-[14px] font-semibold text-white md:block">✓ Fare verified · Bus 12 · K5.00</p>
       </section>
 
       <section className="mx-auto grid max-w-[1200px] items-center gap-8 px-5 py-20 md:grid-cols-12 md:gap-16 md:px-8 md:py-32">
@@ -71,7 +73,7 @@ export function Onboarding() {
       <section className="bg-white">
         <div className="mx-auto max-w-[1200px] px-5 py-20 md:px-8 md:py-32">
           <Reveal><h2 className="text-[32px] md:text-[48px]">How it works</h2></Reveal>
-          <ol className="mt-12 grid items-start gap-14 md:grid-cols-3 md:gap-8">
+          <ol data-depth className="mt-12 grid items-start gap-14 md:grid-cols-3 md:gap-8">
             {STEPS.map((step, index) => (
               <li key={step.title} className="flex flex-col items-center md:items-start">
                 <Reveal delay={index * 80} className="flex flex-col items-center md:items-start">

@@ -97,7 +97,7 @@ export function ConductorLostBoard({
         </label>
         <div className="grid grid-cols-2 gap-2">
           {CONDUCTOR_CATEGORIES.map((id) => (
-            <button key={id} type="button" onClick={() => setCategory(id)} className={`flex h-12 items-center gap-2 rounded-xl border px-2 text-left text-xs ${category === id ? 'border-[#1F5BFF] bg-[#1F5BFF] text-white' : 'border-[#E4E8F0] bg-[#F1F4FA] text-[#0B1B3B]'}`}>
+            <button key={id} type="button" data-on={category === id} onClick={() => setCategory(id)} className={`chip flex h-12 items-center gap-2 rounded-xl border px-2 text-left text-xs ${category === id ? 'border-[#1F5BFF] bg-[#1F5BFF] text-white' : 'border-[#E4E8F0] bg-[#F1F4FA] text-[#0B1B3B]'}`}>
               <CategoryIcon id={id} className="h-4 w-4" /> {categoryLabel(id)}
             </button>
           ))}
@@ -117,7 +117,7 @@ export function ConductorLostBoard({
       <div className="mt-6 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Items on this bus</h2>
       </div>
-      <ul className="mt-2 space-y-2">
+      <ul className="stagger mt-2 space-y-2">
         {items.length === 0 ? <li className="text-sm text-[#8B978F]">Nothing logged yet.</li> : null}
         {items.map((item) => (
           <li key={item.id} className="flex min-h-16 items-center gap-3 rounded-2xl bg-white px-3 text-[#0B1B3B]">

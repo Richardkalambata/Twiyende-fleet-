@@ -6,6 +6,7 @@ import { MapPin, Ticket, Wallet } from 'lucide-react';
 import { PayForm } from './pay-form';
 import { Logo, Avatar } from './shell';
 import { EmptyState } from './ui';
+import { CountUp } from '@/components/motion/engine';
 import { formatBalance } from '@/lib/money';
 import type { BusOption, RideCard } from '@/lib/types';
 
@@ -42,23 +43,24 @@ export function HomeApp({
       </header>
       <p className="mt-3 text-[15px] text-[#5C6578]">{greeting},</p>
       <h1 className="text-[32px] font-extrabold leading-none tracking-[-0.04em]">{name.split(' ')[0]}</h1>
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <section className="mesh col-span-2 rounded-[20px] p-4 text-white">
+      <div className="tilt-host mt-3 grid grid-cols-2 gap-2">
+        <section data-tilt className="mesh elevate relative col-span-2 overflow-hidden rounded-[20px] p-4 text-white">
+          <span className="sheen" aria-hidden />
           <p className="text-[13px] font-semibold text-[#D5DCEC]">Available balance</p>
-          <p className="num mt-1 text-[36px] font-extrabold leading-none tracking-[-0.04em] text-white">{formatBalance(balanceNgwee)}</p>
+          <p className="num mt-1 text-[36px] font-extrabold leading-none tracking-[-0.04em] text-white"><CountUp ngwee={balanceNgwee} /></p>
           <p className="mt-1 text-[12px] font-semibold text-[#D5DCEC]">Twende wallet · ZMW</p>
         </section>
         <button type="button" onClick={() => { setPreset(''); setPaying(true); }} className="glow-pay press col-span-2 flex h-14 items-center justify-center gap-2 rounded-[20px] bg-[#1F5BFF] text-[18px] font-extrabold text-white">
           Pay a fare →
         </button>
-        <Link href="/rides" className="press flex min-h-[88px] flex-col justify-between rounded-[20px] bg-white p-3 text-[#0B1B3B]">
+        <Link href="/rides" data-tilt className="elevate press flex min-h-[88px] flex-col justify-between rounded-[20px] bg-white p-3 text-[#0B1B3B]">
           <Ticket className="h-5 w-5 text-[#1F5BFF]" />
           <span>
             <span className="block text-[15px] font-extrabold">Rides</span>
             <span className="mt-0.5 block text-[12px] font-semibold text-[#3E4A63]">{monthCount} this month</span>
           </span>
         </Link>
-        <Link href="/lost" className="press flex min-h-[88px] flex-col justify-between rounded-[20px] bg-white p-3 text-[#0B1B3B]">
+        <Link href="/lost" data-tilt className="elevate press flex min-h-[88px] flex-col justify-between rounded-[20px] bg-white p-3 text-[#0B1B3B]">
           <MapPin className="h-5 w-5 text-[#1F5BFF]" />
           <span>
             <span className="block text-[15px] font-extrabold">Lost & found</span>
@@ -92,7 +94,7 @@ export function HomeApp({
           <Link href="/rides" className="text-[13px] font-semibold text-[#1F5BFF]">See all</Link>
         </div>
         {rides.length === 0 ? <div className="mt-2"><EmptyState title="No rides yet" body="Pay a fare and the last three trips will show up here." /></div> : (
-          <ul className="mt-2 overflow-hidden rounded-[20px] bg-white">
+          <ul className="stagger mt-2 overflow-hidden rounded-[20px] bg-white">
             {rides.map((ride) => (
               <li key={ride.id} className="border-b border-[#E6EAF2] last:border-0">
                 <Link href={`/receipt/${ride.id}`} className="flex items-center gap-3 px-3 py-3">
