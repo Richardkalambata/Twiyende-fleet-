@@ -45,10 +45,10 @@ export default async function FleetPage({ searchParams }: { searchParams: Promis
         <RangeLinks range={range} route={route} />
       </header>
       <section className="mt-4 grid grid-cols-2 overflow-hidden rounded-2xl bg-white xl:grid-cols-4">
-        <Kpi icon={<Coins className="h-4 w-4" />} label="Today's earnings" value={formatBalance(dash.totalNgwee)} />
-        <Kpi icon={<Bus className="h-4 w-4" />} label="Rides today" value={String(dash.rides)} />
-        <Kpi icon={<Bus className="h-4 w-4" />} label="Active buses" value={String(dash.activeBuses)} />
-        <Kpi icon={<Users className="h-4 w-4" />} label="Conductors on shift" value={String(onShift)} last />
+        <Kpi icon={<Coins className="h-4 w-4" />} label="Today's earnings" value={formatBalance(dash.totalNgwee)} detail={trend(dash.totalNgwee, dash.previousNgwee)} />
+        <Kpi icon={<Bus className="h-4 w-4" />} label="Rides today" value={String(dash.rides)} detail={trend(dash.rides, dash.previousRides)} />
+        <Kpi icon={<Bus className="h-4 w-4" />} label="Active buses" value={String(dash.activeBuses)} detail={`${dash.totalBuses} in the fleet`} />
+        <Kpi icon={<Users className="h-4 w-4" />} label="Conductors on shift" value={String(onShift)} detail="Assigned today" last />
       </section>
       <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
         <EarningsChart
@@ -82,7 +82,23 @@ export default async function FleetPage({ searchParams }: { searchParams: Promis
           <h2 className="font-extrabold">Recent fares</h2>
           <Link href="/business/desk/payouts" className="text-[13px] font-semibold text-[#1F5BFF]">View all →</Link>
         </div>
-        <div className="mt-2 overflow-x-auto">
+        <ul className="mt-2 divide-y divide-[#E6EAF2] md:hidden">
+          {recent.length === 0 ? <li className="px-4 py-8 text-center text-[14px] text-[#5C6578]">No fares in this period yet.</li> : null}
+          {recent.map((ride) => (
+            <li key={`${ride.code}-${ride.createdAt}`} className="flex items-center gap-3 px-4 py-3">
+              <span className="num w-12 text-[13px] text-[#5C6578]">{formatHour24(ride.createdAt)}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[15px] font-semibold">{ride.passenger}</span>
+                <span className="block truncate text-[12px] text-[#5C6578]">Bus {ride.fleetNumber} · {ride.conductor || 'Unassigned'}</span>
+              </span>
+              <span className="text-right">
+                <span className="num block text-[15px] font-bold">{formatBalance(ride.amountNgwee)}</span>
+                <span className={`text-[11px] font-bold ${ride.status === 'verified' ? 'text-[#128A4E]' : 'text-[#C47B12]'}`}>{ride.status === 'verified' ? 'Verified' : 'Awaiting'}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-2 hidden overflow-x-auto md:block">
           <table className="data">
             <thead>
               <tr>
@@ -114,14 +130,20 @@ export default async function FleetPage({ searchParams }: { searchParams: Promis
   );
 }
 
-function Kpi({ icon, label, value, last }: { icon: ReactNode; label: string; value: string; last?: boolean }) {
+function trend(current: number, previous: number) {
+  if (previous <= 0) return current > 0 ? '↑ new this period' : 'No change yet';
+  const pct = Math.round(((current - previous) / previous) * 100);
+  return pct >= 0 ? `↑ ${pct}% vs last period` : `↓ ${Math.abs(pct)}% vs last period`;
+}
+
+function Kpi({ icon, label, value, detail, last }: { icon: ReactNode; label: string; value: string; detail: string; last?: boolean }) {
+  const up = detail.startsWith('↑');
+  const down = detail.startsWith('↓');
   return (
-    <div className={`flex items-center gap-3 px-4 py-4 ${last ? '' : 'border-b border-[#E6EAF2] xl:border-b-0 xl:border-r'}`}>
-      <span className="grid h-9 w-9 place-items-center rounded-lg text-[#0B1B3B] ring-1 ring-[#D5DCE8]">{icon}</span>
-      <span>
-        <span className="block text-[12px] text-[#5C6578]">{label}</span>
-        <span className="block text-[22px] font-extrabold tracking-[-0.03em]">{value}</span>
-      </span>
+    <div className={`px-4 py-4 ${last ? '' : 'border-b border-[#E6EAF2] xl:border-b-0 xl:border-r'}`}>
+      <span className="flex items-center gap-2 text-[12px] text-[#5C6578]"><span className="grid h-8 w-8 place-items-center rounded-lg ring-1 ring-[#D5DCE8]">{icon}</span>{label}</span>
+      <span className="num mt-2 block text-[22px] font-extrabold tracking-[-0.03em]">{value}</span>
+      <span className={`mt-1 block text-[12px] font-semibold ${up ? 'text-[#128A4E]' : down ? 'text-[#C53434]' : 'text-[#5C6578]'}`}>{detail}</span>
     </div>
   );
 }

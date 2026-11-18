@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { PayoutForms } from '@/components/owner-forms';
 import { settleAction } from '@/lib/actions';
+import { EmptyState } from '@/components/ui';
 import { formatBalance, formatGrouped } from '@/lib/money';
 import { formatPhone } from '@/lib/phone';
 import { formatRideWhen } from '@/lib/time';
@@ -35,7 +36,7 @@ export default async function PayoutsPage() {
       <PayoutForms phone={summary.payoutPhone ?? user.phone} network={summary.payoutNetwork ?? 'mtn'} today={formatGrouped(summary.todayNgwee)} />
       <section className="rounded-3xl bg-white p-4 shadow-sm">
         <h2 className="font-semibold">History</h2>
-        {summary.history.length === 0 ? <p className="mt-2 text-sm text-[#5C6B63]">No payouts yet. Today’s takings stay available.</p> : null}
+        {summary.history.length === 0 ? <div className="mt-3"><EmptyState title="No payouts yet" body="Today’s takings stay available until you mark a bus settled." /></div> : null}
         <ul className="mt-2 divide-y divide-[#F0EBE3]">
           {summary.history.map((payout) => (
             <li key={payout.id} className="flex items-center justify-between py-3 text-sm">

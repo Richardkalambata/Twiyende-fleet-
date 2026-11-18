@@ -21,7 +21,7 @@ export default async function ConductorsPage() {
               <span className="block font-semibold">{conductor.shortName}</span>
               <span className="text-sm text-[#5C6B63]">{formatPhone(conductor.phone)}</span>
             </span>
-            <span className="text-sm">{conductor.busFleet ? `Bus ${conductor.busFleet}` : 'Unassigned'}</span>
+            <span className={`rounded-full px-2 py-1 text-[12px] font-bold ${conductor.busFleet ? 'bg-[#E8F8EF] text-[#128A4E]' : 'bg-[#F4F6FB] text-[#5C6578]'}`}>{conductor.busFleet ? `Bus ${conductor.busFleet}` : 'Unassigned'}</span>
           </li>
         ))}
       </ul>

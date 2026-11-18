@@ -18,13 +18,13 @@ export default async function AssignmentsPage() {
       <p className="text-sm text-[#5C6B63]">A conductor only verifies codes for the bus they are on today.</p>
       <div className="space-y-3">
         {buses.map((bus) => (
-          <form key={bus.id} action={assignShiftAction} className="flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-white p-4 shadow-sm">
+          <form key={bus.id} action={assignShiftAction} className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-[0_8px_24px_rgba(11,27,59,0.06)] sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="font-semibold">Bus {bus.fleetNumber}</div>
               <div className="text-sm text-[#5C6B63]">{bus.route}</div>
             </div>
             <input type="hidden" name="busId" value={bus.id} />
-            <select name="conductorId" defaultValue={onBus.get(bus.id) ?? ''} className="h-12 min-w-48 rounded-2xl border border-[#E4DDD2] bg-white px-3">
+            <select name="conductorId" defaultValue={onBus.get(bus.id) ?? ''} className="h-12 w-full rounded-xl bg-[#F4F6FB] px-3 sm:w-56">
               <option value="">Unassigned</option>
               {conductors.map((conductor) => (
                 <option key={conductor.id} value={conductor.id}>{conductor.shortName}</option>

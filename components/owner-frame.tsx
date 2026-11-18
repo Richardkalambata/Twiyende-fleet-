@@ -23,28 +23,39 @@ const LINKS = [
 export function OwnerFrame({ children, openLost, operator }: { children: ReactNode; openLost: number; operator: { name: string; initials: string } }) {
   const path = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
   return (
     <div className="min-h-dvh bg-[#F4F6FB] text-[#0B1B3B] md:flex">
       <aside className="relative flex shrink-0 flex-col bg-[#0B1B3B] text-white md:sticky md:top-0 md:h-dvh md:w-[232px]">
         <div className="flex items-center justify-between px-4 py-4 md:py-5">
           <Logo tone="light" business />
-          <button
-            type="button"
-            className="flex h-11 items-center gap-2 rounded-full bg-white/10 py-1 pl-1 pr-3 md:hidden"
-            aria-expanded={menuOpen}
-            aria-controls="operator-account-menu"
-            aria-label={menuOpen ? 'Close account menu' : 'Open account menu'}
-            onClick={() => setMenuOpen((open) => !open)}
-          >
-            <span className="grid h-9 w-9 place-items-center rounded-full bg-white text-[12px] font-bold text-[#0B1B3B]">{operator.initials}</span>
-            {menuOpen ? <CloseIcon className="h-5 w-5" /> : <MenuIcon className="h-5 w-5" />}
-          </button>
+          <div className="flex items-center gap-2 md:hidden">
+            <button
+              type="button"
+              className="flex h-11 items-center gap-2 rounded-full bg-white/10 py-1 pl-1 pr-3"
+              aria-expanded={menuOpen}
+              aria-controls="operator-account-menu"
+              aria-label={menuOpen ? 'Close account menu' : 'Open account menu'}
+              onClick={() => { setMenuOpen((open) => !open); setNavOpen(false); }}
+            >
+              <span className="grid h-9 w-9 place-items-center rounded-full bg-white text-[12px] font-bold text-[#0B1B3B]">{operator.initials}</span>
+            </button>
+            <button
+              type="button"
+              className="grid h-11 w-11 place-items-center rounded-full bg-white/10"
+              aria-expanded={navOpen}
+              aria-label={navOpen ? 'Close menu' : 'Open menu'}
+              onClick={() => { setNavOpen((open) => !open); setMenuOpen(false); }}
+            >
+              {navOpen ? <CloseIcon className="h-5 w-5" /> : <MenuIcon className="h-5 w-5" />}
+            </button>
+          </div>
         </div>
-        <div className="mx-3 mb-3 flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-[13px] font-semibold">
+        <div className="mx-3 mb-3 hidden items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-[13px] font-semibold md:flex">
           <span className="grid h-6 w-6 place-items-center rounded-md bg-white/15"><BusIcon className="h-3.5 w-3.5" /></span>
           <span className="truncate">Kalambata Transport</span>
         </div>
-        <nav className="flex gap-1 overflow-x-auto px-2 pb-3 md:min-h-0 md:flex-1 md:flex-col md:overflow-y-auto md:px-2" aria-label="Fleet">
+        <nav className="hidden gap-1 px-2 pb-3 md:flex md:min-h-0 md:flex-1 md:flex-col md:overflow-y-auto" aria-label="Fleet">
           {LINKS.map((link) => {
             const active = link.href === '/business/desk' ? path === '/business/desk' : path.startsWith(link.href);
             const Icon = link.icon;
@@ -72,6 +83,35 @@ export function OwnerFrame({ children, openLost, operator }: { children: ReactNo
             </button>
           </form>
         </div>
+        {navOpen ? (
+          <div className="fixed inset-0 z-50 flex flex-col bg-[#0B1B3B] text-white md:hidden">
+            <div className="flex items-center justify-between px-4 py-4">
+              <Logo tone="light" business />
+              <button type="button" className="grid h-11 w-11 place-items-center rounded-full bg-white/10" aria-label="Close menu" onClick={() => setNavOpen(false)}>
+                <CloseIcon className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="px-5 text-[13px] text-white/70">Kalambata Transport</p>
+            <nav className="mt-3 flex flex-1 flex-col gap-1 overflow-y-auto px-3" aria-label="Fleet menu">
+              {LINKS.map((link) => {
+                const active = link.href === '/business/desk' ? path === '/business/desk' : path.startsWith(link.href);
+                const Icon = link.icon;
+                return (
+                  <Link key={link.href} href={link.href} onClick={() => setNavOpen(false)} className={`flex h-12 items-center gap-3 rounded-xl px-3 text-[16px] font-semibold ${active ? 'bg-[#1F5BFF] text-white' : 'text-white/80'}`}>
+                    <Icon className="h-5 w-5" />
+                    {link.label}
+                  </Link>
+                );
+              })}
+            </nav>
+            <form action={signOutAction} className="p-4 pb-[max(16px,env(safe-area-inset-bottom))]">
+              <button type="submit" className="press flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-white text-[15px] font-bold text-[#0B1B3B]">
+                <LogoutIcon className="h-5 w-5" />
+                Log out
+              </button>
+            </form>
+          </div>
+        ) : null}
         {menuOpen ? (
           <div id="operator-account-menu" className="absolute inset-x-3 top-full z-40 mt-2 rounded-2xl bg-white p-3 text-[#0B1B3B] shadow-[0_16px_40px_rgba(11,27,59,0.18)] md:hidden">
             <p className="px-1 text-[15px] font-bold">{operator.name}</p>
