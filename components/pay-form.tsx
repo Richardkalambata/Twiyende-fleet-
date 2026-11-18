@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { payAction } from '@/lib/actions';
 import { formatBalance, parseFare } from '@/lib/money';
@@ -17,7 +17,10 @@ export function PayForm({ buses, balanceNgwee, onClose }: { buses: BusOption[]; 
   const active = buses.filter((bus) => bus.status === 'active');
   const match = useMemo(() => active.find((bus) => bus.fleetNumber === fleet.trim().replace(/^bus\s*/i, '')), [active, fleet]);
   const amount = parseFare(fare) ?? 0;
-  const chips = (match?.fareNgwee && match.fareNgwee.length > 0 ? match.fareNgwee : [match?.defaultFareNgwee ?? 500, 1000, 1500, 2000].filter((value, index, all) => all.indexOf(value) === index)).map((value) => String(value / 100));
+  const chips = useMemo(() => (match?.fareNgwee && match.fareNgwee.length > 0 ? match.fareNgwee : [match?.defaultFareNgwee ?? 500, 1000, 1500, 2000].filter((value, index, all) => all.indexOf(value) === index)).map((value) => String(value / 100)), [match]);
+  useEffect(() => {
+    if (chips[0] && !chips.includes(fare)) setFare(chips[0]);
+  }, [chips, fare]);
   const short = Math.max(0, amount - balanceNgwee);
 
   async function submit() {
