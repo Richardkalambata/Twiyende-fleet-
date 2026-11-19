@@ -126,7 +126,7 @@ export type BusPerformance = {
   id: string;
   fleetNumber: string;
   plate: string;
-  route: string;
+  route: string | null;
   status: 'active' | 'offline';
   conductorId: string | null;
   conductorName: string | null;

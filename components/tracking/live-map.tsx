@@ -5,7 +5,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import type { LiveBus } from '@/lib/tracking';
 import { LUSAKA_STREETS, describePlace } from '@/lib/lusaka-places';
 import { routeGeometry, type GeoPoint } from '@/lib/lusaka-routes';
-import { accuracyRing, aheadMetres, aheadSegment, alongError, approachFromDistances, demoSpeed, formatDistance, formatUpdated, glideDistance, glideSpeed, haversineMetres, lerpAngle, pointAtDistance, projectOnto, reachMinutes, routeEndInDirection, routeLength, showsAccuracyHalo, snapToRoad, trailSamples, trimTrail, type Approach } from '@/lib/tracking-math';
+import { accuracyRing, alongError, approachFromDistances, demoSpeed, formatDistance, formatUpdated, glideDistance, glideSpeed, haversineMetres, lerpAngle, pointAtDistance, projectOnto, reachMinutes, routeLength, showsAccuracyHalo, snapToRoad, trailSamples, trimTrail, type Approach } from '@/lib/tracking-math';
 
 type Stop = { id: string; name: string; lat: number; lng: number; seq: number };
 type Payload = { buses: LiveBus[]; stops: { route: string; stops: Stop[] }[]; landmarks?: Stop[]; now: number };
@@ -40,7 +40,7 @@ function headingArrow(prominent: boolean) {
   arrow.className = 'heading-arrow';
   arrow.setAttribute('aria-hidden', 'true');
   arrow.innerHTML = prominent
-    ? '<svg viewBox="0 0 28 28"><path d="M14 1.5 L25 23.5 L14 17.5 L3 23.5 Z" fill="#0B1B3B" stroke="#ffffff" stroke-width="2.4" stroke-linejoin="round"/></svg>'
+    ? '<svg viewBox="0 0 16 16"><path d="M8 2.5 L13 12.5 L8 9.5 L3 12.5 Z" fill="#ffffff"/></svg>'
     : '<svg viewBox="0 0 14 10" width="14" height="10"><path d="M7 1 L13 9 H1 Z" fill="#0B1B3B" stroke="#ffffff" stroke-width="1.2"/></svg>';
   return arrow;
 }
@@ -66,8 +66,8 @@ function arrowImage() {
   return ctx.getImageData(0, 0, 36, 36);
 }
 
-function usualRoute(route: string) {
-  return route.replaceAll(' to ', ' ↔ ');
+function usualRoute(route: string | null) {
+  return route ? route.replaceAll(' to ', ' ↔ ') : '';
 }
 
 export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
@@ -90,7 +90,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
   const [you, setYou] = useState<YouFix | null>(null);
   const [locationState, setLocationState] = useState<'pending' | 'granted' | 'denied'>('pending');
   const [historyTick, setHistoryTick] = useState(0);
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [showRoute, setShowRoute] = useState(false);
   followRef.current = follow;
   selectedRef.current = selected;
   youRef.current = you;
@@ -219,13 +219,21 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
           },
         });
         map.addSource('route-line', { type: 'geojson', data: EMPTY_LINE });
-        map.addLayer({ id: 'route-line', type: 'line', source: 'route-line', paint: { 'line-color': '#9AA8C0', 'line-width': 2, 'line-opacity': 0.35 } });
+        map.addLayer({
+          id: 'route-line',
+          type: 'line',
+          source: 'route-line',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: mode === 'rider'
+            ? { 'line-color': '#1F5BFF', 'line-width': 6, 'line-opacity': 0.55 }
+            : { 'line-color': '#9AA8C0', 'line-width': 2, 'line-opacity': 0.35 },
+        });
         map.addSource('you-line', { type: 'geojson', data: EMPTY_LINE });
         map.addLayer({
           id: 'you-line',
           type: 'line',
           source: 'you-line',
-          paint: { 'line-color': '#A8B0C0', 'line-width': 1.25, 'line-opacity': 0.7, 'line-dasharray': [1, 1.8] },
+          paint: { 'line-color': '#8FB0FF', 'line-width': 1.5, 'line-opacity': 0.9, 'line-dasharray': [1.2, 1.8] },
         });
         map.addSource('stop-dots', { type: 'geojson', data: EMPTY_POINTS });
         map.addLayer({
@@ -264,6 +272,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
       if (dead || !mapRef.current || !youRef.current || youMarker.current) return;
       const el = document.createElement('div');
       el.className = 'you-pin';
+      el.innerHTML = '<span class="you-dot"></span><span class="you-label">You</span>';
       el.setAttribute('aria-label', 'You');
       youMarker.current = new maplibre.Marker({ element: el, anchor: 'center' })
         .setLngLat([youRef.current.lng, youRef.current.lat])
@@ -345,23 +354,8 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
       });
       const aheadSource = map?.getSource('ahead-line') as import('maplibre-gl').GeoJSONSource | undefined;
       const aheadTip = map?.getSource('ahead-tip') as import('maplibre-gl').GeoJSONSource | undefined;
-      const chosen = selectedRef.current ? markers.current.get(selectedRef.current) : undefined;
-      const glide = chosen?.glide;
-      if (mode === 'rider' && glide && glide.length > 0) {
-        const ahead = aheadSegment(glide.route, glide.along, Math.min(aheadMetres(glide.length), glide.length));
-        aheadSource?.setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: ahead.coordinates } });
-        aheadTip?.setData({
-          type: 'FeatureCollection',
-          features: ahead.arrows.map((arrow) => ({
-            type: 'Feature' as const,
-            properties: { bearing: arrow.heading },
-            geometry: { type: 'Point' as const, coordinates: [arrow.lng, arrow.lat] as [number, number] },
-          })),
-        });
-      } else {
-        aheadSource?.setData(EMPTY_LINE);
-        aheadTip?.setData({ type: 'FeatureCollection', features: [] });
-      }
+      aheadSource?.setData(EMPTY_LINE);
+      aheadTip?.setData({ type: 'FeatureCollection', features: [] });
       const halo = map?.getSource('accuracy-halo') as import('maplibre-gl').GeoJSONSource | undefined;
       halo?.setData({ type: 'FeatureCollection', features });
       const rider = youRef.current;
@@ -457,13 +451,18 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
             num.textContent = bus.fleet;
             el.append(dot, num);
           } else {
-            const body = document.createElement('span');
-            body.className = 'bus-body';
-            body.innerHTML = '<svg class="bus-glyph" viewBox="0 0 64 36" aria-hidden="true"><rect x="1" y="8" width="62" height="20" rx="6" fill="currentColor"/><rect x="6" y="12" width="12" height="7" rx="1.5" fill="#fff"/><rect x="21" y="12" width="12" height="7" rx="1.5" fill="#fff"/><rect x="36" y="12" width="12" height="7" rx="1.5" fill="#fff"/><rect x="50" y="12" width="8" height="7" rx="1.5" fill="#fff"/><circle cx="16" cy="28" r="4" fill="#0B1B3B"/><circle cx="48" cy="28" r="4" fill="#0B1B3B"/><circle cx="16" cy="28" r="1.5" fill="#fff"/><circle cx="48" cy="28" r="1.5" fill="#fff"/></svg>';
+            const bubble = document.createElement('span');
+            bubble.className = 'bus-bubble';
+            const icon = document.createElement('span');
+            icon.className = 'bus-icon';
+            icon.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="3" y="6" width="18" height="9" rx="2" fill="none" stroke="#fff" stroke-width="1.8"/><path d="M3 11h18M7 15v2.2M17 15v2.2" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>';
             const num = document.createElement('span');
             num.className = 'bus-num';
             num.textContent = bus.fleet;
-            el.append(arrow, body, num);
+            const tail = document.createElement('span');
+            tail.className = 'bus-tail';
+            bubble.append(icon, num, arrow);
+            el.append(bubble, tail);
           }
           el.addEventListener('click', () => setSelected(bus.id));
           const marker = new maplibre.Marker({ element: el, anchor: 'center' }).setLngLat(next).addTo(map);
@@ -497,7 +496,8 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
     const map = mapRef.current;
     if (!map || !mapReady) return;
     const chosen = data.buses.find((item) => item.id === selected);
-    const line = mode === 'operator' && chosen ? (routeGeometry(chosen.route)?.points.map((point) => [point.lng, point.lat] as [number, number]) ?? []) : [];
+    const drawRoute = chosen?.route && (mode === 'operator' || showRoute);
+    const line = drawRoute ? (routeGeometry(chosen.route)?.points.map((point) => [point.lng, point.lat] as [number, number]) ?? []) : [];
     const routeSource = map.getSource('route-line') as import('maplibre-gl').GeoJSONSource | undefined;
     routeSource?.setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: line } });
     const stopSource = map.getSource('stop-dots') as import('maplibre-gl').GeoJSONSource | undefined;
@@ -514,7 +514,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
         geometry: { type: 'Point' as const, coordinates: [stop.lng, stop.lat] as [number, number] },
       }))),
     });
-  }, [mapReady, selected, data.buses, data.stops, route, mode]);
+  }, [mapReady, selected, data.buses, data.stops, route, mode, showRoute]);
 
   useEffect(() => {
     if (selected && data.buses.some((item) => item.id === selected)) return;
@@ -532,7 +532,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
     ...data.stops.flatMap((group) => group.stops),
     ...(data.landmarks ?? []),
   ];
-  const routes = [...new Set(data.buses.map((bus) => bus.route))];
+  const routes = [...new Set(data.buses.flatMap((bus) => (bus.route ? [bus.route] : [])))];
   const bus = data.buses.find((item) => item.id === selected) ?? null;
   const displayBus = bus ? snapToRoad(bus, routeGeometry(bus.route)?.points ?? [], bus.accuracy) : null;
   const query = search.trim().toLowerCase();
@@ -578,7 +578,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
     const place = placeFor(item).split(',')[0]?.replace(/^Near /, '') ?? '';
     const speed = item.speed != null && item.speed >= 1 ? `${Math.round(item.speed * 3.6)} km/h` : 'Stopped';
     const ago = item.recordedAt ? formatUpdated(item.recordedAt, tick).replace(/^Updated /, '') : 'waiting';
-    return `${place} · ${speed} · ${ago}`;
+    return `${place} · ${speed} · updated ${ago}`;
   }
 
   function approachPhrase(approach: Approach | null) {
@@ -586,6 +586,21 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
     if (approach === 'away') return 'Moving away';
     if (approach === 'passing') return 'Passing nearby';
     return '';
+  }
+
+  function askLocation() {
+    if (!navigator.geolocation) {
+      setLocationState('denied');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocationState('granted');
+        setYou({ lat: position.coords.latitude, lng: position.coords.longitude, accuracy: position.coords.accuracy });
+      },
+      () => setLocationState('denied'),
+      { enableHighAccuracy: true, timeout: 12_000 },
+    );
   }
 
   function closeCard() {
@@ -610,7 +625,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
       picked.push(item);
     }
     if (picked.length < 2) picked.splice(0, picked.length, ...ranked.slice(0, Math.min(3, ranked.length)));
-    const key = selected ?? (youNear ? 'open-you' : 'open-buses');
+    const key = selected ? `${selected}${showRoute ? '-route' : ''}` : (youNear ? 'open-you' : 'open-buses');
     if (fittedKey.current === key) return;
     if (selected && !displayBus) return;
     fittedKey.current = key;
@@ -638,14 +653,8 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
           bounds = boundsFor(shown);
         }
       }
-      if (selected && displayBus) {
-        const line = routeGeometry(bus?.route ?? '')?.points ?? [];
-        const length = routeLength(line);
-        if (length > 0) {
-          const along = projectOnto(line, displayBus).along;
-          const ahead = aheadSegment(line, along, Math.min(aheadMetres(length), length));
-          for (const point of ahead.coordinates) bounds.extend(point);
-        }
+      if (selected && showRoute && bus?.route) {
+        for (const point of routeGeometry(bus.route)?.points ?? []) bounds.extend([point.lng, point.lat]);
       }
       map.fitBounds(bounds, {
         padding: { top: 96, bottom: selected ? 168 : 108, left: 56, right: 56 },
@@ -653,11 +662,15 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
         duration: selected ? 450 : 0,
       });
     });
-  }, [mode, mapReady, follow, you, displayBus, selected, bus, data.buses]);
+  }, [mode, mapReady, follow, you, displayBus, selected, bus, data.buses, showRoute]);
 
   useEffect(() => {
     if (follow) fittedKey.current = null;
   }, [follow]);
+
+  useEffect(() => {
+    setShowRoute(false);
+  }, [selected]);
 
   return (
     <div className="relative h-full">
@@ -669,17 +682,6 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8A93A6" strokeWidth="2.4" aria-hidden><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Find a bus" className="h-11 min-w-0 flex-1 bg-transparent text-[15px] font-semibold text-[#0B1B3B] outline-none placeholder:text-[#8A93A6]" />
           </label>
-          <button type="button" aria-label="Filter routes" aria-expanded={filtersOpen} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-[#0B1B3B] shadow-[0_8px_24px_rgba(11,27,59,0.08)]" onClick={() => setFiltersOpen((open) => !open)}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden><path d="M4 6h16M7 12h10M10 18h4" /></svg>
-          </button>
-          {filtersOpen ? (
-            <div className="absolute right-0 top-14 max-h-64 w-56 overflow-y-auto rounded-2xl bg-white p-2 shadow-[0_16px_40px_rgba(11,27,59,0.12)]">
-              <button type="button" className="block w-full rounded-xl px-3 py-2 text-left text-[14px] font-semibold" data-on={route === 'all'} onClick={() => { setRoute('all'); setFiltersOpen(false); }}>All routes</button>
-              {routes.map((name) => (
-                <button key={name} type="button" className="block w-full rounded-xl px-3 py-2 text-left text-[14px] font-semibold" data-on={route === name} onClick={() => { setRoute(name); setFiltersOpen(false); }}>{usualRoute(name)}</button>
-              ))}
-            </div>
-          ) : null}
         </div>
       ) : (
         <div className="absolute left-3 top-3 z-10 flex gap-3 rounded-2xl bg-white px-3 py-2 text-[12px] font-bold text-[#0B1B3B] shadow-[0_8px_24px_rgba(11,27,59,0.1)]">
@@ -731,22 +733,35 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
         >
           <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-[#E4E8F0]" aria-hidden />
           <div className="flex items-center gap-3">
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[#1F5BFF] text-[18px] font-extrabold text-white">{bus.fleet}</span>
-            <p className="min-w-0 flex-1 truncate text-[16px] font-semibold text-[#3E4A63]">{usualRoute(bus.route)}</p>
-            <button type="button" aria-label="Follow bus" aria-pressed={follow} className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${follow ? 'bg-[#1F5BFF] text-white' : 'bg-[#F4F6FB] text-[#0B1B3B]'}`} onClick={() => setFollow((value) => !value)}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></svg>
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#1F5BFF] text-[18px] font-extrabold text-white">{bus.fleet}</span>
+            <p className="min-w-0 flex-1 truncate text-[17px] font-semibold text-[#3E4A63]">{usualRoute(bus.route) || `Bus ${bus.fleet}`}</p>
+            <button type="button" aria-label="Follow bus" aria-pressed={follow} className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${follow ? 'bg-[#1F5BFF] text-white' : 'bg-[#F4F6FB] text-[#0B1B3B]'}`} onClick={() => setFollow((value) => !value)}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></svg>
             </button>
-            <button type="button" aria-label="Close" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#F4F6FB] text-[#5C6578]" onClick={closeCard}>
+            <button type="button" aria-label="Close" className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[#8A93A6]" onClick={closeCard}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden><path d="M6 6l12 12M18 6L6 18" /></svg>
             </button>
           </div>
-          <p data-testid="heading-line" className="mt-3 text-[15px] font-extrabold leading-snug tracking-[-0.03em]">
-            <span className="text-[#0B1B3B]">{`Heading towards ${routeEndInDirection(bus.route, bus.heading ?? displayBus?.heading ?? 0, displayBus?.heading ?? bus.heading ?? 0)}`}</span>
-            <span className={riderGap?.approach === 'towards' ? 'text-[#128A4E]' : 'text-[#5C6578]'}>
-              {riderGap ? ` · ${metresAway(riderGap.metres)}${riderGap.approach ? ` · ${approachPhrase(riderGap.approach)}` : ''}${reach != null ? ` · ~${reach} min` : ''}` : locationState === 'denied' ? ' · Turn on location to see the distance' : ''}
-            </span>
+          <p data-testid="heading-line" className="mt-3 text-[16px] font-extrabold leading-snug tracking-[-0.03em]">
+            {riderGap ? (
+              <>
+                <span className="text-[#0B1B3B]">{metresAway(riderGap.metres)}</span>
+                {riderGap.approach ? <span className={riderGap.approach === 'towards' ? 'text-[#128A4E]' : 'text-[#5C6578]'}>{` · ${approachPhrase(riderGap.approach)}`}</span> : null}
+                {reach != null ? <span className="text-[#8A93A6]">{` · ~${reach} min`}</span> : null}
+              </>
+            ) : locationState === 'denied' ? (
+              <button type="button" className="font-semibold text-[#1F5BFF]" onClick={askLocation}>Turn on location to see the distance</button>
+            ) : 'Finding your location…'}
           </p>
           <p className="mt-1 truncate text-[13px] font-medium text-[#8A93A6]">{streetLine(bus)}</p>
+          {bus.route && routeGeometry(bus.route) ? (
+            <div className="mt-3 flex items-center justify-between">
+              <span className="text-[14px] font-semibold text-[#5C6578]">Show route</span>
+              <button type="button" role="switch" aria-checked={showRoute} aria-label="Show route" data-testid="show-route" className={`relative h-7 w-12 rounded-full transition-colors ${showRoute ? 'bg-[#1F5BFF]' : 'bg-[#E4E8F0]'}`} onClick={() => setShowRoute((value) => !value)}>
+                <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow ${showRoute ? 'left-5' : 'left-0.5'}`} />
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>

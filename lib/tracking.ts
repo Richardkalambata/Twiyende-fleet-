@@ -19,7 +19,7 @@ const CONDUCTOR_HOLD_MS = 45_000;
 export type LiveBus = {
   id: string;
   fleet: string;
-  route: string;
+  route: string | null;
   lat: number;
   lng: number;
   heading: number | null;
@@ -34,7 +34,7 @@ export type LiveBus = {
 type LatestRow = {
   bus_id: string;
   fleet_number: string;
-  route: string;
+  route: string | null;
   owner_id: string;
   lat: number | null;
   lng: number | null;
@@ -155,7 +155,7 @@ async function advanceSimulator(now = Date.now()) {
   const db = await getDb();
   const buses = await db.all<{ id: string; route: string }>(`SELECT id, route FROM buses ORDER BY fleet_number`);
   for (const [index, bus] of buses.entries()) {
-    const geometry = routeGeometry(bus.route);
+    const geometry = bus.route ? routeGeometry(bus.route) : undefined;
     if (!geometry) continue;
     const latest = await db.get<{ source: string; recorded_at: number; lat: number; lng: number }>(
       `SELECT source, recorded_at, lat, lng FROM bus_latest WHERE bus_id = ?`,

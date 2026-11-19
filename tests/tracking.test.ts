@@ -112,6 +112,9 @@ test('direction is the route end ahead, with a short trail behind and no wrap', 
   assert.equal(routeEndInDirection('Town to Matero', 12, 10), 'Matero');
   assert.equal(routeEndInDirection('Town to Matero', 190, 10), 'Town');
   assert.equal(routeEndInDirection('Matero to Chawama', 0, 5), 'Chawama');
+  assert.equal(routeGeometry(null), undefined);
+  assert.equal(routeGeometry(''), undefined);
+  assert.ok(routeGeometry('Town to Matero'));
   const trail = trailSamples(route.points, along, 400, 1_000_000);
   assert.ok(trail.length >= 3);
   assert.ok(trail[0].at < trail[trail.length - 1].at);
@@ -134,6 +137,24 @@ test('a bus glides forward along the road and does not jump backward', () => {
   const behind = glideSpeed(base, -400);
   assert.ok(behind > 0);
   assert.ok(glideSpeed(base, 80) > base);
+});
+
+test('an operator can set or clear the route on a bus', async () => {
+  await useUnit();
+  const { IDS } = await import('../lib/constants.ts');
+  const { resetDatabase } = await import('../lib/db.ts');
+  const service = await import('../lib/service.ts');
+  await resetDatabase();
+  const set = await service.setBusRoute(IDS.owner, IDS.bus12, 'Town to Kabwata');
+  assert.equal(set.ok, true);
+  const listed = await service.listOwnerBuses(IDS.owner);
+  assert.equal(listed.find((bus) => bus.id === IDS.bus12)?.route, 'Town to Kabwata');
+  const cleared = await service.setBusRoute(IDS.owner, IDS.bus12, '');
+  assert.equal(cleared.ok, true);
+  const after = await service.listOwnerBuses(IDS.owner);
+  assert.equal(after.find((bus) => bus.id === IDS.bus12)?.route, null);
+  const other = await service.setBusRoute(IDS.richard, IDS.bus12, 'Town to Matero');
+  assert.equal(other.ok, false);
 });
 
 test('a conductor can only post a location for their own bus', async () => {

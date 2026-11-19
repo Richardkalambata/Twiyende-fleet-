@@ -21,7 +21,7 @@ export default async function BusesPage() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold">Bus {bus.fleetNumber}</h2>
-                <p className="text-sm text-[#5C6B63]">{bus.plate} · {bus.route}</p>
+                <p className="text-sm text-[#5C6B63]">{bus.plate} · {bus.route ? bus.route.replaceAll(' to ', ' ↔ ') : 'No route'}</p>
                 <p className="mt-1 text-sm">{formatGrouped(bus.earningsNgwee)} · {bus.rides} rides today</p>
               </div>
               <StatusPill status={bus.status} />

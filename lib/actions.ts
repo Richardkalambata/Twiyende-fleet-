@@ -21,6 +21,7 @@ import {
   saveAssignment,
   savePayoutDestination,
   sendTip,
+  setBusRoute,
   setBusStatus,
   signupOperator,
   signupPassenger,
@@ -198,6 +199,12 @@ export async function registerConductorAction(_prev: Fail | null, formData: Form
   if (!result.ok) return result;
   refresh();
   redirect('/business/desk/conductors');
+}
+
+export async function setBusRouteAction(formData: FormData) {
+  const user = await requireUser(['operator']);
+  await setBusRoute(user.id, String(formData.get('busId') ?? ''), String(formData.get('route') ?? ''));
+  refresh();
 }
 
 export async function setBusStatusAction(formData: FormData) {

@@ -1,7 +1,8 @@
 'use client';
 
 import { useActionState } from 'react';
-import { assignConductorAction, payoutAction, registerBusAction, registerConductorAction, savePayoutAction, setBusStatusAction, verifyPickupAction } from '@/lib/actions';
+import { assignConductorAction, payoutAction, registerBusAction, registerConductorAction, savePayoutAction, setBusRouteAction, setBusStatusAction, verifyPickupAction } from '@/lib/actions';
+import { LUSAKA_ROUTES } from '@/lib/lusaka-routes';
 import type { BusPerformance, ConductorOption, Fail } from '@/lib/types';
 import { useState, type ReactNode } from 'react';
 import { buttonClass } from './shell';
@@ -29,7 +30,10 @@ export function RegisterBusForm() {
     <form action={action} className="grid gap-3 rounded-2xl bg-white p-4 shadow-[0_8px_24px_rgba(11,27,59,0.06)] md:grid-cols-4">
       <input name="fleet" required placeholder="Fleet number" aria-label="Fleet number" className="h-14 rounded-2xl bg-white px-4 text-[#0B1B3B] placeholder:text-[#5C6578]" />
       <input name="plate" required placeholder="Plate, BLZ 44 ZA" aria-label="Plate" className="h-14 rounded-2xl bg-white px-4 text-[#0B1B3B] placeholder:text-[#5C6578]" />
-      <input name="route" required placeholder="Route" aria-label="Route" className="h-14 rounded-2xl bg-white px-4 text-[#0B1B3B] placeholder:text-[#5C6578]" />
+      <select name="route" aria-label="Route" defaultValue="" className="h-14 rounded-2xl bg-white px-4 text-[#0B1B3B]">
+        <option value="">No route</option>
+        {LUSAKA_ROUTES.map((item) => <option key={item.route} value={item.route}>{item.route.replaceAll(' to ', ' ↔ ')}</option>)}
+      </select>
       <button className={buttonClass('copper')} disabled={pending}>{pending ? 'Saving…' : 'Register bus'}</button>
       {state?.message ? <p className="text-sm text-[#9A3B1A] md:col-span-4">{state.message}</p> : null}
     </form>
@@ -63,6 +67,16 @@ export function BusControls({ bus, conductors }: { bus: BusPerformance; conducto
         <input type="hidden" name="busId" value={bus.id} />
         <input type="hidden" name="status" value={bus.status === 'active' ? 'offline' : 'active'} />
         <button className="h-10 rounded-full border border-[#E4E8F0] bg-[#F1F4FA] px-3 text-sm text-[#0B1B3B]">{bus.status === 'active' ? 'Take offline' : 'Mark active'}</button>
+      </form>
+      <form action={setBusRouteAction} className="flex items-center gap-2">
+        <input type="hidden" name="busId" value={bus.id} />
+        <select name="route" defaultValue={bus.route ?? ''} aria-label={`Route for bus ${bus.fleetNumber}`} className="h-10 max-w-[180px] rounded-full bg-white px-3 text-sm text-[#0B1B3B]">
+          <option value="">No route</option>
+          {[...new Set([bus.route, ...LUSAKA_ROUTES.map((item) => item.route)].filter((item): item is string => Boolean(item)))].map((name) => (
+            <option key={name} value={name}>{name.replaceAll(' to ', ' ↔ ')}</option>
+          ))}
+        </select>
+        <button className="h-10 rounded-xl bg-[#1F5BFF] px-3 text-sm font-bold text-white">Save route</button>
       </form>
       <form action={assignConductorAction} className="flex items-center gap-2">
         <input type="hidden" name="busId" value={bus.id} />

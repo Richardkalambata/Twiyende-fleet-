@@ -112,6 +112,7 @@ export const LUSAKA_ROUTES: LusakaRoute[] = [
   },
 ];
 
-export function routeGeometry(route: string): LusakaRoute | undefined {
+export function routeGeometry(route: string | null | undefined): LusakaRoute | undefined {
+  if (!route) return undefined;
   return LUSAKA_ROUTES.find((item) => item.route === route);
 }

@@ -63,7 +63,7 @@ type BusRow = {
   id: string;
   fleet_number: string;
   plate: string;
-  route: string;
+  route: string | null;
   status: 'active' | 'offline';
   owner_id: string;
   conductor_id: string | null;
@@ -1013,7 +1013,7 @@ export async function getOwnerDashboard(ownerId: string, range: RangeKey, routeF
     buses: performance,
     topConductor: top,
     openLost: open.n,
-    routes: buses.map((bus) => ({ fleetNumber: bus.fleet_number, route: bus.route })),
+    routes: buses.flatMap((bus) => (bus.route ? [{ fleetNumber: bus.fleet_number, route: bus.route }] : [])),
   };
 }
 
@@ -1098,10 +1098,11 @@ export async function countOpenLost(ownerId: string): Promise<number> {
 export async function registerBus(ownerId: string, fleetRaw: string, plateRaw: string, routeRaw: string) {
   const fleet = normalizeFleetNumber(fleetRaw);
   const plate = cleanText(plateRaw, 20).toUpperCase();
-  const route = cleanText(routeRaw, 60);
+  const routeText = cleanText(routeRaw, 60);
+  const route = routeText.length === 0 ? null : routeText;
   if (!/^\d{1,4}$/.test(fleet)) return { ok: false as const, message: 'Use the fleet number painted on the bus, such as 12.' };
   if (plate.length < 4) return { ok: false as const, message: 'Enter the number plate.' };
-  if (route.length < 3) return { ok: false as const, message: 'Enter the route, such as Town to Matero.' };
+  if (routeText.length > 0 && routeText.length < 3) return { ok: false as const, message: 'Enter the route, such as Town to Matero.' };
   try {
     const id = nid('bus');
     await (await getDb()).run(`INSERT INTO buses (id, fleet_number, plate, route, status, owner_id, conductor_id, created_at)
@@ -1111,6 +1112,15 @@ export async function registerBus(ownerId: string, fleetRaw: string, plateRaw: s
     if (isUnique(error)) return { ok: false as const, message: `Bus ${fleet} is already registered.` };
     throw error;
   }
+}
+
+export async function setBusRoute(ownerId: string, busId: string, routeRaw: string) {
+  const routeText = cleanText(routeRaw, 60);
+  if (routeText.length > 0 && routeText.length < 3) return { ok: false as const, message: 'Enter the route, such as Town to Matero.' };
+  const route = routeText.length === 0 ? null : routeText;
+  const updated = await (await getDb()).run(`UPDATE buses SET route = ? WHERE id = ? AND owner_id = ?`, route, busId, ownerId);
+  if (Number(updated.changes) !== 1) return { ok: false as const, message: 'That bus is not in your fleet.' };
+  return { ok: true as const };
 }
 
 export async function setBusStatus(ownerId: string, busId: string, status: 'active' | 'offline') {
