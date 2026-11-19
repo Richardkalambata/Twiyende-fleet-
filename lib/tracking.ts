@@ -76,7 +76,7 @@ export async function startShift(conductorId: string) {
   const bus = await assignedBus(conductorId);
   if (!bus) return { ok: false as const, message: 'No bus is assigned to you today.' };
   const existing = await openShift(conductorId);
-  if (existing) return { ok: true as const, busId: existing.bus_id, fleet: bus.fleet_number, route: bus.route, already: true };
+  if (existing) return { ok: true as const, busId: existing.bus_id, fleet: bus.fleet_number, route: bus.route, startedAt: existing.started_at, already: true };
   const now = Date.now();
   const expires = startOfLusakaDay(new Date(now)) + DAY_MS;
   await (await getDb()).run(
@@ -87,7 +87,7 @@ export async function startShift(conductorId: string) {
     now,
     expires,
   );
-  return { ok: true as const, busId: bus.id, fleet: bus.fleet_number, route: bus.route, already: false };
+  return { ok: true as const, busId: bus.id, fleet: bus.fleet_number, route: bus.route, startedAt: now, already: false };
 }
 
 export async function endShift(conductorId: string) {

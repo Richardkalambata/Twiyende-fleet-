@@ -3,7 +3,8 @@ import { HomeApp, type UsualRoute } from '@/components/home-app';
 import { getPassengerHome, listPassengerRides } from '@/lib/service';
 import { startOfLusakaMonth, timeGreeting } from '@/lib/time';
 
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ bus?: string }> }) {
+  const params = await searchParams;
   const user = await requireUser(['passenger']);
   const home = await getPassengerHome(user.id);
   const history = await listPassengerRides(user.id);
@@ -27,6 +28,7 @@ export default async function HomePage() {
       monthCount={monthCount}
       usual={usual}
       buses={home.buses}
+      initialFleet={params.bus ?? ''}
     />
   );
 }

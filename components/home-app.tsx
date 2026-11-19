@@ -21,6 +21,7 @@ export function HomeApp({
   monthCount,
   usual,
   buses,
+  initialFleet = '',
 }: {
   name: string;
   initials: string;
@@ -30,9 +31,10 @@ export function HomeApp({
   monthCount: number;
   usual: UsualRoute[];
   buses: BusOption[];
+  initialFleet?: string;
 }) {
-  const [paying, setPaying] = useState(false);
-  const [preset, setPreset] = useState('');
+  const [paying, setPaying] = useState(Boolean(initialFleet));
+  const [preset, setPreset] = useState(initialFleet);
   const letters = name.split(/\s+/).filter(Boolean).map((part) => part[0]).slice(0, 2).join('').toUpperCase() || initials;
   if (paying) return <PayForm buses={buses} balanceNgwee={balanceNgwee} initialFleet={preset} onClose={() => setPaying(false)} />;
   return (

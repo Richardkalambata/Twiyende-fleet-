@@ -91,6 +91,14 @@ export function formatEta(minutes: number): string {
   return `~${minutes} min`;
 }
 
+export function formatUpdated(recordedAt: number, now: number): string {
+  const seconds = Math.max(0, Math.round((now - recordedAt) / 1000));
+  if (seconds < 5) return 'Updated just now';
+  if (seconds < 60) return `Updated ${seconds}s ago`;
+  const minutes = Math.round(seconds / 60);
+  return `Updated ${minutes} min ago`;
+}
+
 export function formatAgo(recordedAt: number, now: number): string {
   const seconds = Math.max(0, Math.round((now - recordedAt) / 1000));
   if (seconds < 45) return 'Just now';
