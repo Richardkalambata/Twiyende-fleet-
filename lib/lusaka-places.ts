@@ -123,8 +123,8 @@ export function describePlace(
     if (angleDelta(course, bearingDegrees(point, place)) > 55) continue;
     if (!ahead || distance < ahead.distance) ahead = { name: place.name, distance };
   }
-  if (ahead) return `Approaching ${ahead.name}`;
-  if (streetName && nearest && nearest.distance <= NEAR_M) return `${streetName}, near ${nearest.name}`;
+  const named = ahead ?? (nearest && nearest.distance <= NEAR_M ? nearest : null);
+  if (streetName && named) return `${streetName}, near ${named.name}`;
   if (nearest && nearest.distance <= 700) return `Near ${nearest.name}`;
   if (streetName) return streetName;
   return 'Lusaka';

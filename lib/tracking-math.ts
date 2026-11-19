@@ -96,10 +96,6 @@ export function projectOnto(points: GeoPoint[], point: GeoPoint): Projection {
   return best;
 }
 
-function distanceAlong(points: GeoPoint[], point: GeoPoint): number {
-  return projectOnto(points, point).along;
-}
-
 /** Snap only when the fix is trustworthy and already close to the corridor. */
 export const SNAP_ACCURACY_M = 50;
 export const SNAP_MAX_OFFSET_M = 80;
@@ -137,23 +133,51 @@ export function lerpAngle(from: number, to: number, t: number): number {
   return from + delta * t;
 }
 
-export function etaMinutes(route: GeoPoint[], bus: GeoPoint, stop: GeoPoint, speedMps: number | null): number {
-  if (route.length < 2) {
-    const speed = speedMps && speedMps > 1 ? speedMps : FALLBACK_SPEED_MPS;
-    return Math.max(1, Math.round(haversineMetres(bus, stop) / speed / 60));
-  }
-  const totals = cumulative(route);
-  const length = totals[totals.length - 1] || 1;
-  const busAlong = distanceAlong(route, bus);
-  let stopAlong = distanceAlong(route, stop);
-  if (stopAlong + 20 < busAlong) stopAlong += length;
-  const metres = Math.max(0, stopAlong - busAlong);
-  const speed = speedMps && speedMps > 1 ? speedMps : FALLBACK_SPEED_MPS;
-  return Math.max(1, Math.round(metres / speed / 60));
+export type Approach = 'towards' | 'away' | 'passing';
+
+/** Metres the gap must change before we call a bus towards you or away. */
+export const APPROACH_DELTA_M = 25;
+export const REACH_MAX_M = 3_000;
+export const MOVING_SPEED_MPS = 1;
+
+/** Compare the oldest and newest distances from the rider. A shorter gap means the bus is coming closer. */
+export function approachFromDistances(samples: number[]): Approach | null {
+  if (samples.length < 2) return null;
+  const delta = samples[samples.length - 1] - samples[0];
+  if (delta <= -APPROACH_DELTA_M) return 'towards';
+  if (delta >= APPROACH_DELTA_M) return 'away';
+  return 'passing';
 }
 
-export function formatEta(minutes: number): string {
-  return `~${minutes} min`;
+export function approachLabel(approach: Approach): string {
+  if (approach === 'towards') return 'Coming towards you';
+  if (approach === 'away') return 'Moving away';
+  return 'Passing nearby';
+}
+
+export function formatDistance(metres: number): string {
+  const rounded = Math.max(0, Math.round(metres));
+  if (rounded < 1000) return `${rounded} m from you`;
+  const km = rounded / 1000;
+  const text = km >= 10 ? String(Math.round(km)) : (Math.round(km * 10) / 10).toFixed(1);
+  return `${text} km from you`;
+}
+
+/** Straight-line guess, only while the bus is closing the gap and is still nearby. */
+export function reachMinutes(distanceM: number, speedMps: number | null, approach: Approach | null): number | null {
+  if (approach !== 'towards') return null;
+  if (distanceM > REACH_MAX_M) return null;
+  if (speedMps == null || speedMps < MOVING_SPEED_MPS) return null;
+  return Math.max(1, Math.round(distanceM / speedMps / 60));
+}
+
+export function formatReach(minutes: number): string {
+  return `Could reach you in ~${minutes} min`;
+}
+
+export function formatSpeed(speedMps: number | null): string {
+  if (speedMps == null || speedMps < MOVING_SPEED_MPS) return 'Stopped';
+  return `Moving · ${Math.round(speedMps * 3.6)} km/h`;
 }
 
 export function formatUpdated(recordedAt: number, now: number): string {

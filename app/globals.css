@@ -598,6 +598,21 @@ html[data-motion='rich'] .nav-pill {
   font-size: 14px;
   box-shadow: 0 0 0 10px rgba(31, 91, 255, 0.28), 0 8px 18px rgba(31, 91, 255, 0.45);
 }
+.you-pin {
+  display: grid;
+  height: 36px;
+  min-width: 36px;
+  place-items: center;
+  border: 3px solid #fff;
+  border-radius: 999px;
+  background: #0B1B3B;
+  padding: 0 8px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  box-shadow: 0 6px 16px rgba(11, 27, 59, 0.35);
+}
 .bus-pin[data-stale='true'] { opacity: 0.35; }
 .bus-pin[data-idle='true'] { background: #8a93a6; box-shadow: 0 4px 10px rgba(11, 27, 59, 0.16); }
 .fleet-pin { display: flex; align-items: center; gap: 4px; border: 0; background: transparent; padding: 0; cursor: pointer; }

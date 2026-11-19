@@ -1,19 +1,15 @@
 import assert from 'node:assert/strict';
 import { Client } from 'pg';
 import { test } from 'node:test';
-import { etaMinutes, formatEta, formatUpdated, haversineMetres, isStale, pointAlong, shouldSendFix, showsAccuracyHalo, snapToRoad, STALE_MS } from '../lib/tracking-math';
+import { approachFromDistances, approachLabel, formatDistance, formatReach, formatSpeed, formatUpdated, haversineMetres, isStale, pointAlong, reachMinutes, shouldSendFix, showsAccuracyHalo, snapToRoad, STALE_MS } from '../lib/tracking-math';
 import { routeGeometry } from '../lib/lusaka-routes';
 import { describePlace, LUSAKA_LANDMARKS, LUSAKA_STREETS } from '../lib/lusaka-places';
 
 const UNIT_URL = 'postgres://twende:twende@127.0.0.1:5432/twende_unit';
 
-test('eta and stale logic', () => {
+test('stale fixes, road snap, and place names', () => {
   const route = routeGeometry('Town to Matero');
   assert.ok(route);
-  const minutes = etaMinutes(route.points, route.points[0], route.stops[route.stops.length - 1], 8);
-  assert.ok(minutes >= 1 && minutes < 40);
-  assert.equal(formatEta(minutes), `~${minutes} min`);
-  assert.equal(etaMinutes(route.points, route.points[0], route.stops[2], null) >= 1, true);
   const now = 1_000_000;
   assert.equal(isStale(now - STALE_MS - 1, now), true);
   assert.equal(isStale(now - 60_000, now), false);
@@ -43,7 +39,9 @@ test('eta and stale logic', () => {
   const tower = LUSAKA_LANDMARKS[0];
   assert.equal(describePlace(tower, 90, route.points, places, LUSAKA_STREETS), 'Cairo Road, near Kulima Tower');
   const approaching = pointAlong(route.points, 0.9);
-  assert.equal(describePlace(approaching, approaching.heading, route.points, places, LUSAKA_STREETS), 'Approaching Matero Market');
+  const nearEnd = describePlace(approaching, approaching.heading, route.points, places, LUSAKA_STREETS);
+  assert.equal(nearEnd.includes('Approaching'), false, nearEnd);
+  assert.equal(nearEnd.includes('Matero Market'), true, nearEnd);
   const chawama = routeGeometry('Matero to Chawama');
   assert.ok(chawama);
   const midway = pointAlong(chawama.points, 0.45);
@@ -64,6 +62,32 @@ async function useUnit() {
   process.env.DATABASE_URL_UNPOOLED = UNIT_URL;
   process.env.SIMULATED = '0';
 }
+
+test('distance from you and whether the bus is coming closer', () => {
+  assert.equal(approachFromDistances([800, 760, 700]), 'towards');
+  assert.equal(approachFromDistances([400, 430, 480]), 'away');
+  assert.equal(approachFromDistances([500, 510, 490]), 'passing');
+  assert.equal(approachFromDistances([500]), null);
+  assert.equal(approachLabel('towards'), 'Coming towards you');
+  assert.equal(approachLabel('away'), 'Moving away');
+  assert.equal(approachLabel('passing'), 'Passing nearby');
+  assert.equal(formatDistance(650), '650 m from you');
+  assert.equal(formatDistance(1400), '1.4 km from you');
+  assert.equal(formatDistance(650.4), '650 m from you');
+  assert.equal(reachMinutes(650, 8, 'towards'), 1);
+  assert.equal(reachMinutes(2400, 8, 'towards'), 5);
+  assert.equal(reachMinutes(650, 8, 'away'), null);
+  assert.equal(reachMinutes(650, 8, 'passing'), null);
+  assert.equal(reachMinutes(3500, 8, 'towards'), null);
+  assert.equal(reachMinutes(3000, 8, 'towards'), 6);
+  assert.equal(reachMinutes(650, 0.2, 'towards'), null);
+  assert.equal(reachMinutes(650, null, 'towards'), null);
+  assert.equal(formatReach(3), 'Could reach you in ~3 min');
+  assert.equal(formatReach(3).includes('~'), true);
+  assert.equal(formatSpeed(24 / 3.6), 'Moving · 24 km/h');
+  assert.equal(formatSpeed(0.2), 'Stopped');
+  assert.equal(formatSpeed(null), 'Stopped');
+});
 
 test('a conductor can only post a location for their own bus', async () => {
   await useUnit();

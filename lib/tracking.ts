@@ -1,11 +1,10 @@
 import { randomBytes } from 'node:crypto';
 import { getDb, type Db } from './db';
 import { LUSAKA_LANDMARKS } from './lusaka-places';
-import { LUSAKA_ROUTES, routeGeometry, type GeoPoint } from './lusaka-routes';
+import { LUSAKA_ROUTES, routeGeometry } from './lusaka-routes';
 import { DAY_MS, lusakaDateKey, startOfLusakaDay } from './time';
 import {
   FALLBACK_SPEED_MPS,
-  etaMinutes,
   haversineMetres,
   isStale,
   pointAlong,
@@ -161,7 +160,7 @@ async function advanceSimulator(now = Date.now()) {
       bus.id,
     );
     if (latest?.source === 'conductor' && now - latest.recorded_at < CONDUCTOR_HOLD_MS) continue;
-    // Three minutes around the corridor keeps the buses easy to see. The stored speed stays in city traffic, so the minute estimate falls as a bus advances.
+    // Three minutes around the corridor keeps the buses easy to see. The stored speed stays in city traffic.
     const spot = pointAlong(geometry.points, ((now / (180 * 1000)) + index * 0.17) % 1);
     if (latest && !shouldSendFix({ lat: latest.lat, lng: latest.lng, at: latest.recorded_at }, spot, now) && latest.source === 'simulated') continue;
     const speed = latest ? haversineMetres(latest, spot) / Math.max(1, (now - latest.recorded_at) / 1000) : FALLBACK_SPEED_MPS;
@@ -179,7 +178,7 @@ async function advanceSimulator(now = Date.now()) {
       `INSERT INTO bus_latest (bus_id, lat, lng, heading, speed, accuracy, recorded_at, source)
        VALUES (?, ?, ?, ?, ?, NULL, ?, 'simulated')
        ON CONFLICT (bus_id) DO UPDATE SET lat = EXCLUDED.lat, lng = EXCLUDED.lng, heading = EXCLUDED.heading,
-         speed = EXCLUDED.speed, recorded_at = EXCLUDED.recorded_at, source = 'simulated'`,
+         speed = EXCLUDED.speed, accuracy = EXCLUDED.accuracy, recorded_at = EXCLUDED.recorded_at, source = 'simulated'`,
       bus.id,
       spot.lat,
       spot.lng,
@@ -302,8 +301,3 @@ export async function trailFor(operatorId: string, busId: string) {
   return rows;
 }
 
-export async function etaForStop(route: string, bus: GeoPoint, stop: GeoPoint, speed: number | null) {
-  const geometry = routeGeometry(route);
-  const line = geometry?.points ?? [bus, stop];
-  return etaMinutes(line, bus, stop, speed);
-}

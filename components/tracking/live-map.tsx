@@ -1,15 +1,16 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { LiveBus } from '@/lib/tracking';
 import { LUSAKA_STREETS, describePlace } from '@/lib/lusaka-places';
 import { routeGeometry, type GeoPoint } from '@/lib/lusaka-routes';
-import { accuracyRing, etaMinutes, formatEta, formatUpdated, haversineMetres, lerpAngle, pointAtDistance, projectOnto, routeLength, showsAccuracyHalo, snapToRoad } from '@/lib/tracking-math';
+import { accuracyRing, approachFromDistances, approachLabel, formatDistance, formatReach, formatSpeed, formatUpdated, haversineMetres, lerpAngle, pointAtDistance, projectOnto, reachMinutes, routeLength, showsAccuracyHalo, snapToRoad, type Approach } from '@/lib/tracking-math';
 
 type Stop = { id: string; name: string; lat: number; lng: number; seq: number };
 type Payload = { buses: LiveBus[]; stops: { route: string; stops: Stop[] }[]; landmarks?: Stop[]; now: number };
+type YouFix = { lat: number; lng: number; accuracy: number };
+type DistanceSample = { at: number; metres: number };
 const POLL_MS = 2_000;
 
 type Pin = {
@@ -36,27 +37,58 @@ function headingArrow() {
   return arrow;
 }
 
+function usualRoute(route: string) {
+  return route.replaceAll(' to ', ' ↔ ');
+}
+
 export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
   const holder = useRef<HTMLDivElement>(null);
   const mapRef = useRef<import('maplibre-gl').Map | null>(null);
   const markers = useRef(new Map<string, Pin>());
+  const youMarker = useRef<import('maplibre-gl').Marker | null>(null);
+  const youRef = useRef<YouFix | null>(null);
+  const distanceHistory = useRef(new Map<string, DistanceSample[]>());
+  const fittedKey = useRef<string | null>(null);
   const followRef = useRef(false);
   const selectedRef = useRef<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [data, setData] = useState<Payload>({ buses: [], stops: [], landmarks: [], now: Date.now() });
   const [route, setRoute] = useState('all');
   const [selected, setSelected] = useState<string | null>(null);
-  const [stopId, setStopId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [follow, setFollow] = useState(false);
   const [tick, setTick] = useState(() => Date.now());
+  const [you, setYou] = useState<YouFix | null>(null);
+  const [locationState, setLocationState] = useState<'pending' | 'granted' | 'denied'>('pending');
+  const [historyTick, setHistoryTick] = useState(0);
   followRef.current = follow;
   selectedRef.current = selected;
+  youRef.current = you;
 
   useEffect(() => {
     const timer = window.setInterval(() => setTick(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (mode !== 'rider' || !navigator.geolocation) {
+      setLocationState(mode === 'rider' ? 'denied' : 'pending');
+      return;
+    }
+    const watch = navigator.geolocation.watchPosition(
+      (position) => {
+        setLocationState('granted');
+        setYou({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+        });
+      },
+      () => setLocationState('denied'),
+      { enableHighAccuracy: true, maximumAge: 5_000, timeout: 12_000 },
+    );
+    return () => navigator.geolocation.clearWatch(watch);
+  }, [mode]);
 
   useEffect(() => {
     let dead = false;
@@ -102,6 +134,13 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
         if (dead || !map) return;
         map.addSource('route-line', { type: 'geojson', data: EMPTY_LINE });
         map.addLayer({ id: 'route-line', type: 'line', source: 'route-line', paint: { 'line-color': '#1F5BFF', 'line-width': 3, 'line-opacity': 0.28 } });
+        map.addSource('you-line', { type: 'geojson', data: EMPTY_LINE });
+        map.addLayer({
+          id: 'you-line',
+          type: 'line',
+          source: 'you-line',
+          paint: { 'line-color': '#0B1B3B', 'line-width': 2, 'line-opacity': 0.45, 'line-dasharray': [1.4, 1.6] },
+        });
         map.addSource('stop-dots', { type: 'geojson', data: EMPTY_POINTS });
         map.addLayer({
           id: 'stop-dots',
@@ -112,6 +151,9 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
         map.addSource('accuracy-halo', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
         map.addLayer({ id: 'accuracy-halo', type: 'fill', source: 'accuracy-halo', paint: { 'fill-color': '#1F5BFF', 'fill-opacity': 0.16 } });
         map.addLayer({ id: 'accuracy-halo-line', type: 'line', source: 'accuracy-halo', paint: { 'line-color': '#1F5BFF', 'line-width': 1.5, 'line-opacity': 0.55 } });
+        map.addSource('you-halo', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+        map.addLayer({ id: 'you-halo', type: 'fill', source: 'you-halo', paint: { 'fill-color': '#0B1B3B', 'fill-opacity': 0.16 } });
+        map.addLayer({ id: 'you-halo-line', type: 'line', source: 'you-halo', paint: { 'line-color': '#0B1B3B', 'line-width': 2, 'line-opacity': 0.7 } });
         map.on('dragstart', () => setFollow(false));
         setMapReady(true);
       });
@@ -122,9 +164,47 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
       setMapReady(false);
       map?.remove();
       mapRef.current = null;
+      youMarker.current = null;
       bag.clear();
     };
   }, []);
+
+  useEffect(() => {
+    if (!mapReady || mode !== 'rider' || !you) return;
+    const map = mapRef.current;
+    if (!map || youMarker.current) return;
+    let dead = false;
+    void import('maplibre-gl').then((maplibre) => {
+      if (dead || !mapRef.current || !youRef.current || youMarker.current) return;
+      const el = document.createElement('div');
+      el.className = 'you-pin';
+      el.textContent = 'You';
+      el.setAttribute('aria-label', 'You');
+      youMarker.current = new maplibre.Marker({ element: el, anchor: 'center' })
+        .setLngLat([youRef.current.lng, youRef.current.lat])
+        .addTo(mapRef.current);
+    });
+    return () => { dead = true; };
+  }, [mapReady, mode, you]);
+
+  useEffect(() => {
+    if (you) youMarker.current?.setLngLat([you.lng, you.lat]);
+  }, [you]);
+
+  useEffect(() => {
+    if (!you) return;
+    let changed = false;
+    for (const bus of data.buses) {
+      const line = routeGeometry(bus.route)?.points ?? [];
+      const display = snapToRoad(bus, line, bus.accuracy);
+      const metres = haversineMetres(you, display);
+      const previous = distanceHistory.current.get(bus.id) ?? [];
+      if (previous[previous.length - 1]?.at === bus.recordedAt) continue;
+      distanceHistory.current.set(bus.id, [...previous, { at: bus.recordedAt, metres }].slice(-4));
+      changed = true;
+    }
+    if (changed) setHistoryTick((value) => value + 1);
+  }, [data.buses, you]);
 
   useEffect(() => {
     if (!mapReady) return;
@@ -133,6 +213,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
       const map = mapRef.current;
       const features: { type: 'Feature'; properties: Record<string, never>; geometry: { type: 'Polygon'; coordinates: [number, number][][] } }[] = [];
       let followAt: [number, number] | null = null;
+      let selectedAt: [number, number] | null = null;
       markers.current.forEach((item, id) => {
         const t = Math.min(1, (now - item.started) / POLL_MS);
         let lng = item.from[0] + (item.to[0] - item.from[0]) * t;
@@ -156,10 +237,33 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
             geometry: { type: 'Polygon', coordinates: [accuracyRing({ lat, lng }, item.accuracy ?? 0)] },
           });
         }
+        if (id === selectedRef.current) selectedAt = [lng, lat];
         if (followRef.current && id === selectedRef.current) followAt = [lng, lat];
       });
       const halo = map?.getSource('accuracy-halo') as import('maplibre-gl').GeoJSONSource | undefined;
       halo?.setData({ type: 'FeatureCollection', features });
+      const rider = youRef.current;
+      const youHalo = map?.getSource('you-halo') as import('maplibre-gl').GeoJSONSource | undefined;
+      const youLine = map?.getSource('you-line') as import('maplibre-gl').GeoJSONSource | undefined;
+      if (mode === 'rider' && rider) {
+        const radius = Math.max(rider.accuracy || 0, 25);
+        youHalo?.setData({
+          type: 'FeatureCollection',
+          features: [{
+            type: 'Feature',
+            properties: {},
+            geometry: { type: 'Polygon', coordinates: [accuracyRing(rider, radius)] },
+          }],
+        });
+        youLine?.setData(selectedAt ? {
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'LineString', coordinates: [[rider.lng, rider.lat], selectedAt] },
+        } : EMPTY_LINE);
+      } else {
+        youHalo?.setData({ type: 'FeatureCollection', features: [] });
+        youLine?.setData(EMPTY_LINE);
+      }
       if (followAt && map) {
         map.jumpTo({
           center: followAt,
@@ -255,8 +359,12 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
     const line = chosen ? (routeGeometry(chosen.route)?.points.map((point) => [point.lng, point.lat] as [number, number]) ?? []) : [];
     const routeSource = map.getSource('route-line') as import('maplibre-gl').GeoJSONSource | undefined;
     routeSource?.setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: line } });
-    const groups = data.stops.filter((group) => route === 'all' || group.route === route);
     const stopSource = map.getSource('stop-dots') as import('maplibre-gl').GeoJSONSource | undefined;
+    if (mode !== 'operator') {
+      stopSource?.setData(EMPTY_POINTS);
+      return;
+    }
+    const groups = data.stops.filter((group) => route === 'all' || group.route === route);
     stopSource?.setData({
       type: 'FeatureCollection',
       features: groups.flatMap((group) => group.stops.map((stop) => ({
@@ -265,7 +373,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
         geometry: { type: 'Point' as const, coordinates: [stop.lng, stop.lat] as [number, number] },
       }))),
     });
-  }, [mapReady, selected, data.buses, data.stops, route]);
+  }, [mapReady, selected, data.buses, data.stops, route, mode]);
 
   useEffect(() => {
     if (selected && data.buses.some((item) => item.id === selected)) return;
@@ -281,10 +389,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
   ];
   const routes = [...new Set(data.buses.map((bus) => bus.route))];
   const bus = data.buses.find((item) => item.id === selected) ?? null;
-  const routeStops = data.stops.find((item) => item.route === bus?.route)?.stops ?? [];
-  const stop = routeStops.find((item) => item.id === stopId) ?? routeStops[routeStops.length - 1];
   const displayBus = bus ? snapToRoad(bus, routeGeometry(bus.route)?.points ?? [], bus.accuracy) : null;
-  const minutes = bus && displayBus && stop ? etaMinutes(routeGeometry(bus.route)?.points ?? [], displayBus, stop, bus.speed) : null;
   const query = search.trim().toLowerCase();
   const visible = data.buses.filter((item) => {
     if (route !== 'all' && item.route !== route) return false;
@@ -294,7 +399,6 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
   const onShift = data.buses.filter((item) => item.onShift && !item.stale).length;
   const idle = data.buses.filter((item) => !item.onShift && !item.stale).length;
   const stale = data.buses.filter((item) => item.stale).length;
-  const arrow = bus ? bus.route.replace(' to ', ' → ') : '';
 
   function placeFor(item: LiveBus): string {
     if (!item.recordedAt) return 'No position yet';
@@ -303,30 +407,76 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
     return describePlace(display, item.heading ?? display.heading, line, places, LUSAKA_STREETS);
   }
 
-  function nearMe() {
-    if (!navigator.geolocation || !mapRef.current) return;
-    setFollow(false);
-    navigator.geolocation.getCurrentPosition((position) => {
-      mapRef.current?.flyTo({ center: [position.coords.longitude, position.coords.latitude], zoom: 14 });
-    });
+  function gapFor(item: LiveBus): { metres: number; approach: Approach | null } | null {
+    if (!you) return null;
+    const samples = distanceHistory.current.get(item.id) ?? [];
+    const line = routeGeometry(item.route)?.points ?? [];
+    const display = snapToRoad(item, line, item.accuracy);
+    const metres = samples[samples.length - 1]?.metres ?? haversineMetres(you, display);
+    return { metres, approach: approachFromDistances(samples.map((sample) => sample.metres)) };
+  }
+
+  function askLocation() {
+    if (!navigator.geolocation) {
+      setLocationState('denied');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocationState('granted');
+        setYou({ lat: position.coords.latitude, lng: position.coords.longitude, accuracy: position.coords.accuracy });
+      },
+      () => setLocationState('denied'),
+      { enableHighAccuracy: true, timeout: 12_000 },
+    );
   }
 
   const chipLabel = (name: string) => {
     const match = data.buses.find((item) => item.route === name);
-    const short = name.replace(' to ', '–');
+    const short = usualRoute(name);
     return match ? `Bus ${match.fleet} • ${short}` : short;
   };
+
+  const riderGap = bus ? gapFor(bus) : null;
+  const reach = bus && riderGap ? reachMinutes(riderGap.metres, bus.speed, riderGap.approach) : null;
+  const nearest = [...visible].sort((a, b) => {
+    if (!you) return a.fleet.localeCompare(b.fleet, undefined, { numeric: true });
+    return (gapFor(a)?.metres ?? Number.POSITIVE_INFINITY) - (gapFor(b)?.metres ?? Number.POSITIVE_INFINITY);
+  });
+  void historyTick;
+
+  useEffect(() => {
+    if (mode !== 'rider' || !mapReady || follow || !you || !displayBus || !selected) return;
+    const key = `${selected}:you`;
+    if (fittedKey.current === key) return;
+    fittedKey.current = key;
+    const here = you;
+    const there = displayBus;
+    void import('maplibre-gl').then((maplibre) => {
+      if (fittedKey.current !== key || !mapRef.current) return;
+      const bounds = new maplibre.LngLatBounds([here.lng, here.lat], [there.lng, there.lat]);
+      mapRef.current.fitBounds(bounds, {
+        padding: { top: 130, bottom: 500, left: 40, right: 40 },
+        maxZoom: 15.5,
+        duration: 500,
+      });
+    });
+  }, [mode, mapReady, follow, you, displayBus, selected]);
+
+  useEffect(() => {
+    if (follow) fittedKey.current = null;
+  }, [follow]);
 
   return (
     <div className="relative h-full">
       <div ref={holder} className={mode === 'rider' ? 'h-[calc(100dvh-88px)] w-full' : 'h-[62vh] w-full md:h-dvh'} />
       {mode === 'rider' ? (
         <label className="absolute left-3 right-3 top-3 z-10">
-          <span className="sr-only">Where are you going?</span>
+          <span className="sr-only">Find a bus</span>
           <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#5C6578]" aria-hidden>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
           </span>
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Where are you going?" className="h-12 w-full rounded-full border border-[#E4E8F0] bg-white pl-11 pr-4 text-[15px] font-semibold text-[#0B1B3B] shadow-[0_8px_24px_rgba(11,27,59,0.1)] placeholder:text-[#8A93A6]" />
+          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Find a bus" className="h-12 w-full rounded-full border border-[#E4E8F0] bg-white pl-11 pr-4 text-[15px] font-semibold text-[#0B1B3B] shadow-[0_8px_24px_rgba(11,27,59,0.1)] placeholder:text-[#8A93A6]" />
         </label>
       ) : (
         <div className="absolute left-3 top-3 z-10 flex gap-3 rounded-2xl bg-white px-3 py-2 text-[12px] font-bold text-[#0B1B3B] shadow-[0_8px_24px_rgba(11,27,59,0.1)]">
@@ -342,7 +492,6 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
         ))}
         <button type="button" data-on={follow ? 'true' : 'false'} aria-pressed={follow} disabled={!bus} className="chip shrink-0 rounded-full bg-white px-3.5 py-2 text-[13px] font-bold text-[#0B1B3B] shadow-[0_6px_16px_rgba(11,27,59,0.1)] disabled:opacity-50" onClick={() => setFollow((value) => !value)}>Follow bus</button>
       </div>
-      {mode === 'rider' && !bus ? <button type="button" className="press absolute bottom-6 right-3 z-10 rounded-full bg-[#0B1B3B] px-3 py-2 text-[12px] font-bold text-white" onClick={nearMe}>Near me</button> : null}
       {mode === 'operator' ? (
         <aside className="relative z-10 bg-[#F4F6FB] p-3 md:absolute md:inset-y-3 md:right-3 md:w-[340px] md:overflow-y-auto md:rounded-[24px] md:bg-white md:p-4 md:shadow-[0_16px_40px_rgba(11,27,59,0.12)]">
           <h2 className="text-[18px] font-extrabold">Nearby buses</h2>
@@ -368,34 +517,59 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
         </aside>
       ) : null}
       {mode === 'rider' && bus ? (
-        <div className="sheet fixed inset-x-3 bottom-24 z-30 rounded-[28px] p-4 text-[#0B1B3B] shadow-[0_18px_40px_rgba(11,27,59,0.16)] md:absolute md:inset-x-auto md:bottom-4 md:left-3 md:w-[420px]">
+        <div data-testid="bus-sheet" className="sheet fixed inset-x-3 bottom-24 z-30 max-h-[44vh] overflow-y-auto rounded-[28px] p-4 text-[#0B1B3B] shadow-[0_18px_40px_rgba(11,27,59,0.16)] md:absolute md:inset-x-auto md:bottom-4 md:left-3 md:max-h-[70vh] md:w-[420px]">
           <div className="flex items-center gap-2">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#E7EEFF] text-[#1F5BFF]" aria-hidden>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="4" width="16" height="12" rx="2" /><path d="M4 10h16M7 16v2M17 16v2" /></svg>
             </span>
             <div>
               <p className="text-[18px] font-extrabold leading-none">Bus {bus.fleet}</p>
-              <p className="mt-1 text-[15px] font-semibold text-[#3E4A63]">{arrow}</p>
+              <p className="mt-1 text-[15px] font-semibold text-[#3E4A63]">{usualRoute(bus.route)}</p>
             </div>
           </div>
-          <p className="mt-2 text-[14px] font-semibold text-[#0B1B3B]">{placeFor(bus)}</p>
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <p className="shrink-0 whitespace-nowrap text-[40px] font-extrabold leading-none tracking-[-0.04em]">{minutes != null ? formatEta(minutes) : '~—'}</p>
-            <Link href={`/home?bus=${bus.fleet}`} className="press inline-flex h-12 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-[#1F5BFF] px-3 text-[13px] font-bold text-white">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 10h18" /></svg>
-              Pay fare for Bus {bus.fleet}
-            </Link>
-          </div>
-          <p className="mt-1 text-[14px] text-[#5C6578]">to {stop?.name ?? 'the next stop'}</p>
-          {routeStops.length > 1 ? (
-            <select aria-label="Stop" className="mt-3 h-11 w-full rounded-xl bg-[#F4F6FB] px-3 text-[15px] font-semibold text-[#0B1B3B]" value={stop?.id ?? ''} onChange={(event) => setStopId(event.target.value)}>
-              {routeStops.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
-          ) : null}
-          <p className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#5C6578]">
+          <p className="mt-3 text-[14px] font-semibold text-[#0B1B3B]">{placeFor(bus)}</p>
+          {locationState === 'granted' && riderGap ? (
+            <>
+              <p className="mt-1 text-[15px] font-extrabold">{formatDistance(riderGap.metres)}</p>
+              {riderGap.approach ? <p className="mt-1 text-[15px] font-bold text-[#1F5BFF]">{approachLabel(riderGap.approach)}</p> : null}
+              {reach != null ? <p className="mt-1 text-[14px] font-semibold text-[#3E4A63]">{formatReach(reach)}</p> : null}
+            </>
+          ) : locationState === 'denied' ? (
+            <div className="mt-3 rounded-2xl bg-[#F4F6FB] px-3 py-3">
+              <p className="text-[14px] font-semibold leading-5 text-[#3E4A63]">Turn on location to see how far each bus is, and whether it is coming towards you. Your position stays on this phone.</p>
+              <button type="button" className="press mt-2 h-10 rounded-xl bg-[#0B1B3B] px-3 text-[13px] font-bold text-white" onClick={askLocation}>Use my location</button>
+            </div>
+          ) : <p className="mt-2 text-[14px] font-semibold text-[#5C6578]">Finding your location…</p>}
+          <p className="mt-2 text-[14px] font-semibold text-[#0B1B3B]">{formatSpeed(bus.speed)}</p>
+          <p className="mt-1 inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#5C6578]">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><circle cx="12" cy="12" r="8" /><path d="M12 8v5l3 2" /></svg>
             {bus.recordedAt ? formatUpdated(bus.recordedAt, tick) : 'Waiting for a position'}
           </p>
+          <h2 className="mt-4 text-[13px] font-extrabold uppercase tracking-[0.08em] text-[#5C6578]">Nearest buses</h2>
+          <ul data-testid="nearest-buses" className="mt-2 space-y-1">
+            {nearest.map((item) => {
+              const gap = gapFor(item);
+              return (
+                <li key={item.id}>
+                  <button type="button" className={`flex w-full items-center gap-3 rounded-2xl px-2 py-2 text-left ${selected === item.id ? 'bg-[#E7EEFF]' : ''}`} onClick={() => { setFollow(false); setSelected(item.id); }}>
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#1F5BFF] text-[12px] font-extrabold text-white">{item.fleet}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[14px] font-extrabold">Bus {item.fleet}</span>
+                      <span className="block truncate text-[12px] font-semibold text-[#3E4A63]">{usualRoute(item.route)}</span>
+                    </span>
+                    <span className="text-right text-[12px] font-bold text-[#0B1B3B]">
+                      {locationState === 'denied' ? <span className="font-semibold text-[#5C6578]">Location off</span> : gap ? (
+                        <>
+                          <span className="block">{formatDistance(gap.metres).replace(' from you', '')}</span>
+                          <span className="block font-semibold text-[#1F5BFF]">{gap.approach ? approachLabel(gap.approach) : '…'}</span>
+                        </>
+                      ) : <span className="font-semibold text-[#5C6578]">…</span>}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       ) : null}
     </div>
