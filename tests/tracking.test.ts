@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { Client } from 'pg';
 import { test } from 'node:test';
-import { aheadMetres, aheadSegment, alongError, approachFromDistances, approachLabel, demoSpeed, formatDistance, formatReach, formatSpeed, formatUpdated, glideDistance, glideSpeed, haversineMetres, isStale, pointAlong, projectOnto, reachMinutes, routeEndInDirection, routeLength, shouldSendFix, showsAccuracyHalo, snapToRoad, STALE_MS, trailSamples, trimTrail } from '../lib/tracking-math';
+import { aheadMetres, aheadSegment, alongError, approachFromDistances, approachLabel, demoSpeed, formatDistance, formatReach, formatSpeed, formatUpdated, glideDistance, glideSpeed, haversineMetres, inLusaka, isStale, pointAlong, projectOnto, reachMinutes, riderCounts, routeEndInDirection, routeLength, shouldSendFix, showsAccuracyHalo, snapToRoad, STALE_MS, trailSamples, trimTrail } from '../lib/tracking-math';
 import { routeGeometry } from '../lib/lusaka-routes';
 import { describePlace, LUSAKA_LANDMARKS, LUSAKA_STREETS } from '../lib/lusaka-places';
 
@@ -113,6 +113,14 @@ test('direction is the route end ahead, with a short trail behind and no wrap', 
   assert.equal(routeEndInDirection('Town to Matero', 190, 10), 'Town');
   assert.equal(routeEndInDirection('Matero to Chawama', 0, 5), 'Chawama');
   assert.equal(routeGeometry(null), undefined);
+  const lusaka = { lat: -15.416, lng: 28.283 };
+  const georgia = { lat: 33.75, lng: -84.39 };
+  assert.equal(inLusaka(lusaka), true);
+  assert.equal(inLusaka(georgia), false);
+  assert.equal(riderCounts(lusaka, { lat: -15.41, lng: 28.29 }), true);
+  assert.equal(riderCounts(georgia, lusaka), false);
+  assert.equal(riderCounts({ lat: -15.2, lng: 28.29 }, lusaka), false);
+  assert.equal(riderCounts({ lat: -15.7, lng: 28.29 }, lusaka), false);
   assert.equal(routeGeometry(''), undefined);
   assert.ok(routeGeometry('Town to Matero'));
   const trail = trailSamples(route.points, along, 400, 1_000_000);

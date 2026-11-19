@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { listLiveBuses, stopsFor } from '@/lib/tracking';
+import { listLiveBuses, simulatedEnabled, stopsFor } from '@/lib/tracking';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +12,7 @@ export async function GET() {
   const stops = await Promise.all(routes.map(async (route) => ({ route, stops: await stopsFor(route) })));
   const landmarks = await stopsFor('Landmarks');
   return NextResponse.json(
-    { buses, stops, landmarks, now: Date.now() },
+    { buses, stops, landmarks, demo: simulatedEnabled(), now: Date.now() },
     { headers: { 'Cache-Control': 'no-store' } },
   );
 }

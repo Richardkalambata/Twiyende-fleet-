@@ -5,15 +5,16 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import type { LiveBus } from '@/lib/tracking';
 import { LUSAKA_STREETS, describePlace } from '@/lib/lusaka-places';
 import { routeGeometry, type GeoPoint } from '@/lib/lusaka-routes';
-import { accuracyRing, alongError, approachFromDistances, demoSpeed, formatDistance, formatUpdated, glideDistance, glideSpeed, haversineMetres, lerpAngle, pointAtDistance, projectOnto, reachMinutes, routeLength, showsAccuracyHalo, snapToRoad, trailSamples, trimTrail, type Approach } from '@/lib/tracking-math';
+import { DEMO_RIDER, LUSAKA_BOUNDS, OPEN_FRAME_M, accuracyRing, alongError, approachFromDistances, demoSpeed, formatDistance, formatUpdated, glideDistance, glideSpeed, haversineMetres, lerpAngle, pointAtDistance, projectOnto, reachMinutes, riderCounts, routeLength, showsAccuracyHalo, snapToRoad, trailSamples, trimTrail, type Approach } from '@/lib/tracking-math';
 
 type Stop = { id: string; name: string; lat: number; lng: number; seq: number };
-type Payload = { buses: LiveBus[]; stops: { route: string; stops: Stop[] }[]; landmarks?: Stop[]; now: number };
-type YouFix = { lat: number; lng: number; accuracy: number };
+type Payload = { buses: LiveBus[]; stops: { route: string; stops: Stop[] }[]; landmarks?: Stop[]; demo?: boolean; now: number };
+type YouFix = { lat: number; lng: number; accuracy: number; demo?: boolean };
 type DistanceSample = { at: number; metres: number };
 const POLL_MS = 1_000;
 const TRAIL_MS = 45_000;
 const TRAIL_M = 380;
+const DEMO_VIEW: YouFix = { ...DEMO_RIDER, demo: true };
 
 type Glide = {
   along: number;
@@ -91,9 +92,18 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
   const [locationState, setLocationState] = useState<'pending' | 'granted' | 'denied'>('pending');
   const [historyTick, setHistoryTick] = useState(0);
   const [showRoute, setShowRoute] = useState(false);
+  const movingBuses = data.buses.filter((item) => item.recordedAt);
+  const nearestBus = movingBuses.reduce<LiveBus | null>((best, bus) => {
+    if (!best) return bus;
+    const origin = you ?? DEMO_RIDER;
+    return haversineMetres(origin, bus) < haversineMetres(origin, best) ? bus : best;
+  }, null);
+  const viewer: YouFix | null = data.demo
+    ? DEMO_VIEW
+    : (you && nearestBus && riderCounts(you, nearestBus) ? you : null);
   followRef.current = follow;
   selectedRef.current = selected;
-  youRef.current = you;
+  youRef.current = viewer;
 
   useEffect(() => {
     const timer = window.setInterval(() => setTick(Date.now()), 1000);
@@ -154,8 +164,9 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
       map = new maplibre.Map({
         container: holder.current,
         style: 'https://tiles.openfreemap.org/styles/positron',
-        center: [28.283, -15.416],
-        zoom: 14.5,
+        center: [28.29, -15.414],
+        zoom: 15.5,
+        maxBounds: mode === 'rider' ? [[LUSAKA_BOUNDS.west, LUSAKA_BOUNDS.south], [LUSAKA_BOUNDS.east, LUSAKA_BOUNDS.north]] : undefined,
         attributionControl: { compact: true },
       });
       if (mode !== 'rider') map.addControl(new maplibre.NavigationControl({ showCompass: false }), 'bottom-left');
@@ -264,7 +275,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
   }, [mode]);
 
   useEffect(() => {
-    if (!mapReady || mode !== 'rider' || !you) return;
+    if (!mapReady || mode !== 'rider' || !viewer) return;
     const map = mapRef.current;
     if (!map || youMarker.current) return;
     let dead = false;
@@ -272,33 +283,46 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
       if (dead || !mapRef.current || !youRef.current || youMarker.current) return;
       const el = document.createElement('div');
       el.className = 'you-pin';
-      el.innerHTML = '<span class="you-dot"></span><span class="you-label">You</span>';
-      el.setAttribute('aria-label', 'You');
+      el.innerHTML = `<span class="you-dot"></span><span class="you-label">${youRef.current.demo ? 'You (demo)' : 'You'}</span>`;
+      el.setAttribute('aria-label', youRef.current.demo ? 'You (demo)' : 'You');
       youMarker.current = new maplibre.Marker({ element: el, anchor: 'center' })
         .setLngLat([youRef.current.lng, youRef.current.lat])
         .addTo(mapRef.current);
     });
     return () => { dead = true; };
-  }, [mapReady, mode, you]);
+  }, [mapReady, mode, viewer]);
 
   useEffect(() => {
-    if (you) youMarker.current?.setLngLat([you.lng, you.lat]);
-  }, [you]);
+    if (!viewer) {
+      youMarker.current?.remove();
+      youMarker.current = null;
+      return;
+    }
+    const label = viewer.demo ? 'You (demo)' : 'You';
+    const marker = youMarker.current;
+    if (marker) {
+      marker.setLngLat([viewer.lng, viewer.lat]);
+      const text = marker.getElement().querySelector('.you-label');
+      if (text) text.textContent = label;
+      marker.getElement().setAttribute('aria-label', label);
+      return;
+    }
+  }, [viewer]);
 
   useEffect(() => {
-    if (!you) return;
+    if (!viewer) return;
     let changed = false;
     for (const bus of data.buses) {
       const line = routeGeometry(bus.route)?.points ?? [];
       const display = snapToRoad(bus, line, bus.accuracy);
-      const metres = haversineMetres(you, display);
+      const metres = haversineMetres(viewer, display);
       const previous = distanceHistory.current.get(bus.id) ?? [];
       if (previous[previous.length - 1]?.at === bus.recordedAt) continue;
       distanceHistory.current.set(bus.id, [...previous, { at: bus.recordedAt, metres }].slice(-4));
       changed = true;
     }
     if (changed) setHistoryTick((value) => value + 1);
-  }, [data.buses, you]);
+  }, [data.buses, viewer]);
 
   useEffect(() => {
     if (!mapReady) return;
@@ -553,11 +577,11 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
   }
 
   function gapFor(item: LiveBus): { metres: number; approach: Approach | null } | null {
-    if (!you) return null;
+    if (!viewer) return null;
     const samples = distanceHistory.current.get(item.id) ?? [];
     const line = routeGeometry(item.route)?.points ?? [];
     const display = snapToRoad(item, line, item.accuracy);
-    const metres = samples[samples.length - 1]?.metres ?? haversineMetres(you, display);
+    const metres = samples[samples.length - 1]?.metres ?? haversineMetres(viewer, display);
     return { metres, approach: approachFromDistances(samples.map((sample) => sample.metres)) };
   }
 
@@ -613,18 +637,17 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
     if (mode !== 'rider' || !mapReady || follow) return;
     const moving = data.buses.filter((item) => item.recordedAt);
     if (moving.length === 0) return;
-    const town = { lat: -15.416, lng: 28.283 };
-    const closest = [...moving].sort((a, b) => haversineMetres(you ?? town, a) - haversineMetres(you ?? town, b))[0];
-    const youNear = you && closest && haversineMetres(you, closest) < 12_000 ? you : null;
-    const origin = youNear ?? town;
+    const town = { lat: -15.414, lng: 28.29 };
+    const closest = [...moving].sort((a, b) => haversineMetres(viewer ?? town, a) - haversineMetres(viewer ?? town, b))[0];
+    const youNear = viewer && closest && haversineMetres(viewer, closest) <= OPEN_FRAME_M ? viewer : null;
+    const origin = youNear ?? closest ?? town;
     const ranked = [...moving].sort((a, b) => haversineMetres(origin, a) - haversineMetres(origin, b));
     const picked: LiveBus[] = [];
     for (const item of ranked) {
       if (picked.length >= 4) break;
-      if (picked.length >= 3 && haversineMetres(origin, item) > 3_200) break;
+      if (picked.length >= 1 && haversineMetres(origin, item) > OPEN_FRAME_M) break;
       picked.push(item);
     }
-    if (picked.length < 2) picked.splice(0, picked.length, ...ranked.slice(0, Math.min(3, ranked.length)));
     const key = selected ? `${selected}${showRoute ? '-route' : ''}` : (youNear ? 'open-you' : 'open-buses');
     if (fittedKey.current === key) return;
     if (selected && !displayBus) return;
@@ -633,22 +656,24 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
     void import('maplibre-gl').then((maplibre) => {
       const map = mapRef.current;
       if (!map || fittedKey.current !== key || map.getContainer().clientHeight < 200) return;
-      const seed = youNear ?? spots[0];
+      const besideBus = viewer && displayBus && haversineMetres(viewer, displayBus) <= OPEN_FRAME_M ? viewer : null;
+      const seed = (selected ? (besideBus ?? displayBus) : (youNear ?? spots[0])) ?? spots[0];
       const focus = selected && displayBus ? [displayBus] : spots;
       let shown = focus;
-      const padding = { top: 88, bottom: selected ? 168 : 72, left: selected ? 56 : 28, right: selected ? 56 : 28 };
+      const padding = { top: 96, bottom: selected ? 180 : 80, left: selected ? 56 : 48, right: selected ? 72 : 88 };
       const boundsFor = (points: { lng: number; lat: number }[]) => {
         const next = new maplibre.LngLatBounds([seed.lng, seed.lat], [seed.lng, seed.lat]);
         if (!selected && youNear) next.extend([youNear.lng, youNear.lat]);
+        if (selected && besideBus) next.extend([besideBus.lng, besideBus.lat]);
         for (const spot of points) next.extend([spot.lng, spot.lat]);
         return next;
       };
       let bounds = boundsFor(shown);
       if (!selected) {
         while (shown.length > 2) {
-          const camera = map.cameraForBounds(bounds, { padding, maxZoom: 15 });
+          const camera = map.cameraForBounds(bounds, { padding, maxZoom: 16 });
           const zoom = camera?.zoom ?? 0;
-          if (zoom >= 14 || (shown.length <= 3 && zoom >= 13.6)) break;
+          if (zoom >= 15 || shown.length <= 2) break;
           shown = shown.slice(0, -1);
           bounds = boundsFor(shown);
         }
@@ -657,12 +682,12 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
         for (const point of routeGeometry(bus.route)?.points ?? []) bounds.extend([point.lng, point.lat]);
       }
       map.fitBounds(bounds, {
-        padding: { top: 96, bottom: selected ? 168 : 108, left: 56, right: 56 },
-        maxZoom: selected ? 15.5 : 15,
+        padding,
+        maxZoom: 16,
         duration: selected ? 450 : 0,
       });
     });
-  }, [mode, mapReady, follow, you, displayBus, selected, bus, data.buses, showRoute]);
+  }, [mode, mapReady, follow, viewer, displayBus, selected, bus, data.buses, showRoute]);
 
   useEffect(() => {
     if (follow) fittedKey.current = null;
@@ -749,9 +774,9 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
                 {riderGap.approach ? <span className={riderGap.approach === 'towards' ? 'text-[#128A4E]' : 'text-[#5C6578]'}>{` · ${approachPhrase(riderGap.approach)}`}</span> : null}
                 {reach != null ? <span className="text-[#8A93A6]">{` · ~${reach} min`}</span> : null}
               </>
-            ) : locationState === 'denied' ? (
+            ) : locationState === 'denied' && !data.demo ? (
               <button type="button" className="font-semibold text-[#1F5BFF]" onClick={askLocation}>Turn on location to see the distance</button>
-            ) : 'Finding your location…'}
+            ) : data.demo ? 'Finding your location…' : 'Outside the Lusaka service area'}
           </p>
           <p className="mt-1 truncate text-[13px] font-medium text-[#8A93A6]">{streetLine(bus)}</p>
           {bus.route && routeGeometry(bus.route) ? (

@@ -37,6 +37,23 @@ export function isStale(recordedAt: number, now: number): boolean {
   return now - recordedAt > STALE_MS;
 }
 
+/** Lusaka service box. The rider map cannot pan outside it. */
+export const LUSAKA_BOUNDS = { south: -15.50, north: -15.35, west: 28.22, east: 28.40 };
+/** A rider standing near Cairo Road and Great East Road. Used while demo buses are running. */
+export const DEMO_RIDER = { lat: -15.4142, lng: 28.2904, accuracy: 35 };
+export const RIDER_JOIN_M = 30_000;
+export const OPEN_FRAME_M = 3_000;
+
+export function inLusaka(point: GeoPoint): boolean {
+  return point.lat >= LUSAKA_BOUNDS.south && point.lat <= LUSAKA_BOUNDS.north
+    && point.lng >= LUSAKA_BOUNDS.west && point.lng <= LUSAKA_BOUNDS.east;
+}
+
+/** A real fix only counts when it is inside Lusaka and close to a bus. Georgia must not pull the map open. */
+export function riderCounts(you: GeoPoint, nearestBus: GeoPoint): boolean {
+  return inLusaka(you) && haversineMetres(you, nearestBus) <= RIDER_JOIN_M;
+}
+
 export function haversineMetres(a: GeoPoint, b: GeoPoint): number {
   const r = 6371000;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
