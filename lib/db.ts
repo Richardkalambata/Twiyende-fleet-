@@ -111,6 +111,8 @@ async function seedIfNeeded(force: boolean) {
       );
     }
     await client.query('COMMIT');
+    const { ensureStops } = await import('./tracking');
+    await ensureStops(wrap(client));
   } catch (error) {
     try {
       await client.query('ROLLBACK');

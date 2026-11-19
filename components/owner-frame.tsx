@@ -10,6 +10,7 @@ import { BusIcon, ChartIcon, CloseIcon, GearIcon, LogoutIcon, LostIcon, MenuIcon
 
 const LINKS = [
   { href: '/business/desk', label: 'Overview', icon: ChartIcon },
+  { href: '/business/desk/map', label: 'Map', icon: Map },
   { href: '/business/desk/buses', label: 'Buses', icon: BusIcon },
   { href: '/business/desk/conductors', label: 'Conductors', icon: UsersIcon },
   { href: '/business/desk/assignments', label: 'Assignments', icon: CalendarDays },

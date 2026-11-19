@@ -2,6 +2,10 @@
 
 export const TRUNCATE_SQL = `
 TRUNCATE TABLE
+  bus_locations,
+  bus_latest,
+  shifts,
+  stops,
   sms_messages,
   payouts,
   lost_items,
@@ -190,6 +194,50 @@ CREATE TABLE IF NOT EXISTS notifications (
   created_at BIGINT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications (user_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS shifts (
+  id TEXT PRIMARY KEY,
+  conductor_id TEXT NOT NULL REFERENCES users (id),
+  bus_id TEXT NOT NULL REFERENCES buses (id),
+  started_at BIGINT NOT NULL,
+  ended_at BIGINT,
+  expires_at BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_shifts_bus ON shifts (bus_id, ended_at);
+
+CREATE TABLE IF NOT EXISTS bus_locations (
+  id TEXT PRIMARY KEY,
+  bus_id TEXT NOT NULL REFERENCES buses (id),
+  lat DOUBLE PRECISION NOT NULL,
+  lng DOUBLE PRECISION NOT NULL,
+  heading DOUBLE PRECISION,
+  speed DOUBLE PRECISION,
+  accuracy DOUBLE PRECISION,
+  recorded_at BIGINT NOT NULL,
+  source TEXT NOT NULL CHECK (source IN ('conductor', 'simulated'))
+);
+CREATE INDEX IF NOT EXISTS idx_bus_locations_bus_time ON bus_locations (bus_id, recorded_at DESC);
+
+CREATE TABLE IF NOT EXISTS bus_latest (
+  bus_id TEXT PRIMARY KEY REFERENCES buses (id),
+  lat DOUBLE PRECISION NOT NULL,
+  lng DOUBLE PRECISION NOT NULL,
+  heading DOUBLE PRECISION,
+  speed DOUBLE PRECISION,
+  accuracy DOUBLE PRECISION,
+  recorded_at BIGINT NOT NULL,
+  source TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS stops (
+  id TEXT PRIMARY KEY,
+  route TEXT NOT NULL,
+  name TEXT NOT NULL,
+  lat DOUBLE PRECISION NOT NULL,
+  lng DOUBLE PRECISION NOT NULL,
+  seq INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_stops_route ON stops (route, seq);
 
 CREATE TABLE IF NOT EXISTS support_tickets (
   id TEXT PRIMARY KEY,

@@ -574,7 +574,7 @@ html[data-motion='rich'] .conic-ring {
   bottom: 6px;
   left: 6px;
   z-index: 0;
-  width: calc((100% - 12px) / 4);
+  width: calc((100% - 12px) / var(--cols, 4));
   border-radius: 999px;
   background: #fff;
   box-shadow: 0 6px 16px rgba(11, 27, 59, 0.18);
@@ -583,6 +583,16 @@ html[data-motion='rich'] .conic-ring {
 
 html[data-motion='rich'] .nav-pill {
   transition: transform 0.5s cubic-bezier(0.22, 1.4, 0.36, 1);
+}
+
+.bus-pin { display: grid; justify-items: center; background: transparent; border: 0; padding: 0; color: white; }
+.bus-dot { display: grid; height: 32px; width: 32px; place-items: center; border-radius: 999px; background: #1f5bff; box-shadow: 0 8px 16px rgba(31, 91, 255, 0.35); }
+.bus-label { margin-top: 2px; border-radius: 6px; background: #0b1b3b; padding: 1px 5px; color: white; font-size: 11px; font-weight: 800; }
+.bus-pin[data-stale='true'] { opacity: 0.35; }
+.bus-pin[data-idle='true'] .bus-dot { background: #8a93a6; }
+.sheet { background: #fff; }
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .sheet { background: rgba(255, 255, 255, 0.9); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
 }
 
 .nav-item { position: relative; z-index: 1; background: transparent; }

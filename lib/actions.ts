@@ -92,6 +92,10 @@ export async function demoLoginAction(formData: FormData) {
 
 export async function signOutAction() {
   const user = await getCurrentUser();
+  if (user?.role === 'conductor') {
+    const { endShift } = await import('./tracking');
+    await endShift(user.id);
+  }
   await destroySession();
   if (user?.role === 'conductor') redirect('/business/conductor/login');
   redirect(user && user.role !== 'passenger' ? '/business' : '/');

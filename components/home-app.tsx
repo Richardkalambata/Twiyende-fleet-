@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { MapPin, Ticket, Wallet } from 'lucide-react';
+import { Map, MapPin, Ticket, Wallet } from 'lucide-react';
 import { PayForm } from './pay-form';
 import { Logo, Avatar } from './shell';
 import { EmptyState } from './ui';
@@ -53,6 +53,13 @@ export function HomeApp({
         <button type="button" onClick={() => { setPreset(''); setPaying(true); }} className="glow-pay press col-span-2 flex h-14 items-center justify-center gap-2 rounded-[20px] bg-[#1F5BFF] text-[18px] font-extrabold text-white">
           Pay a fare →
         </button>
+        <Link href="/map" className="press col-span-2 flex h-14 items-center gap-3 rounded-[20px] bg-[#0B1B3B] px-3 text-white">
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#1F5BFF]"><Map className="h-5 w-5" /></span>
+          <span>
+            <span className="block text-[15px] font-extrabold">Live buses</span>
+            <span className="block text-[12px] font-semibold text-[#D5DCEC]">See the fleet on the map</span>
+          </span>
+        </Link>
         <Link href="/rides" data-tilt className="elevate press flex min-h-[88px] flex-col justify-between rounded-[20px] bg-white p-3 text-[#0B1B3B]">
           <Ticket className="h-5 w-5 text-[#1F5BFF]" />
           <span>
