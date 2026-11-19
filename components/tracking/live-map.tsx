@@ -5,13 +5,15 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import type { LiveBus } from '@/lib/tracking';
 import { LUSAKA_STREETS, describePlace } from '@/lib/lusaka-places';
 import { routeGeometry, type GeoPoint } from '@/lib/lusaka-routes';
-import { accuracyRing, alongError, approachFromDistances, demoSpeed, formatDistance, formatUpdated, glideDistance, glideSpeed, haversineMetres, lerpAngle, pointAtDistance, projectOnto, reachMinutes, routeLength, showsAccuracyHalo, snapToRoad, type Approach } from '@/lib/tracking-math';
+import { accuracyRing, aheadMetres, aheadSegment, alongError, approachFromDistances, demoSpeed, formatDistance, formatUpdated, glideDistance, glideSpeed, haversineMetres, lerpAngle, pointAtDistance, projectOnto, reachMinutes, routeEndInDirection, routeLength, showsAccuracyHalo, snapToRoad, trailSamples, trimTrail, type Approach } from '@/lib/tracking-math';
 
 type Stop = { id: string; name: string; lat: number; lng: number; seq: number };
 type Payload = { buses: LiveBus[]; stops: { route: string; stops: Stop[] }[]; landmarks?: Stop[]; now: number };
 type YouFix = { lat: number; lng: number; accuracy: number };
 type DistanceSample = { at: number; metres: number };
 const POLL_MS = 1_000;
+const TRAIL_MS = 45_000;
+const TRAIL_M = 380;
 
 type Glide = {
   along: number;
@@ -20,6 +22,7 @@ type Glide = {
   heading: number;
   route: GeoPoint[];
   length: number;
+  trail: { at: number; lng: number; lat: number }[];
 };
 
 type Pin = {
@@ -32,12 +35,35 @@ type Pin = {
 const EMPTY_LINE = { type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: [] as [number, number][] } };
 const EMPTY_POINTS = { type: 'FeatureCollection' as const, features: [] as { type: 'Feature'; properties: { name: string }; geometry: { type: 'Point'; coordinates: [number, number] } }[] };
 
-function headingArrow() {
+function headingArrow(prominent: boolean) {
   const arrow = document.createElement('span');
   arrow.className = 'heading-arrow';
   arrow.setAttribute('aria-hidden', 'true');
-  arrow.innerHTML = '<svg viewBox="0 0 14 10" width="14" height="10"><path d="M7 1 L13 9 H1 Z" fill="#0B1B3B" stroke="#ffffff" stroke-width="1.2"/></svg>';
+  arrow.innerHTML = prominent
+    ? '<svg viewBox="0 0 28 28"><path d="M14 1.5 L25 23.5 L14 17.5 L3 23.5 Z" fill="#0B1B3B" stroke="#ffffff" stroke-width="2.4" stroke-linejoin="round"/></svg>'
+    : '<svg viewBox="0 0 14 10" width="14" height="10"><path d="M7 1 L13 9 H1 Z" fill="#0B1B3B" stroke="#ffffff" stroke-width="1.2"/></svg>';
   return arrow;
+}
+
+function arrowImage() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 36;
+  canvas.height = 36;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.fillStyle = '#1F5BFF';
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 3;
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(18, 4);
+  ctx.lineTo(31, 31);
+  ctx.lineTo(18, 24);
+  ctx.lineTo(5, 31);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  return ctx.getImageData(0, 0, 36, 36);
 }
 
 function usualRoute(route: string) {
@@ -151,6 +177,48 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
             // Icon-only symbols have no text paint.
           }
         }
+        const arrow = arrowImage();
+        if (arrow && !map.hasImage('ahead-arrow')) map.addImage('ahead-arrow', arrow, { pixelRatio: 1 });
+        map.addSource('bus-trails', { type: 'geojson', lineMetrics: true, data: { type: 'FeatureCollection', features: [] } });
+        map.addLayer({
+          id: 'bus-trails',
+          type: 'line',
+          source: 'bus-trails',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: {
+            'line-width': 4,
+            'line-gradient': ['interpolate', ['linear'], ['line-progress'], 0, 'rgba(31,91,255,0)', 0.4, 'rgba(31,91,255,0.04)', 0.78, 'rgba(31,91,255,0.2)', 1, 'rgba(31,91,255,0.55)'],
+          },
+        });
+        map.addSource('ahead-line', { type: 'geojson', data: EMPTY_LINE });
+        map.addLayer({
+          id: 'ahead-casing',
+          type: 'line',
+          source: 'ahead-line',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': '#ffffff', 'line-width': 9, 'line-opacity': 0.85 },
+        });
+        map.addLayer({
+          id: 'ahead-line',
+          type: 'line',
+          source: 'ahead-line',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': '#C5D4FB', 'line-width': 5, 'line-opacity': 0.95 },
+        });
+        map.addSource('ahead-tip', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+        map.addLayer({
+          id: 'ahead-tip',
+          type: 'symbol',
+          source: 'ahead-tip',
+          layout: {
+            'icon-image': 'ahead-arrow',
+            'icon-size': 0.85,
+            'icon-rotate': ['get', 'bearing'],
+            'icon-rotation-alignment': 'map',
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
+          },
+        });
         map.addSource('route-line', { type: 'geojson', data: EMPTY_LINE });
         map.addLayer({ id: 'route-line', type: 'line', source: 'route-line', paint: { 'line-color': '#9AA8C0', 'line-width': 2, 'line-opacity': 0.35 } });
         map.addSource('you-line', { type: 'geojson', data: EMPTY_LINE });
@@ -171,8 +239,8 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
         map.addLayer({ id: 'accuracy-halo', type: 'fill', source: 'accuracy-halo', paint: { 'fill-color': '#1F5BFF', 'fill-opacity': 0.16 } });
         map.addLayer({ id: 'accuracy-halo-line', type: 'line', source: 'accuracy-halo', paint: { 'line-color': '#1F5BFF', 'line-width': 1.5, 'line-opacity': 0.55 } });
         map.addSource('you-halo', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-        map.addLayer({ id: 'you-halo', type: 'fill', source: 'you-halo', paint: { 'fill-color': '#0B1B3B', 'fill-opacity': 0.16 } });
-        map.addLayer({ id: 'you-halo-line', type: 'line', source: 'you-halo', paint: { 'line-color': '#0B1B3B', 'line-width': 2, 'line-opacity': 0.7 } });
+        map.addLayer({ id: 'you-halo', type: 'fill', source: 'you-halo', paint: { 'fill-color': '#1A73E8', 'fill-opacity': 0.16 } });
+        map.addLayer({ id: 'you-halo-line', type: 'line', source: 'you-halo', paint: { 'line-color': '#1A73E8', 'line-width': 2, 'line-opacity': 0.45 } });
         map.on('dragstart', () => setFollow(false));
         setMapReady(true);
       });
@@ -197,7 +265,6 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
       if (dead || !mapRef.current || !youRef.current || youMarker.current) return;
       const el = document.createElement('div');
       el.className = 'you-pin';
-      el.textContent = 'You';
       el.setAttribute('aria-label', 'You');
       youMarker.current = new maplibre.Marker({ element: el, anchor: 'center' })
         .setLngLat([youRef.current.lng, youRef.current.lat])
@@ -244,6 +311,14 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
         glide.heading = lerpAngle(glide.heading, spot.heading, ease);
         item.marker.setLngLat([spot.lng, spot.lat]);
         item.arrow.style.transform = `rotate(${glide.heading - (map?.getBearing() ?? 0)}deg)`;
+        if (mode === 'rider' && glide.speed >= 1) {
+          const last = glide.trail[glide.trail.length - 1];
+          const jumped = last != null && haversineMetres(last, spot) > 700;
+          if (jumped) glide.trail = [];
+          if (!last || jumped || now - last.at > 450) glide.trail.push({ at: now, lng: spot.lng, lat: spot.lat });
+          const keepAfter = now - TRAIL_MS;
+          while (glide.trail.length > 2 && glide.trail[0].at < keepAfter) glide.trail.shift();
+        }
         const lng = spot.lng;
         const lat = spot.lat;
         if (showsAccuracyHalo(item.accuracy)) {
@@ -256,6 +331,38 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
         if (id === selectedRef.current) selectedAt = [lng, lat];
         if (followRef.current && id === selectedRef.current) followAt = [lng, lat];
       });
+      const trails = map?.getSource('bus-trails') as import('maplibre-gl').GeoJSONSource | undefined;
+      trails?.setData({
+        type: 'FeatureCollection',
+        features: mode === 'rider' ? [...markers.current.values()].flatMap((item) => {
+          const points = trimTrail(item.glide?.trail ?? [], TRAIL_M);
+          if (points.length < 2) return [];
+          return [{
+            type: 'Feature' as const,
+            properties: {},
+            geometry: { type: 'LineString' as const, coordinates: points.map((point) => [point.lng, point.lat] as [number, number]) },
+          }];
+        }) : [],
+      });
+      const aheadSource = map?.getSource('ahead-line') as import('maplibre-gl').GeoJSONSource | undefined;
+      const aheadTip = map?.getSource('ahead-tip') as import('maplibre-gl').GeoJSONSource | undefined;
+      const chosen = selectedRef.current ? markers.current.get(selectedRef.current) : undefined;
+      const glide = chosen?.glide;
+      if (mode === 'rider' && glide && glide.length > 0) {
+        const ahead = aheadSegment(glide.route, glide.along, Math.min(aheadMetres(glide.length), glide.length));
+        aheadSource?.setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: ahead.coordinates } });
+        aheadTip?.setData({
+          type: 'FeatureCollection',
+          features: ahead.arrows.map((arrow) => ({
+            type: 'Feature' as const,
+            properties: { bearing: arrow.heading },
+            geometry: { type: 'Point' as const, coordinates: [arrow.lng, arrow.lat] as [number, number] },
+          })),
+        });
+      } else {
+        aheadSource?.setData(EMPTY_LINE);
+        aheadTip?.setData({ type: 'FeatureCollection', features: [] });
+      }
       const halo = map?.getSource('accuracy-halo') as import('maplibre-gl').GeoJSONSource | undefined;
       halo?.setData({ type: 'FeatureCollection', features });
       const rider = youRef.current;
@@ -325,7 +432,8 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
           const serverAlong = projectOnto(geometry, display).along;
           const base = demoSpeed(length);
           if (!pin.glide) {
-            pin.glide = { along: serverAlong, at: performance.now(), speed: base, heading, route: geometry, length };
+            const trail = mode === 'rider' ? trailSamples(geometry, serverAlong, Math.min(base * 45, TRAIL_M), performance.now(), TRAIL_MS) : [];
+            pin.glide = { along: serverAlong, at: performance.now(), speed: base, heading, route: geometry, length, trail };
             pin.marker.setLngLat(next);
             return;
           }
@@ -338,7 +446,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
           el.type = 'button';
           el.className = mode === 'operator' ? 'fleet-pin' : 'bus-pin';
           el.setAttribute('aria-label', `Bus ${bus.fleet}`);
-          const arrow = headingArrow();
+          const arrow = headingArrow(mode === 'rider');
           if (mode === 'operator') {
             const dot = document.createElement('span');
             dot.className = 'dot';
@@ -367,6 +475,8 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
           element.dataset.stale = bus.stale ? 'true' : 'false';
           element.dataset.idle = bus.onShift ? 'false' : 'true';
           element.dataset.on = selected === bus.id ? 'true' : 'false';
+          element.dataset.dim = mode === 'rider' && selected && selected !== bus.id ? 'true' : 'false';
+          element.style.zIndex = selected === bus.id ? '3' : '1';
         }
       }
       for (const [id, item] of markers.current) {
@@ -383,7 +493,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
     const map = mapRef.current;
     if (!map || !mapReady) return;
     const chosen = data.buses.find((item) => item.id === selected);
-    const line = chosen ? (routeGeometry(chosen.route)?.points.map((point) => [point.lng, point.lat] as [number, number]) ?? []) : [];
+    const line = mode === 'operator' && chosen ? (routeGeometry(chosen.route)?.points.map((point) => [point.lng, point.lat] as [number, number]) ?? []) : [];
     const routeSource = map.getSource('route-line') as import('maplibre-gl').GeoJSONSource | undefined;
     routeSource?.setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: line } });
     const stopSource = map.getSource('stop-dots') as import('maplibre-gl').GeoJSONSource | undefined;
@@ -516,13 +626,22 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
         [Math.min(here.lng, there.lng), Math.min(here.lat, there.lat)],
         [Math.max(here.lng, there.lng), Math.max(here.lat, there.lat)],
       );
+      if (selected) {
+        const line = routeGeometry(bus?.route ?? '')?.points ?? [];
+        const length = routeLength(line);
+        if (length > 0) {
+          const along = projectOnto(line, there).along;
+          const ahead = aheadSegment(line, along, Math.min(aheadMetres(length), length));
+          for (const point of ahead.coordinates) bounds.extend(point);
+        }
+      }
       map.fitBounds(bounds, {
         padding: { top: 88, bottom: selected ? 150 : 120, left: 64, right: 64 },
         maxZoom: 16,
         duration: 450,
       });
     });
-  }, [mode, mapReady, follow, you, displayBus, selected, nearest]);
+  }, [mode, mapReady, follow, you, displayBus, selected, nearest, bus]);
 
   useEffect(() => {
     if (follow) fittedKey.current = null;
@@ -622,8 +741,11 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden><path d="M6 6l12 12M18 6L6 18" /></svg>
             </button>
           </div>
-          <p className={`mt-3 truncate text-[16px] font-extrabold leading-none tracking-[-0.03em] ${riderGap?.approach === 'towards' ? 'text-[#128A4E]' : 'text-[#5C6578]'}`}>
-            {riderGap ? `${metresAway(riderGap.metres)}${riderGap.approach ? ` · ${approachPhrase(riderGap.approach)}` : ''}${reach != null ? ` · ~${reach} min` : ''}` : locationState === 'denied' ? 'Turn on location to see the distance' : 'Finding your location…'}
+          <p data-testid="heading-line" className="mt-3 text-[15px] font-extrabold leading-snug tracking-[-0.03em]">
+            <span className="text-[#0B1B3B]">{`Heading towards ${routeEndInDirection(bus.route, bus.heading ?? displayBus?.heading ?? 0, displayBus?.heading ?? bus.heading ?? 0)}`}</span>
+            <span className={riderGap?.approach === 'towards' ? 'text-[#128A4E]' : 'text-[#5C6578]'}>
+              {riderGap ? ` · ${metresAway(riderGap.metres)}${riderGap.approach ? ` · ${approachPhrase(riderGap.approach)}` : ''}${reach != null ? ` · ~${reach} min` : ''}` : locationState === 'denied' ? ' · Turn on location to see the distance' : ''}
+            </span>
           </p>
           <p className="mt-1 truncate text-[13px] font-medium text-[#8A93A6]">{streetLine(bus)}</p>
         </div>

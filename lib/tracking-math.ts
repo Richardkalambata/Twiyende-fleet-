@@ -75,12 +75,13 @@ export function pointAlong(points: GeoPoint[], fraction: number): GeoPoint & { h
   return pointAtDistance(points, distance);
 }
 
-export function pointAtDistance(points: GeoPoint[], metres: number): GeoPoint & { heading: number } {
+function pointOnRoute(points: GeoPoint[], metres: number, wrap: boolean): GeoPoint & { heading: number } {
   if (points.length === 0) return { lat: -15.4167, lng: 28.2817, heading: 0 };
   if (points.length === 1) return { ...points[0], heading: 0 };
   const totals = cumulative(points);
   const length = totals[totals.length - 1] || 1;
-  const distance = ((metres % length) + length) % length;
+  const wrapped = ((metres % length) + length) % length;
+  const distance = wrap ? wrapped : Math.min(length, Math.max(0, metres));
   let index = 1;
   while (index < totals.length - 1 && totals[index] < distance) index += 1;
   const start = totals[index - 1];
@@ -90,6 +91,80 @@ export function pointAtDistance(points: GeoPoint[], metres: number): GeoPoint & 
   const b = points[index];
   const heading = (Math.atan2(b.lng - a.lng, b.lat - a.lat) * 180) / Math.PI;
   return { lat: a.lat + (b.lat - a.lat) * t, lng: a.lng + (b.lng - a.lng) * t, heading };
+}
+
+export function pointAtDistance(points: GeoPoint[], metres: number): GeoPoint & { heading: number } {
+  return pointOnRoute(points, metres, true);
+}
+
+/** How far ahead to draw when a bus is selected. Stays on the corridor, about 500 m to 1 km. */
+export function aheadMetres(length: number): number {
+  if (length <= 0) return 0;
+  return Math.min(1000, Math.max(500, Math.round(length * 0.16)));
+}
+
+export type AheadSegment = {
+  coordinates: [number, number][];
+  arrows: { lng: number; lat: number; heading: number }[];
+};
+
+/** The road in front of the bus. Stops at the route end instead of jumping back to the start. */
+export function aheadSegment(points: GeoPoint[], along: number, metres: number): AheadSegment {
+  const length = routeLength(points);
+  if (points.length < 2 || length <= 0 || metres <= 0) return { coordinates: [], arrows: [] };
+  const from = ((along % length) + length) % length;
+  const reach = Math.min(metres, Math.max(0, length - from));
+  if (reach < 30) return { coordinates: [], arrows: [] };
+  const steps = 8;
+  const coordinates: [number, number][] = [];
+  for (let step = 0; step <= steps; step += 1) {
+    const spot = pointOnRoute(points, from + (reach * step) / steps, false);
+    coordinates.push([spot.lng, spot.lat]);
+  }
+  const arrows = [0.34, 0.67, 1].map((fraction) => {
+    const spot = pointOnRoute(points, from + reach * fraction, false);
+    return { lng: spot.lng, lat: spot.lat, heading: spot.heading };
+  });
+  return { coordinates, arrows };
+}
+
+export type TrailSample = { at: number; lng: number; lat: number };
+
+/** Keep the recent part of a trail, about the last few hundred metres, so it stays a tail. */
+export function trimTrail(samples: TrailSample[], maxMetres: number): TrailSample[] {
+  if (samples.length < 2 || maxMetres <= 0) return samples;
+  const kept: TrailSample[] = [samples[samples.length - 1]];
+  let travelled = 0;
+  for (let index = samples.length - 2; index >= 0; index -= 1) {
+    travelled += haversineMetres(samples[index + 1], samples[index]);
+    if (travelled > maxMetres) break;
+    kept.push(samples[index]);
+  }
+  return kept.reverse();
+}
+
+/** Positions behind the bus covering the last stretch it travelled, without crossing a route wrap. */
+export function trailSamples(points: GeoPoint[], along: number, metres: number, now: number, spanMs = 45_000): TrailSample[] {
+  const length = routeLength(points);
+  if (points.length < 2 || length <= 0 || metres < 20) return [];
+  const from = ((along % length) + length) % length;
+  const back = Math.min(metres, from);
+  if (back < 20) return [];
+  const steps = Math.max(2, Math.min(16, Math.round(back / 35)));
+  const samples: TrailSample[] = [];
+  for (let step = 0; step <= steps; step += 1) {
+    const spot = pointOnRoute(points, from - back + (back * step) / steps, false);
+    samples.push({ at: now - spanMs * (1 - step / steps), lng: spot.lng, lat: spot.lat });
+  }
+  return samples;
+}
+
+/** Place name at the end of the route in the direction the bus is travelling. */
+export function routeEndInDirection(route: string, travelHeading: number, forwardHeading: number): string {
+  const parts = route.split(' to ').map((part) => part.trim()).filter(Boolean);
+  if (parts.length < 2) return parts[0] ?? route;
+  const delta = Math.abs(((travelHeading - forwardHeading + 540) % 360) - 180);
+  return delta > 90 ? parts[0] : parts[parts.length - 1];
 }
 
 export type Projection = GeoPoint & { distance: number; heading: number; along: number };

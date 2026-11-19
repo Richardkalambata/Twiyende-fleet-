@@ -290,6 +290,7 @@ input[type='time'] {
 
 @media (prefers-reduced-motion: reduce) {
   .pulse-dot,
+  .bus-pin[data-on='true'],
   .check-pop,
   .rise,
   .code-wait,
@@ -593,25 +594,27 @@ html[data-motion='rich'] .nav-pill {
   box-shadow: 0 6px 14px rgba(31, 91, 255, 0.35);
 }
 .bus-pin[data-on='true'] {
-  height: 40px;
-  width: 40px;
-  font-size: 13px;
-  box-shadow: 0 0 0 4px rgba(31, 91, 255, 0.22), 0 6px 14px rgba(31, 91, 255, 0.28);
+  height: 52px;
+  width: 52px;
+  font-size: 16px;
+  z-index: 2;
+  box-shadow: 0 0 0 6px rgba(31, 91, 255, 0.3), 0 8px 16px rgba(31, 91, 255, 0.35);
+  animation: bus-pulse 1.6s ease-out infinite;
 }
+.bus-pin[data-dim='true'] { opacity: 0.45; }
 .you-pin {
-  display: grid;
-  height: 32px;
-  min-width: 32px;
-  place-items: center;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
   border: 3px solid #fff;
   border-radius: 999px;
-  background: #0B1B3B;
-  padding: 0 7px;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  box-shadow: 0 4px 12px rgba(11, 27, 59, 0.28);
+  background: #1A73E8;
+  box-shadow: 0 0 0 10px rgba(26, 115, 232, 0.28), 0 2px 6px rgba(26, 115, 232, 0.45);
+}
+@keyframes bus-pulse {
+  0% { box-shadow: 0 0 0 6px rgba(31, 91, 255, 0.3), 0 8px 16px rgba(31, 91, 255, 0.35); }
+  70% { box-shadow: 0 0 0 16px rgba(31, 91, 255, 0), 0 8px 16px rgba(31, 91, 255, 0.35); }
+  100% { box-shadow: 0 0 0 6px rgba(31, 91, 255, 0.3), 0 8px 16px rgba(31, 91, 255, 0.35); }
 }
 .bus-pin[data-stale='true'] { opacity: 0.35; }
 .bus-pin[data-idle='true'] { background: #8a93a6; box-shadow: 0 4px 10px rgba(11, 27, 59, 0.16); }
@@ -623,7 +626,18 @@ html[data-motion='rich'] .nav-pill {
   box-shadow: 0 6px 14px rgba(31, 91, 255, 0.35);
 }
 .heading-arrow { position: absolute; inset: 0; transform-origin: center center; pointer-events: none; }
-.heading-arrow svg { position: absolute; left: 50%; top: -11px; display: block; margin-left: -7px; }
+.fleet-pin .heading-arrow svg { position: absolute; left: 50%; top: -11px; display: block; margin-left: -7px; }
+.bus-pin .heading-arrow svg {
+  position: absolute;
+  left: 50%;
+  top: -30px;
+  display: block;
+  width: 34px;
+  height: 34px;
+  margin-left: -17px;
+  filter: drop-shadow(0 1px 2px rgba(11, 27, 59, 0.45));
+}
+.bus-pin[data-on='true'] .heading-arrow svg { top: -36px; width: 42px; height: 42px; margin-left: -21px; }
 .fleet-pin .num {
   border-radius: 999px; background: #fff; padding: 2px 7px; color: #0b1b3b;
   font-size: 12px; font-weight: 800; box-shadow: 0 4px 10px rgba(11, 27, 59, 0.16);
