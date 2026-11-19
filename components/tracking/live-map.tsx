@@ -297,7 +297,8 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
       const metres = haversineMetres(viewer, display);
       const previous = distanceHistory.current.get(bus.id) ?? [];
       if (previous[previous.length - 1]?.at === bus.recordedAt) continue;
-      distanceHistory.current.set(bus.id, [...previous, { at: bus.recordedAt, metres }].slice(-4));
+      const keepAfter = bus.recordedAt - 15_000;
+      distanceHistory.current.set(bus.id, [...previous, { at: bus.recordedAt, metres }].filter((sample) => sample.at >= keepAfter));
       changed = true;
     }
     if (changed) setHistoryTick((value) => value + 1);
@@ -533,7 +534,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
     const line = routeGeometry(item.route)?.points ?? [];
     const display = snapToRoad(item, line, item.accuracy);
     const metres = samples[samples.length - 1]?.metres ?? haversineMetres(viewer, display);
-    return { metres, approach: approachFromDistances(samples.map((sample) => sample.metres)) };
+    return { metres, approach: approachFromDistances(samples) };
   }
 
   const chipLabel = (name: string) => {

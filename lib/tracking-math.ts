@@ -254,19 +254,60 @@ export function lerpAngle(from: number, to: number, t: number): number {
 }
 
 export type Approach = 'towards' | 'away' | 'passing';
+export type DistanceReading = number | { at: number; metres: number };
 
-/** Metres the gap must change before we call a bus towards you or away. */
-export const APPROACH_DELTA_M = 25;
+/** Metres the smoothed gap must change before we call a bus towards you or away. */
+export const APPROACH_DELTA_M = 20;
+/** Trend window. Samples older than this do not affect the label. */
+export const APPROACH_WINDOW_MS = 12_000;
+/** A flat gap only counts as passing when the bus is already this close. */
+export const PASSING_NEAR_M = 500;
 export const REACH_MAX_M = 3_000;
 export const MOVING_SPEED_MPS = 1;
 
-/** Compare the oldest and newest distances from the rider. A shorter gap means the bus is coming closer. */
-export function approachFromDistances(samples: number[]): Approach | null {
-  if (samples.length < 2) return null;
-  const delta = samples[samples.length - 1] - samples[0];
-  if (delta <= -APPROACH_DELTA_M) return 'towards';
-  if (delta >= APPROACH_DELTA_M) return 'away';
-  return 'passing';
+/**
+ * Smoothed trend of the gap over the last 10–15s.
+ * A fitted change inside the dead-band is quiet, and only a close quiet gap is "passing".
+ * Timed samples outside the window are ignored. A plain list is treated as one window.
+ */
+export function approachFromDistances(samples: DistanceReading[]): Approach | null {
+  const points = samples.map((sample, index) => (
+    typeof sample === 'number' ? { at: index, metres: sample } : sample
+  )).filter((sample) => Number.isFinite(sample.at) && Number.isFinite(sample.metres));
+  if (points.length < 2) return null;
+  const newest = points[points.length - 1].at;
+  const windowed = typeof samples.find((sample) => typeof sample !== 'number') === 'object'
+    ? points.filter((sample) => newest - sample.at <= APPROACH_WINDOW_MS && sample.at <= newest)
+    : points;
+  if (windowed.length < 2) return null;
+  const change = fittedChange(windowed);
+  if (change == null) return null;
+  if (change <= -APPROACH_DELTA_M) return 'towards';
+  if (change >= APPROACH_DELTA_M) return 'away';
+  if (windowed[windowed.length - 1].metres <= PASSING_NEAR_M) return 'passing';
+  return null;
+}
+
+/** Fitted metres of change from the first sample in the window to the last. */
+function fittedChange(points: { at: number; metres: number }[]): number | null {
+  const origin = points[0].at;
+  let count = 0;
+  let sumT = 0;
+  let sumY = 0;
+  let sumTT = 0;
+  let sumTY = 0;
+  for (const point of points) {
+    const t = point.at - origin;
+    count += 1;
+    sumT += t;
+    sumY += point.metres;
+    sumTT += t * t;
+    sumTY += t * point.metres;
+  }
+  const denom = count * sumTT - sumT * sumT;
+  if (denom === 0) return 0;
+  const slope = (count * sumTY - sumT * sumY) / denom;
+  return slope * (points[points.length - 1].at - origin);
 }
 
 export function approachLabel(approach: Approach): string {
@@ -283,7 +324,7 @@ export function formatDistance(metres: number): string {
   return `${text} km from you`;
 }
 
-/** Straight-line guess, only while the bus is closing the gap and is still nearby. */
+/** Straight-line guess, only while the smoothed gap is actually shrinking and the bus is still nearby. */
 export function reachMinutes(distanceM: number, speedMps: number | null, approach: Approach | null): number | null {
   if (approach !== 'towards') return null;
   if (distanceM > REACH_MAX_M) return null;

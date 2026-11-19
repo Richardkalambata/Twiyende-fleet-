@@ -581,28 +581,28 @@ html[data-motion='rich'] .nav-pill {
 
 .bus-pin {
   position: relative;
-  width: 44px;
-  height: 52px;
+  width: 42px;
+  height: 48px;
   border: 0;
   padding: 0;
   background: transparent;
-  filter: drop-shadow(0 3px 4px rgba(11, 27, 59, 0.28));
+  filter: drop-shadow(0 2px 1px rgba(11, 27, 59, 0.4)) drop-shadow(0 7px 10px rgba(11, 27, 59, 0.42));
   transform-origin: 50% 100%;
 }
-.bus-pin .bus-mark { display: block; width: 44px; height: 52px; }
+.bus-pin .bus-mark { display: block; width: 42px; height: 48px; }
 .bus-pin .bus-num {
   position: absolute;
   left: 50%;
-  top: 27px;
+  top: 23px;
   transform: translateX(-50%);
-  min-width: 16px;
-  padding: 0 4px;
-  border-radius: 5px;
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 6px;
   background: #1f5bff;
   color: #fff;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 800;
-  line-height: 14px;
+  line-height: 17px;
   letter-spacing: -0.03em;
   text-align: center;
 }
@@ -648,19 +648,19 @@ html[data-motion='rich'] .nav-pill {
 .bus-pin[data-idle='true'] { opacity: 0.72; }
 .bus-pin .heading-arrow {
   position: absolute;
-  right: -2px;
-  bottom: 4px;
+  right: -4px;
+  bottom: 2px;
   display: grid;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   place-items: center;
   border-radius: 999px;
   background: #fff;
-  box-shadow: 0 1px 3px rgba(11, 27, 59, 0.28);
+  box-shadow: 0 2px 5px rgba(11, 27, 59, 0.4);
   transform-origin: center center;
   pointer-events: none;
 }
-.bus-pin .heading-arrow svg { display: block; width: 10px; height: 10px; }
+.bus-pin .heading-arrow svg { display: block; width: 12px; height: 12px; }
 .sheet { background: #fff; }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .sheet { background: rgba(255, 255, 255, 0.9); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }

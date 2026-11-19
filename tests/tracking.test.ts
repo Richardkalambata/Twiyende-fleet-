@@ -67,7 +67,16 @@ test('distance from you and whether the bus is coming closer', () => {
   assert.equal(approachFromDistances([800, 760, 700]), 'towards');
   assert.equal(approachFromDistances([400, 430, 480]), 'away');
   assert.equal(approachFromDistances([500, 510, 490]), 'passing');
+  assert.equal(approachFromDistances([1800, 1810, 1795]), null);
   assert.equal(approachFromDistances([500]), null);
+  assert.equal(approachFromDistances([789, 820, 860, 887]), 'away');
+  assert.equal(reachMinutes(887, 8, approachFromDistances([789, 820, 860, 887])), null);
+  assert.equal(approachFromDistances([
+    { at: 0, metres: 400 },
+    { at: 4_000, metres: 790 },
+    { at: 8_000, metres: 840 },
+    { at: 12_000, metres: 890 },
+  ]), 'away');
   assert.equal(approachLabel('towards'), 'Coming towards you');
   assert.equal(approachLabel('away'), 'Moving away');
   assert.equal(approachLabel('passing'), 'Passing nearby');
