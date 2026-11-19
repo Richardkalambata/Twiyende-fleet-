@@ -30,7 +30,7 @@ export function Onboarding() {
             alt="A woman laughing at her phone beside a Lusaka minibus"
             fill
             priority
-            quality={85}
+            quality={90}
             placeholder="blur"
             blurDataURL={blur['campaign-rider']}
             sizes="100vw"
@@ -76,7 +76,7 @@ export function Onboarding() {
             {STEPS.map((step, index) => (
               <li key={step.title} className="flex flex-col items-center md:items-start">
                 <Reveal delay={index * 80} className="flex flex-col items-center md:items-start">
-                  <PhotoMock src={step.src} blur={step.blur} alt={step.alt} width={864} height={1152} sizes="(min-width: 768px) 30vw, 100vw" className="w-full" imageClassName="rounded-[28px] shadow-[0_24px_60px_rgba(11,27,59,0.16)]" />
+                  <PhotoMock src={step.src} blur={step.blur} alt={step.alt} width={3200} height={4267} sizes="(min-width: 768px) 30vw, 100vw" className="w-full" imageClassName="rounded-[28px] shadow-[0_24px_60px_rgba(11,27,59,0.16)]" />
                   <p className="mt-6 text-[13px] font-bold tracking-[0.14em] text-[#1F5BFF]">0{index + 1}</p>
                   <h3 className="mt-2 text-center text-[22px] md:text-left">{step.title}</h3>
                   <p className="mt-2 max-w-[32ch] text-center text-[16px] leading-[1.6] text-[#3E4A63] md:text-left">{step.body}</p>
@@ -126,7 +126,7 @@ export function Onboarding() {
       </section>
 
       <section className="relative overflow-hidden text-white">
-        <Image src="/brand/campaign-rider.jpg" alt="" fill quality={85} className="object-cover object-[70%_center]" sizes="100vw" />
+        <Image src="/brand/campaign-rider.jpg" alt="" fill quality={90} className="object-cover object-[70%_center]" sizes="100vw" />
         <div className="absolute inset-0 bg-[#071230]/78" />
         <div className="relative mx-auto flex max-w-[1200px] flex-col items-start gap-6 px-5 py-20 md:px-8 md:py-32">
           <h2 className="max-w-xl text-[32px] md:text-[52px]">Your next ride starts here.</h2>

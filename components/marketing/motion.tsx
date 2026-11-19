@@ -29,7 +29,7 @@ export function Still({ src, blur, alt, className = '' }: { src: string; blur: s
   return (
     <div className={`overflow-hidden rounded-[24px] shadow-[0_24px_60px_rgba(11,27,59,0.16)] ${className}`}>
       <div ref={ref} className="scale-[1.08]">
-        <Image src={src} alt={alt} width={1280} height={960} quality={85} placeholder="blur" blurDataURL={blur} sizes="(min-width: 768px) 50vw, 100vw" className="aspect-[4/3] h-auto w-full object-cover" />
+        <Image src={src} alt={alt} width={3200} height={2400} quality={90} placeholder="blur" blurDataURL={blur} sizes="(min-width: 768px) 50vw, 100vw" className="aspect-[4/3] h-auto w-full object-cover" />
       </div>
     </div>
   );
@@ -61,7 +61,7 @@ export function PhotoMock({ src, blur: placeholder, alt, width, height, sizes, c
   return (
     <div className={className}>
       <div ref={ref}>
-        <Image src={src} alt={alt} width={width} height={height} quality={85} placeholder="blur" blurDataURL={placeholder} sizes={sizes} className={`h-auto w-full ${imageClassName}`} />
+        <Image src={src} alt={alt} width={width} height={height} quality={90} placeholder="blur" blurDataURL={placeholder} sizes={sizes} className={`h-auto w-full ${imageClassName}`} />
       </div>
     </div>
   );

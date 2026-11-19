@@ -33,7 +33,7 @@ export default function BusinessHome() {
             alt="A fleet owner with a tablet in front of a row of minibuses"
             fill
             priority
-            quality={85}
+            quality={90}
             placeholder="blur"
             blurDataURL={blur['campaign-business']}
             sizes="100vw"
@@ -74,9 +74,9 @@ export default function BusinessHome() {
             src="/brand/device-desk.jpg"
             blur={blur['device-desk']}
             alt="A laptop showing the Kalambata Transport desk beside a phone with a verified K5 fare"
-            width={1152}
-            height={864}
-            sizes="100vw"
+            width={3200}
+            height={2400}
+            sizes="(min-width: 1280px) 1200px, 100vw"
             className="mt-10 w-full md:mx-auto md:mt-12 md:max-w-[1200px] md:px-8"
             imageClassName="md:rounded-[28px] md:shadow-[0_24px_60px_rgba(11,27,59,0.16)]"
           />
@@ -86,7 +86,7 @@ export default function BusinessHome() {
       <section className="mx-auto grid max-w-[1200px] gap-4 px-5 pb-20 md:grid-cols-2 md:px-8 md:pb-32">
         <Reveal>
           <Link href="/business/login" className="flex h-full gap-5 rounded-[24px] bg-white p-6 shadow-[0_16px_40px_rgba(11,27,59,0.06)] md:p-8">
-            <Image src="/brand/campaign-business.jpg" alt="" width={224} height={224} quality={85} className="h-28 w-28 shrink-0 rounded-2xl object-cover object-[70%_center]" />
+            <Image src="/brand/campaign-business.jpg" alt="" width={224} height={224} quality={90} sizes="112px" className="h-28 w-28 shrink-0 rounded-2xl object-cover object-[70%_center]" />
             <span>
               <span className="text-[13px] font-bold uppercase tracking-[0.08em] text-[#1F5BFF]">Operators</span>
               <span className="mt-2 block text-[28px] font-extrabold tracking-[-0.03em]">I&apos;m an operator</span>
@@ -96,7 +96,7 @@ export default function BusinessHome() {
         </Reveal>
         <Reveal delay={80}>
           <Link href="/business/conductor/login" className="flex h-full gap-5 rounded-[24px] bg-[#0B1B3B] p-6 text-white md:p-8">
-            <Image src="/brand/moment-verify.jpg" alt="" width={224} height={224} quality={85} className="h-28 w-28 shrink-0 rounded-2xl object-cover" />
+            <Image src="/brand/moment-verify.jpg" alt="" width={224} height={224} quality={90} sizes="112px" className="h-28 w-28 shrink-0 rounded-2xl object-cover" />
             <span>
               <span className="text-[13px] font-bold uppercase tracking-[0.14em] text-[#8FB0FF]">Sign in</span>
               <span className="mt-2 block text-[28px] font-extrabold tracking-[-0.03em]">I&apos;m a conductor</span>
@@ -154,7 +154,7 @@ export default function BusinessHome() {
       </section>
 
       <section className="relative overflow-hidden text-white">
-        <Image src="/brand/campaign-business.jpg" alt="" fill quality={85} className="object-cover object-[72%_center]" sizes="100vw" />
+        <Image src="/brand/campaign-business.jpg" alt="" fill quality={90} className="object-cover object-[72%_center]" sizes="100vw" />
         <div className="absolute inset-0 bg-[#071230]/78" />
         <div className="relative mx-auto flex max-w-[1200px] flex-col items-start gap-6 px-5 py-20 md:px-8 md:py-32">
           <h2 className="max-w-xl text-[32px] md:text-[52px]">Open the desk for your company.</h2>
