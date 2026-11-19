@@ -35,6 +35,38 @@ export function Still({ src, blur, alt, className = '' }: { src: string; blur: s
   );
 }
 
+export function PhotoMock({ src, blur: placeholder, alt, width, height, sizes, className = '', imageClassName = '' }: { src: string; blur: string; alt: string; width: number; height: number; sizes: string; className?: string; imageClassName?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const skip = window.matchMedia('(max-width: 767px), (prefers-reduced-motion: reduce)').matches;
+    if (skip) return;
+    let frame = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const rect = node.getBoundingClientRect();
+        const shift = (rect.top - window.innerHeight / 2) * 0.04;
+        node.style.transform = `translate3d(0, ${shift}px, 0)`;
+      });
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', onScroll);
+    };
+  }, []);
+  return (
+    <div className={className}>
+      <div ref={ref}>
+        <Image src={src} alt={alt} width={width} height={height} quality={85} placeholder="blur" blurDataURL={placeholder} sizes={sizes} className={`h-auto w-full ${imageClassName}`} />
+      </div>
+    </div>
+  );
+}
+
 export function StepRail({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const [on, setOn] = useState(false);

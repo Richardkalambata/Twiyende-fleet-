@@ -1,10 +1,9 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { blur } from '@/components/marketing/blur';
-import { Laptop, Phone } from '@/components/marketing/devices';
 import { jakarta } from '@/components/marketing/font';
 import { SiteFooter, SiteHeader } from '@/components/marketing/chrome';
-import { Still, StepRail } from '@/components/marketing/motion';
+import { PhotoMock, Still, StepRail } from '@/components/marketing/motion';
 import { Faq, Reveal, StickyBar } from '@/components/marketing/ui';
 
 export const metadata = { title: 'Twende Fleet Business' };
@@ -62,21 +61,25 @@ export default function BusinessHome() {
         <p className="parallax-glass card-rise glass absolute bottom-[24%] right-[14%] hidden rounded-2xl px-4 py-3 text-[14px] font-semibold text-white md:block">✓ Fare verified · Bus 12 · K5.00</p>
       </section>
 
-      <section className="mx-auto max-w-[1200px] px-5 py-20 md:px-8 md:py-32">
-        <Reveal>
-          <p className="text-[13px] font-bold uppercase tracking-[0.14em] text-[#1F5BFF]">The system</p>
-          <h2 className="mt-4 max-w-[16ch] text-[32px] md:text-[48px]">The desk, and the conductor’s phone.</h2>
-          <p className="lead mt-6 text-[#3E4A63]">Collections land on the operator desk the moment a conductor verifies the code.</p>
-        </Reveal>
+      <section className="py-20 md:py-32">
+        <div className="mx-auto max-w-[1200px] px-5 md:px-8">
+          <Reveal>
+            <p className="text-[13px] font-bold uppercase tracking-[0.14em] text-[#1F5BFF]">The system</p>
+            <h2 className="mt-4 max-w-[16ch] text-[32px] md:text-[48px]">The desk, and the conductor’s phone.</h2>
+            <p className="lead mt-6 text-[#3E4A63]">Collections land on the operator desk the moment a conductor verifies the code.</p>
+          </Reveal>
+        </div>
         <Reveal delay={80}>
-          <div className="mt-12 rounded-[32px] bg-[radial-gradient(120%_90%_at_80%_0%,#8FB4FF_0%,#2457D6_46%,#071230_100%)] px-4 py-10 md:px-12 md:py-16">
-            <div data-depth className="mock-float relative mx-auto max-w-[920px]">
-              <Laptop src="/mockups/screen-desk.png" alt="Kalambata Transport operator dashboard on a laptop" />
-              <div className="absolute bottom-[7%] right-[1%] z-10 w-[34%] max-w-[200px] md:w-[23%]">
-                <Phone src="/mockups/screen-verify.png" alt="Conductor phone after a fare is verified" />
-              </div>
-            </div>
-          </div>
+          <PhotoMock
+            src="/brand/device-desk.jpg"
+            blur={blur['device-desk']}
+            alt="A laptop showing the Kalambata Transport desk beside a phone with a verified K5 fare"
+            width={1152}
+            height={864}
+            sizes="100vw"
+            className="mt-10 w-full md:mx-auto md:mt-12 md:max-w-[1200px] md:px-8"
+            imageClassName="md:rounded-[28px] md:shadow-[0_24px_60px_rgba(11,27,59,0.16)]"
+          />
         </Reveal>
       </section>
 
@@ -85,7 +88,7 @@ export default function BusinessHome() {
           <Link href="/business/login" className="flex h-full gap-5 rounded-[24px] bg-white p-6 shadow-[0_16px_40px_rgba(11,27,59,0.06)] md:p-8">
             <Image src="/brand/campaign-business.jpg" alt="" width={224} height={224} quality={85} className="h-28 w-28 shrink-0 rounded-2xl object-cover object-[70%_center]" />
             <span>
-              <span className="text-[13px] font-bold uppercase tracking-[0.14em] text-[#1F5BFF]">Sign in or create a company</span>
+              <span className="text-[13px] font-bold uppercase tracking-[0.08em] text-[#1F5BFF]">Operators</span>
               <span className="mt-2 block text-[28px] font-extrabold tracking-[-0.03em]">I&apos;m an operator</span>
               <span className="mt-2 block text-[15px] leading-6 text-[#3E4A63]">Open the desk for your buses, conductors, and today’s collections.</span>
             </span>

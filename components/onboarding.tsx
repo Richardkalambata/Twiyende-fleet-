@@ -1,10 +1,9 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { blur } from '@/components/marketing/blur';
-import { Phone } from '@/components/marketing/devices';
 import { jakarta } from '@/components/marketing/font';
 import { SiteFooter, SiteHeader } from '@/components/marketing/chrome';
-import { Still } from '@/components/marketing/motion';
+import { PhotoMock, Still } from '@/components/marketing/motion';
 import { Faq, Reveal, StickyBar } from '@/components/marketing/ui';
 
 const FAQ = [
@@ -16,9 +15,9 @@ const FAQ = [
 ];
 
 const STEPS = [
-  { src: '/mockups/screen-home.png', alt: 'Twende home with the rider wallet balance', title: 'Top up', body: 'Add money to your Twende wallet and choose MTN, Airtel, or Zamtel.' },
-  { src: '/mockups/screen-pay.png', alt: 'Pay a fare by entering bus 12', title: 'Enter the bus number', body: 'Type the number on the bus and pick the fare for that route.' },
-  { src: '/mockups/screen-ticket.png', alt: 'A live ride ticket with the code MWVP', title: 'Show the code', body: 'One code. The conductor verifies it once, on that bus.' },
+  { src: '/brand/device-hand-home.jpg', blur: blur['device-hand-home'], alt: 'A hand holding a phone on a Lusaka street, showing the Twende wallet', title: 'Top up', body: 'Add money to your Twende wallet and choose MTN, Airtel, or Zamtel.' },
+  { src: '/brand/device-hand-pay.jpg', blur: blur['device-hand-pay'], alt: 'A hand holding a phone on a Lusaka street, paying the fare for bus 12', title: 'Enter the bus number', body: 'Type the number on the bus and pick the fare for that route.' },
+  { src: '/brand/device-hand-ticket.jpg', blur: blur['device-hand-ticket'], alt: 'A hand holding a phone on a Lusaka street, showing the ride code', title: 'Show the code', body: 'One code. The conductor verifies it once, on that bus.' },
 ];
 
 export function Onboarding() {
@@ -73,11 +72,11 @@ export function Onboarding() {
       <section className="bg-white">
         <div className="mx-auto max-w-[1200px] px-5 py-20 md:px-8 md:py-32">
           <Reveal><h2 className="text-[32px] md:text-[48px]">How it works</h2></Reveal>
-          <ol data-depth className="mt-12 grid items-start gap-14 md:grid-cols-3 md:gap-8">
+          <ol className="mt-12 grid items-start gap-14 md:grid-cols-3 md:gap-8">
             {STEPS.map((step, index) => (
               <li key={step.title} className="flex flex-col items-center md:items-start">
                 <Reveal delay={index * 80} className="flex flex-col items-center md:items-start">
-                  <Phone src={step.src} alt={step.alt} className="w-[230px]" />
+                  <PhotoMock src={step.src} blur={step.blur} alt={step.alt} width={864} height={1152} sizes="(min-width: 768px) 30vw, 100vw" className="w-full" imageClassName="rounded-[28px] shadow-[0_24px_60px_rgba(11,27,59,0.16)]" />
                   <p className="mt-6 text-[13px] font-bold tracking-[0.14em] text-[#1F5BFF]">0{index + 1}</p>
                   <h3 className="mt-2 text-center text-[22px] md:text-left">{step.title}</h3>
                   <p className="mt-2 max-w-[32ch] text-center text-[16px] leading-[1.6] text-[#3E4A63] md:text-left">{step.body}</p>
