@@ -50,11 +50,17 @@ export function pointAlong(points: GeoPoint[], fraction: number): GeoPoint & { h
   return { lat: a.lat + (b.lat - a.lat) * t, lng: a.lng + (b.lng - a.lng) * t, heading };
 }
 
-function distanceAlong(points: GeoPoint[], point: GeoPoint): number {
-  if (points.length < 2) return 0;
-  let best = 0;
-  let bestGap = Infinity;
+export type Projection = GeoPoint & { distance: number; heading: number; along: number };
+
+export function bearingDegrees(a: GeoPoint, b: GeoPoint): number {
+  return (Math.atan2(b.lng - a.lng, b.lat - a.lat) * 180) / Math.PI;
+}
+
+export function projectOnto(points: GeoPoint[], point: GeoPoint): Projection {
+  if (points.length === 0) return { ...point, distance: 0, heading: 0, along: 0 };
+  if (points.length === 1) return { ...points[0], distance: haversineMetres(point, points[0]), heading: 0, along: 0 };
   const totals = cumulative(points);
+  let best: Projection = { lat: points[0].lat, lng: points[0].lng, distance: Infinity, heading: 0, along: 0 };
   for (let index = 1; index < points.length; index += 1) {
     const a = points[index - 1];
     const b = points[index];
@@ -64,12 +70,57 @@ function distanceAlong(points: GeoPoint[], point: GeoPoint): number {
     const t = Math.min(1, Math.max(0, ((point.lat - a.lat) * abLat + (point.lng - a.lng) * abLng) / denom));
     const projected = { lat: a.lat + abLat * t, lng: a.lng + abLng * t };
     const gap = haversineMetres(point, projected);
-    if (gap < bestGap) {
-      bestGap = gap;
-      best = totals[index - 1] + haversineMetres(a, projected);
+    if (gap < best.distance) {
+      best = {
+        ...projected,
+        distance: gap,
+        heading: bearingDegrees(a, b),
+        along: totals[index - 1] + haversineMetres(a, projected),
+      };
     }
   }
   return best;
+}
+
+function distanceAlong(points: GeoPoint[], point: GeoPoint): number {
+  return projectOnto(points, point).along;
+}
+
+/** Snap only when the fix is trustworthy and already close to the corridor. */
+export const SNAP_ACCURACY_M = 50;
+export const SNAP_MAX_OFFSET_M = 80;
+
+export function showsAccuracyHalo(accuracy: number | null | undefined): boolean {
+  return accuracy != null && accuracy > SNAP_ACCURACY_M;
+}
+
+export function snapToRoad(point: GeoPoint, route: GeoPoint[], accuracy: number | null): GeoPoint & { snapped: boolean; heading: number } {
+  if (route.length < 2) return { ...point, snapped: false, heading: 0 };
+  const hit = projectOnto(route, point);
+  const trustworthy = accuracy == null || accuracy <= SNAP_ACCURACY_M;
+  if (trustworthy && hit.distance <= SNAP_MAX_OFFSET_M) {
+    return { lat: hit.lat, lng: hit.lng, snapped: true, heading: hit.heading };
+  }
+  return { lat: point.lat, lng: point.lng, snapped: false, heading: hit.heading };
+}
+
+export function accuracyRing(center: GeoPoint, metres: number, steps = 32): [number, number][] {
+  const latRad = (center.lat * Math.PI) / 180;
+  const ring: [number, number][] = [];
+  for (let index = 0; index <= steps; index += 1) {
+    const angle = (index / steps) * Math.PI * 2;
+    const north = metres * Math.cos(angle);
+    const east = metres * Math.sin(angle);
+    const lat = center.lat + north / 111320;
+    const lng = center.lng + east / (111320 * Math.cos(latRad) || 1);
+    ring.push([lng, lat]);
+  }
+  return ring;
+}
+
+export function lerpAngle(from: number, to: number, t: number): number {
+  const delta = ((to - from + 540) % 360) - 180;
+  return from + delta * t;
 }
 
 export function etaMinutes(route: GeoPoint[], bus: GeoPoint, stop: GeoPoint, speedMps: number | null): number {
@@ -93,7 +144,6 @@ export function formatEta(minutes: number): string {
 
 export function formatUpdated(recordedAt: number, now: number): string {
   const seconds = Math.max(0, Math.round((now - recordedAt) / 1000));
-  if (seconds < 5) return 'Updated just now';
   if (seconds < 60) return `Updated ${seconds}s ago`;
   const minutes = Math.round(seconds / 60);
   return `Updated ${minutes} min ago`;

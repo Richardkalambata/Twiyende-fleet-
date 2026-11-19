@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { Client } from 'pg';
 import { test } from 'node:test';
-import { etaMinutes, formatEta, isStale, shouldSendFix, STALE_MS } from '../lib/tracking-math';
+import { etaMinutes, formatEta, formatUpdated, haversineMetres, isStale, pointAlong, shouldSendFix, showsAccuracyHalo, snapToRoad, STALE_MS } from '../lib/tracking-math';
 import { routeGeometry } from '../lib/lusaka-routes';
+import { describePlace, LUSAKA_LANDMARKS, LUSAKA_STREETS } from '../lib/lusaka-places';
 
 const UNIT_URL = 'postgres://twende:twende@127.0.0.1:5432/twende_unit';
 
@@ -19,6 +20,36 @@ test('eta and stale logic', () => {
   assert.equal(shouldSendFix(null, { lat: 1, lng: 1 }, now), true);
   assert.equal(shouldSendFix({ lat: -15.4167, lng: 28.2817, at: now - 5_000 }, { lat: -15.4167, lng: 28.2817 }, now), false);
   assert.equal(shouldSendFix({ lat: -15.4167, lng: 28.2817, at: now - 31_000 }, { lat: -15.4167, lng: 28.2817 }, now), true);
+  assert.equal(formatUpdated(now - 12_000, now), 'Updated 12s ago');
+  assert.equal(formatUpdated(now - 2_000, now), 'Updated 2s ago');
+
+  const onRoad = route.points[3];
+  const off = { lat: onRoad.lat + 0.00025, lng: onRoad.lng };
+  const snapped = snapToRoad(off, route.points, 20);
+  assert.equal(snapped.snapped, true);
+  assert.ok(haversineMetres(snapped, onRoad) < haversineMetres(off, onRoad));
+  const loose = snapToRoad(off, route.points, 80);
+  assert.equal(loose.snapped, false);
+  assert.equal(loose.lat, off.lat);
+  assert.equal(loose.lng, off.lng);
+  assert.equal(snapToRoad({ lat: onRoad.lat + 0.01, lng: onRoad.lng }, route.points, 10).snapped, false);
+  assert.equal(snapToRoad(onRoad, route.points, null).snapped, true);
+  assert.equal(showsAccuracyHalo(80), true);
+  assert.equal(showsAccuracyHalo(50), false);
+  assert.equal(showsAccuracyHalo(null), false);
+
+  const places = [...route.stops, ...LUSAKA_LANDMARKS];
+  assert.equal(describePlace(route.points[0], 0, route.points, places, LUSAKA_STREETS), 'Cairo Road, near Town Centre');
+  const tower = LUSAKA_LANDMARKS[0];
+  assert.equal(describePlace(tower, 90, route.points, places, LUSAKA_STREETS), 'Cairo Road, near Kulima Tower');
+  const approaching = pointAlong(route.points, 0.9);
+  assert.equal(describePlace(approaching, approaching.heading, route.points, places, LUSAKA_STREETS), 'Approaching Matero Market');
+  const chawama = routeGeometry('Matero to Chawama');
+  assert.ok(chawama);
+  const midway = pointAlong(chawama.points, 0.45);
+  const south = describePlace(midway, midway.heading, chawama.points, [...chawama.stops, ...LUSAKA_LANDMARKS], LUSAKA_STREETS);
+  assert.equal(south.startsWith('Kafue Road'), true, south);
+  assert.equal(south === 'Lusaka', false);
 });
 
 async function useUnit() {

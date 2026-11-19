@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { getDb, type Db } from './db';
+import { LUSAKA_LANDMARKS } from './lusaka-places';
 import { LUSAKA_ROUTES, routeGeometry, type GeoPoint } from './lusaka-routes';
 import { DAY_MS, lusakaDateKey, startOfLusakaDay } from './time';
 import {
@@ -22,6 +23,7 @@ export type LiveBus = {
   lng: number;
   heading: number | null;
   speed: number | null;
+  accuracy: number | null;
   recordedAt: number;
   stale: boolean;
   onShift: boolean;
@@ -37,6 +39,7 @@ type LatestRow = {
   lng: number | null;
   heading: number | null;
   speed: number | null;
+  accuracy: number | null;
   recorded_at: number | null;
   source: string | null;
   conductor_name: string | null;
@@ -203,6 +206,18 @@ export async function ensureStops(db?: Db) {
       );
     }
   }
+  for (const [index, place] of LUSAKA_LANDMARKS.entries()) {
+    const slug = place.name.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+    await query.run(
+      `INSERT INTO stops (id, route, name, lat, lng, seq) VALUES (?, 'Landmarks', ?, ?, ?, ?)
+       ON CONFLICT (id) DO NOTHING`,
+      `stop_landmark_${slug}`,
+      place.name,
+      place.lat,
+      place.lng,
+      index,
+    );
+  }
 }
 
 export async function stopsFor(route: string) {
@@ -218,7 +233,7 @@ export async function listLiveBuses(viewer: { id: string; role: string }, now = 
   const operator = viewer.role === 'operator' || viewer.role === 'owner';
   const rows = await db.all<LatestRow>(
     `SELECT b.id AS bus_id, b.fleet_number, b.route, b.owner_id,
-            l.lat, l.lng, l.heading, l.speed, l.recorded_at, l.source,
+            l.lat, l.lng, l.heading, l.speed, l.accuracy, l.recorded_at, l.source,
             u.short_name AS conductor_name,
             EXISTS (
               SELECT 1 FROM shifts s WHERE s.bus_id = b.id AND s.ended_at IS NULL AND s.expires_at > ?
@@ -242,6 +257,7 @@ export async function listLiveBuses(viewer: { id: string; role: string }, now = 
         lng: 28.2817,
         heading: null,
         speed: null,
+        accuracy: null,
         recordedAt: 0,
         stale: true,
         onShift: false,
@@ -260,6 +276,7 @@ export async function listLiveBuses(viewer: { id: string; role: string }, now = 
       lng: row.lng,
       heading: row.heading,
       speed: row.speed,
+      accuracy: row.accuracy,
       recordedAt: row.recorded_at,
       stale,
       onShift,

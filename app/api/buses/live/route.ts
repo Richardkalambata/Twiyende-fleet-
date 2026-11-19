@@ -7,8 +7,7 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: 'Sign in' }, { status: 401 });
   const buses = await listLiveBuses(user);
   const routes = [...new Set(buses.map((bus) => bus.route))];
-  const stops = user.role === 'passenger'
-    ? await Promise.all(routes.map(async (route) => ({ route, stops: await stopsFor(route) })))
-    : [];
-  return NextResponse.json({ buses, stops, now: Date.now() });
+  const stops = await Promise.all(routes.map(async (route) => ({ route, stops: await stopsFor(route) })));
+  const landmarks = await stopsFor('Landmarks');
+  return NextResponse.json({ buses, stops, landmarks, now: Date.now() });
 }

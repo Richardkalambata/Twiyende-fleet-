@@ -586,6 +586,7 @@ html[data-motion='rich'] .nav-pill {
 }
 
 .bus-pin {
+  position: relative;
   display: grid;
   height: 34px;
   width: 34px;
@@ -608,10 +609,13 @@ html[data-motion='rich'] .nav-pill {
 .bus-pin[data-idle='true'] { background: #8a93a6; box-shadow: 0 4px 10px rgba(11, 27, 59, 0.16); }
 .fleet-pin { display: flex; align-items: center; gap: 4px; border: 0; background: transparent; padding: 0; cursor: pointer; }
 .fleet-pin .dot {
+  position: relative;
   display: grid; height: 36px; width: 36px; place-items: center;
   border: 3px solid #fff; border-radius: 999px; background: #1f5bff; color: #fff;
   box-shadow: 0 6px 14px rgba(31, 91, 255, 0.35);
 }
+.heading-arrow { position: absolute; inset: 0; transform-origin: center center; pointer-events: none; }
+.heading-arrow svg { position: absolute; left: 50%; top: -11px; display: block; margin-left: -7px; }
 .fleet-pin .num {
   border-radius: 999px; background: #fff; padding: 2px 7px; color: #0b1b3b;
   font-size: 12px; font-weight: 800; box-shadow: 0 4px 10px rgba(11, 27, 59, 0.16);
