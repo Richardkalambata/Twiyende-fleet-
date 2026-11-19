@@ -7,6 +7,7 @@ import { LUSAKA_STREETS, describePlace } from '@/lib/lusaka-places';
 import { routeGeometry, type GeoPoint } from '@/lib/lusaka-routes';
 import { DEMO_RIDER, LUSAKA_BOUNDS, OPEN_FRAME_M, accuracyRing, alongError, approachFromDistances, demoSpeed, formatDistance, formatUpdated, glideDistance, glideSpeed, haversineMetres, lerpAngle, pointAtDistance, projectOnto, reachMinutes, riderCounts, routeLength, showsAccuracyHalo, snapToRoad, trailSamples, trimTrail, type Approach } from '@/lib/tracking-math';
 import { createBusPin } from './bus-pin';
+import { MAP_STYLE, tuneMapStyle } from './map-style';
 
 type Stop = { id: string; name: string; lat: number; lng: number; seq: number };
 type Payload = { buses: LiveBus[]; stops: { route: string; stops: Stop[] }[]; landmarks?: Stop[]; demo?: boolean; now: number };
@@ -154,7 +155,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
       if (dead || !holder.current) return;
       map = new maplibre.Map({
         container: holder.current,
-        style: 'https://tiles.openfreemap.org/styles/positron',
+        style: MAP_STYLE,
         center: [28.29, -15.414],
         zoom: 15.5,
         maxBounds: mode === 'rider' ? [[LUSAKA_BOUNDS.west, LUSAKA_BOUNDS.south], [LUSAKA_BOUNDS.east, LUSAKA_BOUNDS.north]] : undefined,
@@ -164,20 +165,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
       mapRef.current = map;
       map.on('load', () => {
         if (dead || !map) return;
-        for (const layer of map.getStyle().layers ?? []) {
-          if (layer.type !== 'symbol') continue;
-          if (/path|minor|shield|airport|other|village|water/.test(layer.id)) {
-            map.setLayoutProperty(layer.id, 'visibility', 'none');
-            continue;
-          }
-          try {
-            map.setPaintProperty(layer.id, 'text-color', '#8A93A6');
-            map.setPaintProperty(layer.id, 'text-halo-color', '#F7F8FA');
-            map.setPaintProperty(layer.id, 'text-halo-width', 1.2);
-          } catch {
-            // Icon-only symbols have no text paint.
-          }
-        }
+        tuneMapStyle(map);
         const arrow = arrowImage();
         if (arrow && !map.hasImage('ahead-arrow')) map.addImage('ahead-arrow', arrow, { pixelRatio: 1 });
         map.addSource('bus-trails', { type: 'geojson', lineMetrics: true, data: { type: 'FeatureCollection', features: [] } });

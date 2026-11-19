@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bus, Clock, Info, ShieldCheck } from 'lucide-react';
 import { shouldSendFix } from '@/lib/tracking-math';
 import { createBusPin } from './bus-pin';
+import { MAP_STYLE, tuneMapStyle } from './map-style';
 import { formatHour24 } from '@/lib/time';
 
 type Shift = {
@@ -102,12 +103,13 @@ export function ShiftBar() {
       const start = pointRef.current ?? { lat: -15.416, lng: 28.283 };
       const map = new maplibre.Map({
         container: mini.current,
-        style: 'https://tiles.openfreemap.org/styles/positron',
+        style: MAP_STYLE,
         center: [start.lng, start.lat],
         zoom: 13,
         interactive: false,
         attributionControl: false,
       });
+      map.on('load', () => tuneMapStyle(map));
       const { element: el } = createBusPin(shift.fleet ?? '');
       el.dataset.on = 'true';
       miniPin.current = new maplibre.Marker({ element: el, anchor: 'center' }).setLngLat([start.lng, start.lat]).addTo(map);
