@@ -91,7 +91,6 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
   const [locationState, setLocationState] = useState<'pending' | 'granted' | 'denied'>('pending');
   const [historyTick, setHistoryTick] = useState(0);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [listOpen, setListOpen] = useState(false);
   followRef.current = follow;
   selectedRef.current = selected;
   youRef.current = you;
@@ -557,21 +556,6 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
     return { metres, approach: approachFromDistances(samples.map((sample) => sample.metres)) };
   }
 
-  function askLocation() {
-    if (!navigator.geolocation) {
-      setLocationState('denied');
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLocationState('granted');
-        setYou({ lat: position.coords.latitude, lng: position.coords.longitude, accuracy: position.coords.accuracy });
-      },
-      () => setLocationState('denied'),
-      { enableHighAccuracy: true, timeout: 12_000 },
-    );
-  }
-
   const chipLabel = (name: string) => {
     const match = data.buses.find((item) => item.route === name);
     const short = usualRoute(name);
@@ -592,10 +576,10 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
     return `${place} · ${speed} · ${ago}`;
   }
 
-  function approachPhrase(approach: Approach | null, compact = false) {
-    if (approach === 'towards') return compact ? 'coming your way' : 'Coming towards you';
-    if (approach === 'away') return compact ? 'moving away' : 'Moving away';
-    if (approach === 'passing') return compact ? 'passing nearby' : 'Passing nearby';
+  function approachPhrase(approach: Approach | null) {
+    if (approach === 'towards') return 'Coming towards you';
+    if (approach === 'away') return 'Moving away';
+    if (approach === 'passing') return 'Passing nearby';
     return '';
   }
 
@@ -603,17 +587,12 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
     setFollow(false);
     setSelected(null);
   }
-  const nearest = [...visible].sort((a, b) => {
-    if (!you) return a.fleet.localeCompare(b.fleet, undefined, { numeric: true });
-    return (gapFor(a)?.metres ?? Number.POSITIVE_INFINITY) - (gapFor(b)?.metres ?? Number.POSITIVE_INFINITY);
-  });
   void historyTick;
 
   useEffect(() => {
-    if (mode !== 'rider' || !mapReady || follow || !you) return;
-    const focus = selected ? displayBus : (nearest[0] ? snapToRoad(nearest[0], routeGeometry(nearest[0].route)?.points ?? [], nearest[0].accuracy) : null);
-    if (!focus) return;
-    const key = selected ?? 'idle';
+    if (mode !== 'rider' || !mapReady || follow || !you || !selected || !displayBus) return;
+    const focus = displayBus;
+    const key = selected;
     if (fittedKey.current === key) return;
     if (haversineMetres(you, focus) > 30_000) return;
     fittedKey.current = key;
@@ -626,22 +605,20 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
         [Math.min(here.lng, there.lng), Math.min(here.lat, there.lat)],
         [Math.max(here.lng, there.lng), Math.max(here.lat, there.lat)],
       );
-      if (selected) {
-        const line = routeGeometry(bus?.route ?? '')?.points ?? [];
-        const length = routeLength(line);
-        if (length > 0) {
-          const along = projectOnto(line, there).along;
-          const ahead = aheadSegment(line, along, Math.min(aheadMetres(length), length));
-          for (const point of ahead.coordinates) bounds.extend(point);
-        }
+      const line = routeGeometry(bus?.route ?? '')?.points ?? [];
+      const length = routeLength(line);
+      if (length > 0) {
+        const along = projectOnto(line, there).along;
+        const ahead = aheadSegment(line, along, Math.min(aheadMetres(length), length));
+        for (const point of ahead.coordinates) bounds.extend(point);
       }
       map.fitBounds(bounds, {
-        padding: { top: 88, bottom: selected ? 150 : 120, left: 64, right: 64 },
+        padding: { top: 88, bottom: 150, left: 64, right: 64 },
         maxZoom: 16,
         duration: 450,
       });
     });
-  }, [mode, mapReady, follow, you, displayBus, selected, nearest, bus]);
+  }, [mode, mapReady, follow, you, displayBus, selected, bus]);
 
   useEffect(() => {
     if (follow) fittedKey.current = null;
@@ -707,19 +684,6 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
           </ul>
         </aside>
       ) : null}
-      {mode === 'rider' && !bus && nearest[0] ? (
-        <div className="absolute inset-x-5 bottom-5 z-20 flex flex-col items-stretch gap-2">
-          <button type="button" data-testid="buses-near" className="self-end h-9 rounded-full bg-[#0B1B3B] px-3 text-[13px] font-bold text-white shadow-[0_8px_20px_rgba(11,27,59,0.16)]" onClick={() => setListOpen(true)}>Buses near you</button>
-          <button type="button" data-testid="nearest-pill" className="h-12 rounded-full bg-white px-4 text-center text-[14px] font-semibold text-[#0B1B3B] shadow-[0_10px_30px_rgba(11,27,59,0.12)]" onClick={() => { setListOpen(false); setSelected(nearest[0].id); }}>
-            {(() => {
-              const gap = gapFor(nearest[0]);
-              const way = approachPhrase(gap?.approach ?? null, true);
-              const distance = gap ? metresAway(gap.metres).replace(' away', '') : '';
-              return `Nearest: Bus ${nearest[0].fleet}${distance ? ` · ${distance}` : ''}${way ? ` · ${way}` : ''}`;
-            })()}
-          </button>
-        </div>
-      ) : null}
       {mode === 'rider' && bus ? (
         <div
           data-testid="bus-card"
@@ -748,39 +712,6 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
             </span>
           </p>
           <p className="mt-1 truncate text-[13px] font-medium text-[#8A93A6]">{streetLine(bus)}</p>
-        </div>
-      ) : null}
-      {mode === 'rider' && listOpen ? (
-        <div className="absolute inset-0 z-30 flex items-end bg-[#0B1B3B]/20" onClick={() => setListOpen(false)}>
-          <div data-testid="bus-list" role="dialog" aria-label="Buses near you" className="max-h-[52%] w-full overflow-y-auto rounded-t-[28px] bg-white px-4 pb-6 pt-3 shadow-[0_-12px_40px_rgba(11,27,59,0.12)]" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => { event.currentTarget.dataset.y = String(event.clientY); }} onPointerUp={(event) => { const start = Number(event.currentTarget.dataset.y ?? event.clientY); if (event.clientY - start > 56) setListOpen(false); }}>
-            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[#E4E8F0]" aria-hidden />
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-[18px] font-extrabold">Buses near you</h2>
-              <button type="button" aria-label="Close list" className="grid h-9 w-9 place-items-center rounded-full bg-[#F4F6FB] text-[#5C6578]" onClick={() => setListOpen(false)}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden><path d="M6 6l12 12M18 6L6 18" /></svg>
-              </button>
-            </div>
-            {locationState === 'denied' ? <button type="button" className="mb-3 text-[14px] font-semibold text-[#1F5BFF]" onClick={askLocation}>Turn on location to see the distance</button> : null}
-            <ul className="space-y-1">
-              {nearest.map((item) => {
-                const gap = gapFor(item);
-                return (
-                  <li key={item.id}>
-                    <button type="button" className="flex w-full items-center gap-3 rounded-2xl px-1 py-2.5 text-left" onClick={() => { setListOpen(false); setFollow(false); setSelected(item.id); }}>
-                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#1F5BFF] text-[13px] font-extrabold text-white">{item.fleet}</span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-[15px] font-extrabold">Bus {item.fleet}</span>
-                        <span className="block truncate text-[13px] text-[#8A93A6]">{usualRoute(item.route)}</span>
-                      </span>
-                      <span className={`text-right text-[13px] font-bold ${gap?.approach === 'towards' ? 'text-[#128A4E]' : 'text-[#5C6578]'}`}>
-                        {gap ? `${metresAway(gap.metres).replace(' away', '')}${gap.approach ? ` · ${approachPhrase(gap.approach, true)}` : ''}` : 'Location off'}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
         </div>
       ) : null}
     </div>
