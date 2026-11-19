@@ -5,6 +5,7 @@ import { categoryLabel } from '@/lib/categories';
 import { FoundActions } from '@/components/found-actions';
 import { Bell } from '@/components/bell';
 import { CheckIcon, PinIcon } from '@/components/icons';
+import { Smartphone } from 'lucide-react';
 import { Logo } from '@/components/shell';
 import { getPassengerHome, getPassengerLostItem } from '@/lib/service';
 
@@ -47,7 +48,7 @@ export default async function LostDetailPage({ params }: { params: Promise<{ id:
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={item.photoData} alt="" className="h-24 w-28 rounded-2xl object-cover" />
               ) : (
-                <PhoneArt category={item.category} />
+                <span className="grid h-24 w-28 place-items-center rounded-2xl bg-[#F4F6FB] text-[#1F5BFF]" aria-hidden><Smartphone className="h-8 w-8" /></span>
               )}
               <div className="min-w-0 py-1">
                 <p className="font-semibold">Found on Bus {item.fleetNumber}</p>
@@ -91,10 +92,3 @@ export default async function LostDetailPage({ params }: { params: Promise<{ id:
   );
 }
 
-function PhoneArt({ category }: { category: string }) {
-  return (
-    <div className="grid h-24 w-28 place-items-center rounded-2xl bg-gradient-to-br from-[#1C2A24] to-[#0E1814]" aria-hidden>
-      <div className={`h-14 w-8 rounded-lg ${category === 'phone' ? 'bg-[#1F5BFF]' : 'bg-[#0B1B3B]'} `} />
-    </div>
-  );
-}

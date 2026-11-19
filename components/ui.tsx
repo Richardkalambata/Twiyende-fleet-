@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react';
+import { Inbox } from 'lucide-react';
 
 export function Button({
   variant = 'primary',
@@ -110,13 +111,9 @@ export function StatCard({
 export function EmptyState({ title, body }: { title: string; body: string }) {
   return (
     <div className="rounded-2xl bg-white px-5 py-10 text-center shadow-card">
-      <svg viewBox="0 0 80 48" className="mx-auto h-12 w-20 text-[#1F5BFF]" aria-hidden>
-        <rect x="6" y="14" width="52" height="22" rx="6" fill="#E7EEFF" />
-        <path d="M58 22h10l6 8v6H58V22z" fill="#0B1B3B" />
-        <circle cx="22" cy="38" r="5" fill="#0B1B3B" />
-        <circle cx="58" cy="38" r="5" fill="#0B1B3B" />
-        <rect x="14" y="20" width="16" height="8" rx="2" fill="#1F5BFF" />
-      </svg>
+      <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#E7EEFF] text-[#1F5BFF]">
+        <Inbox className="h-5 w-5" aria-hidden />
+      </span>
       <p className="mt-3 text-[16px] font-semibold">{title}</p>
       <p className="mt-1 text-[14px] leading-5 text-[#6B7570]">{body}</p>
     </div>
