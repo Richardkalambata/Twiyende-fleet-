@@ -161,7 +161,8 @@ async function advanceSimulator(now = Date.now()) {
       bus.id,
     );
     if (latest?.source === 'conductor' && now - latest.recorded_at < CONDUCTOR_HOLD_MS) continue;
-    const spot = pointAlong(geometry.points, ((now / (12 * 60 * 1000)) + index * 0.17) % 1);
+    // Three minutes around the corridor keeps the buses easy to see. The stored speed stays in city traffic, so the minute estimate falls as a bus advances.
+    const spot = pointAlong(geometry.points, ((now / (180 * 1000)) + index * 0.17) % 1);
     if (latest && !shouldSendFix({ lat: latest.lat, lng: latest.lng, at: latest.recorded_at }, spot, now) && latest.source === 'simulated') continue;
     const speed = latest ? haversineMetres(latest, spot) / Math.max(1, (now - latest.recorded_at) / 1000) : FALLBACK_SPEED_MPS;
     await db.run(
@@ -171,7 +172,7 @@ async function advanceSimulator(now = Date.now()) {
       spot.lat,
       spot.lng,
       spot.heading,
-      Math.min(18, Math.max(3, speed)),
+      Math.min(8, Math.max(3, speed)),
       now,
     );
     await db.run(
@@ -183,7 +184,7 @@ async function advanceSimulator(now = Date.now()) {
       spot.lat,
       spot.lng,
       spot.heading,
-      Math.min(18, Math.max(3, speed)),
+      Math.min(8, Math.max(3, speed)),
       now,
     );
   }

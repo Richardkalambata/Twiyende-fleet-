@@ -33,12 +33,26 @@ function cumulative(points: GeoPoint[]): number[] {
   return out;
 }
 
+export function routeLength(points: GeoPoint[]): number {
+  if (points.length < 2) return 0;
+  const totals = cumulative(points);
+  return totals[totals.length - 1] || 0;
+}
+
 export function pointAlong(points: GeoPoint[], fraction: number): GeoPoint & { heading: number } {
+  if (points.length === 0) return { lat: -15.4167, lng: 28.2817, heading: 0 };
+  if (points.length === 1) return { ...points[0], heading: 0 };
+  const length = routeLength(points) || 1;
+  const distance = Math.min(length, Math.max(0, fraction)) * length;
+  return pointAtDistance(points, distance);
+}
+
+export function pointAtDistance(points: GeoPoint[], metres: number): GeoPoint & { heading: number } {
   if (points.length === 0) return { lat: -15.4167, lng: 28.2817, heading: 0 };
   if (points.length === 1) return { ...points[0], heading: 0 };
   const totals = cumulative(points);
   const length = totals[totals.length - 1] || 1;
-  const distance = Math.min(length, Math.max(0, fraction)) * length;
+  const distance = ((metres % length) + length) % length;
   let index = 1;
   while (index < totals.length - 1 && totals[index] < distance) index += 1;
   const start = totals[index - 1];
