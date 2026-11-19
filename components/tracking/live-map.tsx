@@ -6,6 +6,7 @@ import type { LiveBus } from '@/lib/tracking';
 import { LUSAKA_STREETS, describePlace } from '@/lib/lusaka-places';
 import { routeGeometry, type GeoPoint } from '@/lib/lusaka-routes';
 import { DEMO_RIDER, LUSAKA_BOUNDS, OPEN_FRAME_M, accuracyRing, alongError, approachFromDistances, demoSpeed, formatDistance, formatUpdated, glideDistance, glideSpeed, haversineMetres, lerpAngle, pointAtDistance, projectOnto, reachMinutes, riderCounts, routeLength, showsAccuracyHalo, snapToRoad, trailSamples, trimTrail, type Approach } from '@/lib/tracking-math';
+import { createBusPin } from './bus-pin';
 
 type Stop = { id: string; name: string; lat: number; lng: number; seq: number };
 type Payload = { buses: LiveBus[]; stops: { route: string; stops: Stop[] }[]; landmarks?: Stop[]; demo?: boolean; now: number };
@@ -35,16 +36,6 @@ type Pin = {
 
 const EMPTY_LINE = { type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: [] as [number, number][] } };
 const EMPTY_POINTS = { type: 'FeatureCollection' as const, features: [] as { type: 'Feature'; properties: { name: string }; geometry: { type: 'Point'; coordinates: [number, number] } }[] };
-
-function headingArrow(prominent: boolean) {
-  const arrow = document.createElement('span');
-  arrow.className = 'heading-arrow';
-  arrow.setAttribute('aria-hidden', 'true');
-  arrow.innerHTML = prominent
-    ? '<svg viewBox="0 0 16 16"><path d="M8 2.5 L13 12.5 L8 9.5 L3 12.5 Z" fill="#ffffff"/></svg>'
-    : '<svg viewBox="0 0 14 10" width="14" height="10"><path d="M7 1 L13 9 H1 Z" fill="#0B1B3B" stroke="#ffffff" stroke-width="1.2"/></svg>';
-  return arrow;
-}
 
 function arrowImage() {
   const canvas = document.createElement('canvas');
@@ -459,37 +450,9 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
           pin.glide.speed = glideSpeed(base, alongError(pin.glide.along, serverAlong, length));
         };
         if (!current) {
-          const el = document.createElement('button');
-          el.type = 'button';
-          el.className = mode === 'operator' ? 'fleet-pin' : 'bus-pin';
-          el.setAttribute('aria-label', `Bus ${bus.fleet}`);
-          const arrow = headingArrow(mode === 'rider');
-          if (mode === 'operator') {
-            const dot = document.createElement('span');
-            dot.className = 'dot';
-            dot.setAttribute('aria-hidden', 'true');
-            dot.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="4" y="4" width="16" height="12" rx="2"/><path d="M4 10h16M7 16v2M17 16v2"/></svg>';
-            dot.append(arrow);
-            const num = document.createElement('span');
-            num.className = 'num';
-            num.textContent = bus.fleet;
-            el.append(dot, num);
-          } else {
-            const bubble = document.createElement('span');
-            bubble.className = 'bus-bubble';
-            const icon = document.createElement('span');
-            icon.className = 'bus-icon';
-            icon.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="3" y="6" width="18" height="9" rx="2" fill="none" stroke="#fff" stroke-width="1.8"/><path d="M3 11h18M7 15v2.2M17 15v2.2" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>';
-            const num = document.createElement('span');
-            num.className = 'bus-num';
-            num.textContent = bus.fleet;
-            const tail = document.createElement('span');
-            tail.className = 'bus-tail';
-            bubble.append(icon, num, arrow);
-            el.append(bubble, tail);
-          }
+          const { element: el, arrow } = createBusPin(bus.fleet);
           el.addEventListener('click', () => setSelected(bus.id));
-          const marker = new maplibre.Marker({ element: el, anchor: 'center' }).setLngLat(next).addTo(map);
+          const marker = new maplibre.Marker({ element: el, anchor: 'bottom' }).setLngLat(next).addTo(map);
           const pin: Pin = { marker, arrow, glide: null, accuracy: bus.accuracy };
           syncGlide(pin);
           markers.current.set(bus.id, pin);
@@ -502,7 +465,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
           element.dataset.stale = bus.stale ? 'true' : 'false';
           element.dataset.idle = bus.onShift ? 'false' : 'true';
           element.dataset.on = selected === bus.id ? 'true' : 'false';
-          element.dataset.dim = mode === 'rider' && selected && selected !== bus.id ? 'true' : 'false';
+          element.dataset.dim = selected && selected !== bus.id ? 'true' : 'false';
           element.style.zIndex = selected === bus.id ? '3' : '1';
         }
       }

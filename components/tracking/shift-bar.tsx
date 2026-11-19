@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bus, Clock, Info, ShieldCheck } from 'lucide-react';
 import { shouldSendFix } from '@/lib/tracking-math';
+import { createBusPin } from './bus-pin';
 import { formatHour24 } from '@/lib/time';
 
 type Shift = {
@@ -107,10 +108,8 @@ export function ShiftBar() {
         interactive: false,
         attributionControl: false,
       });
-      const el = document.createElement('div');
-      el.className = 'bus-pin';
+      const { element: el } = createBusPin(shift.fleet ?? '');
       el.dataset.on = 'true';
-      el.textContent = shift.fleet ?? '';
       miniPin.current = new maplibre.Marker({ element: el, anchor: 'center' }).setLngLat([start.lng, start.lat]).addTo(map);
       miniMap.current = map;
     });
