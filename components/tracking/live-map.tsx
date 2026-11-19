@@ -155,7 +155,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
         container: holder.current,
         style: 'https://tiles.openfreemap.org/styles/positron',
         center: [28.283, -15.416],
-        zoom: 12,
+        zoom: 14.5,
         attributionControl: { compact: true },
       });
       if (mode !== 'rider') map.addControl(new maplibre.NavigationControl({ showCompass: false }), 'bottom-left');
@@ -457,8 +457,13 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
             num.textContent = bus.fleet;
             el.append(dot, num);
           } else {
-            el.textContent = bus.fleet;
-            el.append(arrow);
+            const body = document.createElement('span');
+            body.className = 'bus-body';
+            body.innerHTML = '<svg class="bus-glyph" viewBox="0 0 64 36" aria-hidden="true"><rect x="1" y="8" width="62" height="20" rx="6" fill="currentColor"/><rect x="6" y="12" width="12" height="7" rx="1.5" fill="#fff"/><rect x="21" y="12" width="12" height="7" rx="1.5" fill="#fff"/><rect x="36" y="12" width="12" height="7" rx="1.5" fill="#fff"/><rect x="50" y="12" width="8" height="7" rx="1.5" fill="#fff"/><circle cx="16" cy="28" r="4" fill="#0B1B3B"/><circle cx="48" cy="28" r="4" fill="#0B1B3B"/><circle cx="16" cy="28" r="1.5" fill="#fff"/><circle cx="48" cy="28" r="1.5" fill="#fff"/></svg>';
+            const num = document.createElement('span');
+            num.className = 'bus-num';
+            num.textContent = bus.fleet;
+            el.append(arrow, body, num);
           }
           el.addEventListener('click', () => setSelected(bus.id));
           const marker = new maplibre.Marker({ element: el, anchor: 'center' }).setLngLat(next).addTo(map);
@@ -590,35 +595,65 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
   void historyTick;
 
   useEffect(() => {
-    if (mode !== 'rider' || !mapReady || follow || !you || !selected || !displayBus) return;
-    const focus = displayBus;
-    const key = selected;
+    if (mode !== 'rider' || !mapReady || follow) return;
+    const moving = data.buses.filter((item) => item.recordedAt);
+    if (moving.length === 0) return;
+    const town = { lat: -15.416, lng: 28.283 };
+    const closest = [...moving].sort((a, b) => haversineMetres(you ?? town, a) - haversineMetres(you ?? town, b))[0];
+    const youNear = you && closest && haversineMetres(you, closest) < 12_000 ? you : null;
+    const origin = youNear ?? town;
+    const ranked = [...moving].sort((a, b) => haversineMetres(origin, a) - haversineMetres(origin, b));
+    const picked: LiveBus[] = [];
+    for (const item of ranked) {
+      if (picked.length >= 4) break;
+      if (picked.length >= 3 && haversineMetres(origin, item) > 3_200) break;
+      picked.push(item);
+    }
+    if (picked.length < 2) picked.splice(0, picked.length, ...ranked.slice(0, Math.min(3, ranked.length)));
+    const key = selected ?? (youNear ? 'open-you' : 'open-buses');
     if (fittedKey.current === key) return;
-    if (haversineMetres(you, focus) > 30_000) return;
+    if (selected && !displayBus) return;
     fittedKey.current = key;
-    const here = you;
-    const there = focus;
+    const spots = picked.map((item) => snapToRoad(item, routeGeometry(item.route)?.points ?? [], item.accuracy));
     void import('maplibre-gl').then((maplibre) => {
       const map = mapRef.current;
       if (!map || fittedKey.current !== key || map.getContainer().clientHeight < 200) return;
-      const bounds = new maplibre.LngLatBounds(
-        [Math.min(here.lng, there.lng), Math.min(here.lat, there.lat)],
-        [Math.max(here.lng, there.lng), Math.max(here.lat, there.lat)],
-      );
-      const line = routeGeometry(bus?.route ?? '')?.points ?? [];
-      const length = routeLength(line);
-      if (length > 0) {
-        const along = projectOnto(line, there).along;
-        const ahead = aheadSegment(line, along, Math.min(aheadMetres(length), length));
-        for (const point of ahead.coordinates) bounds.extend(point);
+      const seed = youNear ?? spots[0];
+      const focus = selected && displayBus ? [displayBus] : spots;
+      let shown = focus;
+      const padding = { top: 88, bottom: selected ? 168 : 72, left: selected ? 56 : 28, right: selected ? 56 : 28 };
+      const boundsFor = (points: { lng: number; lat: number }[]) => {
+        const next = new maplibre.LngLatBounds([seed.lng, seed.lat], [seed.lng, seed.lat]);
+        if (!selected && youNear) next.extend([youNear.lng, youNear.lat]);
+        for (const spot of points) next.extend([spot.lng, spot.lat]);
+        return next;
+      };
+      let bounds = boundsFor(shown);
+      if (!selected) {
+        while (shown.length > 2) {
+          const camera = map.cameraForBounds(bounds, { padding, maxZoom: 15 });
+          const zoom = camera?.zoom ?? 0;
+          if (zoom >= 14 || (shown.length <= 3 && zoom >= 13.6)) break;
+          shown = shown.slice(0, -1);
+          bounds = boundsFor(shown);
+        }
+      }
+      if (selected && displayBus) {
+        const line = routeGeometry(bus?.route ?? '')?.points ?? [];
+        const length = routeLength(line);
+        if (length > 0) {
+          const along = projectOnto(line, displayBus).along;
+          const ahead = aheadSegment(line, along, Math.min(aheadMetres(length), length));
+          for (const point of ahead.coordinates) bounds.extend(point);
+        }
       }
       map.fitBounds(bounds, {
-        padding: { top: 88, bottom: 150, left: 64, right: 64 },
-        maxZoom: 16,
-        duration: 450,
+        padding: { top: 96, bottom: selected ? 168 : 108, left: 56, right: 56 },
+        maxZoom: selected ? 15.5 : 15,
+        duration: selected ? 450 : 0,
       });
     });
-  }, [mode, mapReady, follow, you, displayBus, selected, bus]);
+  }, [mode, mapReady, follow, you, displayBus, selected, bus, data.buses]);
 
   useEffect(() => {
     if (follow) fittedKey.current = null;
