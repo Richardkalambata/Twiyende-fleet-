@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { Client } from 'pg';
 import { test } from 'node:test';
-import { approachFromDistances, approachLabel, formatDistance, formatReach, formatSpeed, formatUpdated, haversineMetres, isStale, pointAlong, reachMinutes, shouldSendFix, showsAccuracyHalo, snapToRoad, STALE_MS } from '../lib/tracking-math';
+import { alongError, approachFromDistances, approachLabel, demoSpeed, formatDistance, formatReach, formatSpeed, formatUpdated, glideDistance, glideSpeed, haversineMetres, isStale, pointAlong, reachMinutes, shouldSendFix, showsAccuracyHalo, snapToRoad, STALE_MS } from '../lib/tracking-math';
 import { routeGeometry } from '../lib/lusaka-routes';
 import { describePlace, LUSAKA_LANDMARKS, LUSAKA_STREETS } from '../lib/lusaka-places';
 
@@ -87,6 +87,19 @@ test('distance from you and whether the bus is coming closer', () => {
   assert.equal(formatSpeed(24 / 3.6), 'Moving · 24 km/h');
   assert.equal(formatSpeed(0.2), 'Stopped');
   assert.equal(formatSpeed(null), 'Stopped');
+});
+
+test('a bus glides forward along the road and does not jump backward', () => {
+  const length = 5_000;
+  const base = demoSpeed(length);
+  assert.ok(base > 20 && base < 40);
+  assert.ok(Math.abs(glideDistance(100, base, 1 / 60) - (100 + base / 60)) < 0.001);
+  assert.equal(glideDistance(100, base, 5), 100 + base * 0.1);
+  assert.equal(alongError(100, 160, length), 60);
+  assert.equal(alongError(100, length - 20, length) < 0, true);
+  const behind = glideSpeed(base, -400);
+  assert.ok(behind > 0);
+  assert.ok(glideSpeed(base, 80) > base);
 });
 
 test('a conductor can only post a location for their own bus', async () => {

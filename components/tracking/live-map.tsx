@@ -5,25 +5,28 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import type { LiveBus } from '@/lib/tracking';
 import { LUSAKA_STREETS, describePlace } from '@/lib/lusaka-places';
 import { routeGeometry, type GeoPoint } from '@/lib/lusaka-routes';
-import { accuracyRing, approachFromDistances, formatDistance, formatUpdated, haversineMetres, lerpAngle, pointAtDistance, projectOnto, reachMinutes, routeLength, showsAccuracyHalo, snapToRoad, type Approach } from '@/lib/tracking-math';
+import { accuracyRing, alongError, approachFromDistances, demoSpeed, formatDistance, formatUpdated, glideDistance, glideSpeed, haversineMetres, lerpAngle, pointAtDistance, projectOnto, reachMinutes, routeLength, showsAccuracyHalo, snapToRoad, type Approach } from '@/lib/tracking-math';
 
 type Stop = { id: string; name: string; lat: number; lng: number; seq: number };
 type Payload = { buses: LiveBus[]; stops: { route: string; stops: Stop[] }[]; landmarks?: Stop[]; now: number };
 type YouFix = { lat: number; lng: number; accuracy: number };
 type DistanceSample = { at: number; metres: number };
-const POLL_MS = 2_000;
+const POLL_MS = 1_000;
+
+type Glide = {
+  along: number;
+  at: number;
+  speed: number;
+  heading: number;
+  route: GeoPoint[];
+  length: number;
+};
 
 type Pin = {
   marker: import('maplibre-gl').Marker;
   arrow: HTMLElement;
-  from: [number, number];
-  to: [number, number];
-  fromHeading: number;
-  toHeading: number;
-  started: number;
+  glide: Glide | null;
   accuracy: number | null;
-  route: GeoPoint[];
-  onRoad: boolean;
 };
 
 const EMPTY_LINE = { type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: [] as [number, number][] } };
@@ -231,21 +234,18 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
       let followAt: [number, number] | null = null;
       let selectedAt: [number, number] | null = null;
       markers.current.forEach((item, id) => {
-        const t = Math.min(1, (now - item.started) / POLL_MS);
-        let lng = item.from[0] + (item.to[0] - item.from[0]) * t;
-        let lat = item.from[1] + (item.to[1] - item.from[1]) * t;
-        let heading = lerpAngle(item.fromHeading, item.toHeading, t);
-        if (item.onRoad && item.route.length > 1) {
-          const fromAlong = projectOnto(item.route, { lat: item.from[1], lng: item.from[0] }).along;
-          let toAlong = projectOnto(item.route, { lat: item.to[1], lng: item.to[0] }).along;
-          if (toAlong + 40 < fromAlong) toAlong += routeLength(item.route);
-          const spot = pointAtDistance(item.route, fromAlong + (toAlong - fromAlong) * t);
-          lng = spot.lng;
-          lat = spot.lat;
-          heading = spot.heading;
-        }
-        item.marker.setLngLat([lng, lat]);
-        item.arrow.style.transform = `rotate(${heading - (map?.getBearing() ?? 0)}deg)`;
+        const glide = item.glide;
+        if (!glide || glide.route.length < 2) return;
+        const dt = Math.min(0.1, Math.max(0, (now - glide.at) / 1000));
+        glide.at = now;
+        glide.along = glideDistance(glide.along, glide.speed, dt);
+        const spot = pointAtDistance(glide.route, glide.along);
+        const ease = 1 - Math.exp(-dt / 0.18);
+        glide.heading = lerpAngle(glide.heading, spot.heading, ease);
+        item.marker.setLngLat([spot.lng, spot.lat]);
+        item.arrow.style.transform = `rotate(${glide.heading - (map?.getBearing() ?? 0)}deg)`;
+        const lng = spot.lng;
+        const lat = spot.lat;
         if (showsAccuracyHalo(item.accuracy)) {
           features.push({
             type: 'Feature',
@@ -315,6 +315,24 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
         const next: [number, number] = [display.lng, display.lat];
         const heading = bus.heading ?? display.heading;
         const current = markers.current.get(bus.id);
+        const length = routeLength(geometry);
+        const syncGlide = (pin: Pin) => {
+          if (geometry.length < 2 || length <= 0) {
+            pin.glide = null;
+            pin.marker.setLngLat(next);
+            return;
+          }
+          const serverAlong = projectOnto(geometry, display).along;
+          const base = demoSpeed(length);
+          if (!pin.glide) {
+            pin.glide = { along: serverAlong, at: performance.now(), speed: base, heading, route: geometry, length };
+            pin.marker.setLngLat(next);
+            return;
+          }
+          pin.glide.route = geometry;
+          pin.glide.length = length;
+          pin.glide.speed = glideSpeed(base, alongError(pin.glide.along, serverAlong, length));
+        };
         if (!current) {
           const el = document.createElement('button');
           el.type = 'button';
@@ -337,19 +355,12 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
           }
           el.addEventListener('click', () => setSelected(bus.id));
           const marker = new maplibre.Marker({ element: el, anchor: 'center' }).setLngLat(next).addTo(map);
-          markers.current.set(bus.id, { marker, arrow, from: next, to: next, fromHeading: heading, toHeading: heading, started: performance.now(), accuracy: bus.accuracy, route: geometry, onRoad: display.snapped });
+          const pin: Pin = { marker, arrow, glide: null, accuracy: bus.accuracy };
+          syncGlide(pin);
+          markers.current.set(bus.id, pin);
         } else {
-          const at = current.marker.getLngLat();
-          const t = Math.min(1, (performance.now() - current.started) / POLL_MS);
-          const far = haversineMetres({ lat: at.lat, lng: at.lng }, { lat: next[1], lng: next[0] }) > 700;
-          current.from = far ? next : [at.lng, at.lat];
-          current.to = next;
-          current.fromHeading = lerpAngle(current.fromHeading, current.toHeading, t);
-          current.toHeading = heading;
-          current.started = performance.now();
           current.accuracy = bus.accuracy;
-          current.route = geometry;
-          current.onRoad = display.snapped;
+          syncGlide(current);
         }
         const element = markers.current.get(bus.id)?.marker.getElement();
         if (element) {

@@ -4,6 +4,34 @@ export const STALE_MS = 3 * 60 * 1000;
 export const MOVE_METRES = 15;
 export const SEND_GAP_MS = 30 * 1000;
 export const FALLBACK_SPEED_MPS = 8;
+/** Demo buses complete their corridor in three minutes. The map glides at this same rate. */
+export const DEMO_LOOP_MS = 180_000;
+
+export function demoSpeed(lengthMetres: number): number {
+  if (lengthMetres <= 0) return FALLBACK_SPEED_MPS;
+  return lengthMetres / (DEMO_LOOP_MS / 1000);
+}
+
+/** Signed metres from the shown distance to the server distance, wrapped so the bus never turns around. */
+export function alongError(shown: number, server: number, length: number): number {
+  if (length <= 0) return 0;
+  const shownMod = ((shown % length) + length) % length;
+  let error = server - shownMod;
+  if (error > length / 2) error -= length;
+  if (error < -length / 2) error += length;
+  return error;
+}
+
+/** Ease toward the server position over about two seconds, without reversing. */
+export function glideSpeed(base: number, errorMetres: number): number {
+  return Math.max(base * 0.35, base + errorMetres / 2);
+}
+
+/** Advance along the corridor. Callers cap dt so a paused tab cannot fling the pin. */
+export function glideDistance(along: number, speed: number, dtSeconds: number): number {
+  const dt = Math.max(0, Math.min(dtSeconds, 0.1));
+  return along + Math.max(0, speed) * dt;
+}
 
 export function isStale(recordedAt: number, now: number): boolean {
   return now - recordedAt > STALE_MS;

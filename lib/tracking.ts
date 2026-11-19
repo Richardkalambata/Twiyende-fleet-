@@ -4,10 +4,12 @@ import { LUSAKA_LANDMARKS } from './lusaka-places';
 import { LUSAKA_ROUTES, routeGeometry } from './lusaka-routes';
 import { DAY_MS, lusakaDateKey, startOfLusakaDay } from './time';
 import {
-  FALLBACK_SPEED_MPS,
+  DEMO_LOOP_MS,
+  demoSpeed,
   haversineMetres,
   isStale,
   pointAlong,
+  routeLength,
   shouldSendFix,
 } from './tracking-math';
 
@@ -160,10 +162,10 @@ async function advanceSimulator(now = Date.now()) {
       bus.id,
     );
     if (latest?.source === 'conductor' && now - latest.recorded_at < CONDUCTOR_HOLD_MS) continue;
-    // Three minutes around the corridor keeps the buses easy to see. The stored speed stays in city traffic.
-    const spot = pointAlong(geometry.points, ((now / (180 * 1000)) + index * 0.17) % 1);
-    if (latest && !shouldSendFix({ lat: latest.lat, lng: latest.lng, at: latest.recorded_at }, spot, now) && latest.source === 'simulated') continue;
-    const speed = latest ? haversineMetres(latest, spot) / Math.max(1, (now - latest.recorded_at) / 1000) : FALLBACK_SPEED_MPS;
+    // Three minutes around the corridor. Every poll writes a fresh point so open maps never sit on a stale fix.
+    const spot = pointAlong(geometry.points, ((now / DEMO_LOOP_MS) + index * 0.17) % 1);
+    const elapsed = latest ? Math.max(0.2, (now - latest.recorded_at) / 1000) : 1;
+    const speed = latest ? haversineMetres(latest, spot) / elapsed : demoSpeed(routeLength(geometry.points));
     await db.run(
       `INSERT INTO bus_locations (id, bus_id, lat, lng, heading, speed, accuracy, recorded_at, source) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, 'simulated')`,
       id('loc'),
