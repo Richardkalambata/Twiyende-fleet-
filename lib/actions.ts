@@ -168,6 +168,15 @@ export async function logFoundAction(input: { category: string; description: str
   return result;
 }
 
+export async function logOperatorFoundAction(_previous: unknown, formData: FormData) {
+  const user = await requireUser(['operator']);
+  const busId = String(formData.get('busId') ?? '');
+  if (!busId) return { ok: false as const, message: 'Choose a bus.' };
+  const result = await logFoundItem(user.id, String(formData.get('category') ?? ''), String(formData.get('description') ?? ''), null, busId);
+  if (result.ok) refresh();
+  return result;
+}
+
 export async function verifyPickupAction(code: string) {
   const user = await requireUser(['conductor', 'operator']);
   const result = await verifyPickup(user.id, code);
@@ -312,16 +321,28 @@ export async function saveCompanyAction(_prev: Fail | null, formData: FormData):
 
 export async function supportAction(_prev: Fail | null, formData: FormData): Promise<Fail | null> {
   const user = await requireUser(['passenger']);
-  const result = await openSupport(user.id, String(formData.get('subject') ?? ''), String(formData.get('body') ?? ''));
+  const ride = String(formData.get('rideId') ?? '');
+  if (!ride) return { ok: false, message: 'Choose the ride this ticket is about.' };
+  const result = await openSupport(user.id, String(formData.get('subject') ?? ''), String(formData.get('body') ?? ''), ride);
   if (!result.ok) return result;
   refresh();
-  return { ok: false, message: 'Sent. We will reply in the app.' };
+  redirect(`/help/support/${result.id}`);
 }
 
-export async function replySupportAction(formData: FormData) {
+export async function replySupportAction(_previous: { ok: boolean; message: string } | null, formData: FormData) {
+  const user = await requireUser(['operator', 'passenger']);
+  const role = user.role === 'operator' ? 'operator' : 'passenger';
+  const result = await replySupport(user.id, role, String(formData.get('ticketId') ?? ''), String(formData.get('body') ?? ''), formData.get('close') === 'on');
+  if (result.ok) refresh();
+  return result;
+}
+
+export async function updateOperatorLostAction(_previous: { ok: boolean; message: string } | null, formData: FormData) {
   const user = await requireUser(['operator']);
-  await replySupport(user.id, String(formData.get('ticketId') ?? ''), String(formData.get('body') ?? ''), formData.get('close') === 'on');
-  refresh();
+  const id = String(formData.get('itemId') ?? '');
+  const result = formData.get('outcome') === 'found' ? await markFound(user.id, id, true) : await markNotFound(user.id, id, true);
+  if (result.ok) refresh();
+  return result;
 }
 
 export async function addFareAction(formData: FormData) {

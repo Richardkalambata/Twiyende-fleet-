@@ -696,7 +696,7 @@ async function coolDownCode(recordId: string, code: string | null) {
     Date.now() + DAY_MS, code, recordId);
 }
 
-async function issuePickup(itemId: string, foundBy: string) {
+async function issuePickup(itemId: string, foundBy: string, operator = false) {
   const item = await (await getDb()).get('SELECT * FROM lost_items WHERE id = ?', itemId) as
     | { id: string; bus_id: string; passenger_id: string | null; notify_sms: boolean; category: string; status: string }
     | undefined;
@@ -707,7 +707,7 @@ async function issuePickup(itemId: string, foundBy: string) {
   const code = existing?.pickup_code ?? await reserveUniqueCode(itemId);
   const updated = await (await getDb()).run(`UPDATE lost_items
       SET status = 'pickup_pending', pickup_code = ?, pickup_place = ?, pickup_until = ?, found_by = ?, found_at = ?, conductor_id = ?
-      WHERE id = ? AND status IN ('reported', 'waiting')`, code, PICKUP_PLACE, nextPickupDeadline(), foundBy, Date.now(), foundBy, itemId);
+      WHERE id = ? AND status IN ('reported', 'waiting')`, code, PICKUP_PLACE, nextPickupDeadline(), foundBy, Date.now(), operator ? bus.conductor_id : foundBy, itemId);
   if (Number(updated.changes) !== 1) throw new UserError('That report was already updated.');
   return { code, bus, notify: item.notify_sms === true, passengerId: item.passenger_id, category: item.category };
 }
@@ -780,8 +780,13 @@ export async function reportLost(
   }
 }
 
-export async function markFound(conductorId: string, itemId: string) {
-  const bus = await conductorBus(conductorId);
+async function operatorLostBus(operatorId: string, itemId: string) {
+  return (await getDb()).get<BusRow>(`SELECT b.* FROM lost_items li JOIN buses b ON b.id = li.bus_id
+    WHERE li.id = ? AND b.owner_id = ?`, itemId, operatorId);
+}
+
+export async function markFound(conductorId: string, itemId: string, operator = false) {
+  const bus = operator ? await operatorLostBus(conductorId, itemId) : await conductorBus(conductorId);
   if (!bus) return { ok: false as const, message: 'You are not assigned to a bus.' };
   try {
     const issued = await withTransaction(async () => {
@@ -790,7 +795,7 @@ export async function markFound(conductorId: string, itemId: string) {
         | undefined;
       if (!item || item.bus_id !== bus.id) throw new UserError('That report is not for your bus.');
       if (item.status !== 'reported') throw new UserError('That report is no longer waiting.');
-      return await issuePickup(item.id, conductorId);
+      return await issuePickup(item.id, conductorId, operator);
     });
     await notifyPickup({ ...issued, itemId });
     return { ok: true as const, message: 'Marked found. The passenger now has a pickup code.' };
@@ -799,8 +804,8 @@ export async function markFound(conductorId: string, itemId: string) {
   }
 }
 
-export async function markNotFound(conductorId: string, itemId: string) {
-  const bus = await conductorBus(conductorId);
+export async function markNotFound(conductorId: string, itemId: string, operator = false) {
+  const bus = operator ? await operatorLostBus(conductorId, itemId) : await conductorBus(conductorId);
   if (!bus) return { ok: false as const, message: 'You are not assigned to a bus.' };
   try {
     await withTransaction(async () => {
@@ -814,15 +819,17 @@ export async function markNotFound(conductorId: string, itemId: string) {
   }
 }
 
-export async function logFoundItem(conductorId: string, category: string, descriptionRaw: string, photo: string | null) {
-  const bus = await conductorBus(conductorId);
+export async function logFoundItem(conductorId: string, category: string, descriptionRaw: string, photo: string | null, operatorBusId?: string) {
+  const bus = operatorBusId
+    ? await (await getDb()).get<BusRow>('SELECT * FROM buses WHERE id = ? AND owner_id = ?', operatorBusId, conductorId)
+    : await conductorBus(conductorId);
   if (!bus) return { ok: false as const, message: 'You are not assigned to a bus.' };
   if (!isCategory(category)) return { ok: false as const, message: 'Choose a category.' };
   const description = cleanText(descriptionRaw, 280);
   try {
     const outcome = await withTransaction(async () => {
       const photoData = cleanPhoto(photo);
-      const reported = await (await getDb()).get(`SELECT id FROM lost_items WHERE bus_id = ? AND status = 'reported' AND category = ? ORDER BY created_at LIMIT 1`, bus.id, category) as { id: string } | undefined;
+      const reported = operatorBusId ? undefined : await (await getDb()).get(`SELECT id FROM lost_items WHERE bus_id = ? AND status = 'reported' AND category = ? ORDER BY created_at LIMIT 1`, bus.id, category) as { id: string } | undefined;
       if (reported) {
         if (photoData) {
           await (await getDb()).run('UPDATE lost_items SET photo_data = COALESCE(photo_data, ?) WHERE id = ?', photoData, reported.id);
@@ -835,7 +842,7 @@ export async function logFoundItem(conductorId: string, category: string, descri
       await (await getDb()).run(`INSERT INTO lost_items (
           id, ride_id, passenger_id, bus_id, conductor_id, owner_id, category, description, photo_data,
           notify_sms, status, pickup_code, pickup_place, pickup_until, source, found_by, found_at, closed_at, created_at, tip_ngwee
-        ) VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, FALSE, 'waiting', ?, NULL, NULL, 'conductor', ?, ?, NULL, ?, 0)`, itemId, bus.id, conductorId, ownerId, category, description || categoryLabelSafe(category), photoData, await reserveUniqueCode(itemId), conductorId, Date.now(), Date.now());
+        ) VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, FALSE, 'waiting', ?, NULL, NULL, 'conductor', ?, ?, NULL, ?, 0)`, itemId, bus.id, operatorBusId ? bus.conductor_id : conductorId, ownerId, category, description || categoryLabelSafe(category), photoData, await reserveUniqueCode(itemId), conductorId, Date.now(), Date.now());
       return { matched: false, itemId, issued: null };
     });
     if (outcome.issued) await notifyPickup({ ...outcome.issued, itemId: outcome.itemId });
@@ -906,7 +913,7 @@ export async function sendTip(passengerId: string, itemId: string, amountRaw: nu
         throw new UserError('You can thank the conductor once the item is found.');
       }
       if (item.tip_ngwee > 0) throw new UserError('You already sent thanks for this item.');
-      const conductorId = item.found_by ?? item.conductor_id;
+      const conductorId = item.conductor_id;
       if (!conductorId) throw new UserError('No conductor is attached to this item yet.');
       const balanceNgwee = await writeWallet(passengerId, -amountRaw, 'tip', `Tip for finding your ${item.category}`, { lostId: item.id });
       await writeWallet(conductorId, amountRaw, 'tip', `Tip from a passenger`, { lostId: item.id });
@@ -1190,6 +1197,7 @@ export async function listOperatorConductorPayouts(operatorId: string) {
 }
 
 export type OwnerLostItem = {
+  pickupCode: string | null;
   id: string;
   category: string;
   description: string;
@@ -1200,14 +1208,15 @@ export type OwnerLostItem = {
 };
 
 export async function listOwnerLost(ownerId: string): Promise<OwnerLostItem[]> {
-  const rows = await (await getDb()).all(`SELECT li.id, li.category, li.description, li.status, li.created_at, b.fleet_number, u.short_name AS passenger
+  const rows = await (await getDb()).all(`SELECT li.id, li.category, li.description, li.status, CASE WHEN li.status = 'waiting' AND li.passenger_id IS NULL THEN li.pickup_code END AS pickup_code, li.created_at, b.fleet_number, u.short_name AS passenger
       FROM lost_items li JOIN buses b ON b.id = li.bus_id LEFT JOIN users u ON u.id = li.passenger_id
-      WHERE b.owner_id = ? ORDER BY CASE li.status WHEN 'reported' THEN 0 WHEN 'pickup_pending' THEN 1 WHEN 'waiting' THEN 2 ELSE 3 END, li.created_at DESC
-      LIMIT 40`, ownerId) as Array<{
+      WHERE b.owner_id = ? AND (li.status <> 'closed' OR li.closed_at > ?) ORDER BY CASE li.status WHEN 'reported' THEN 0 WHEN 'pickup_pending' THEN 1 WHEN 'waiting' THEN 2 ELSE 3 END, li.created_at DESC
+      LIMIT 80`, ownerId, Date.now() - DAY_MS) as Array<{
     id: string;
     category: string;
     description: string;
     status: LostStatus;
+    pickup_code: string | null;
     created_at: number;
     fleet_number: string;
     passenger: string | null;
@@ -1217,6 +1226,7 @@ export async function listOwnerLost(ownerId: string): Promise<OwnerLostItem[]> {
     category: row.category,
     description: row.description,
     status: row.status,
+    pickupCode: row.pickup_code,
     fleetNumber: row.fleet_number,
     whenLabel: formatRideWhen(row.created_at),
     passenger: row.passenger,
@@ -1426,8 +1436,13 @@ export async function requestPayout(ownerId: string, amountRaw: string) {
   return { ok: true as const, message: `${formatBalance(amount)} sent to ${formatPhone(destination)} via ${networkLabel(network)}.` };
 }
 
-export async function ridesForExport(ownerId: string, range: RangeKey): Promise<ExportRide[]> {
-  const window = rangeWindow(range);
+export function fareArchiveYear(value?: string) {
+  const year = Number(value);
+  return /^\d{4}$/.test(value ?? '') && year >= 2000 && year <= lusakaParts().year ? year : undefined;
+}
+
+export async function ridesForExport(ownerId: string, range: RangeKey, year?: number): Promise<ExportRide[]> {
+  const window = year ? { start: lusakaToUtc(year, 1, 1), end: lusakaToUtc(year + 1, 1, 1) } : rangeWindow(range);
   const rows = await (await getDb()).all(`SELECT r.created_at, r.code, r.amount_ngwee, r.status, r.passenger_label, r.route_snapshot,
         b.fleet_number, b.plate, u.short_name AS conductor
       FROM rides r JOIN buses b ON b.id = r.bus_id LEFT JOIN users u ON u.id = r.conductor_id
@@ -1589,42 +1604,66 @@ export async function operatorLabel(userId: string): Promise<string> {
   return row?.name ?? 'Your operator';
 }
 
-export async function openSupport(userId: string, subjectRaw: string, bodyRaw: string) {
+export async function openSupport(userId: string, subjectRaw: string, bodyRaw: string, rideId?: string) {
   const subject = cleanText(subjectRaw, 80);
   const body = cleanText(bodyRaw, 1000);
   if (subject.length < 3 || body.length < 5) return { ok: false as const, message: 'Add a subject and a short message.' };
-  const user = await userById(userId);
-  const company = user ? await (await getDb()).get('SELECT id FROM companies ORDER BY created_at LIMIT 1') as { id: string } | null : null;
-  const id = nid('tkt');
-  await (await getDb()).run(
-    'INSERT INTO support_tickets (id, company_id, user_id, subject, body, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    id, company?.id ?? null, userId, subject, body, 'open', Date.now(),
-  );
-  const operators = await (await getDb()).all(`SELECT id FROM users WHERE role IN ('operator', 'owner')`) as Array<{ id: string }>;
-  for (const operator of operators) await notifyUser(operator.id, 'New support ticket', subject, '/business/desk/support');
-  return { ok: true as const, id };
+  return withTransaction(async () => {
+    const db = await getDb();
+    const company = await db.get<{ id: string; operator_id: string }>(`SELECT c.id, c.operator_id
+      FROM rides r JOIN buses b ON b.id = r.bus_id JOIN companies c ON c.operator_id = b.owner_id
+      WHERE r.passenger_id = ? AND (?::text IS NULL OR r.id = ?) ORDER BY r.created_at DESC, c.created_at LIMIT 1`,
+      userId, rideId ?? null, rideId ?? null);
+    if (!company) return { ok: false as const, message: 'Choose one of your rides to contact its operator.' };
+    const id = nid('tkt');
+    await db.run("INSERT INTO support_tickets (id, company_id, user_id, subject, body, status, created_at) VALUES (?, ?, ?, ?, ?, 'open', ?)",
+      id, company.id, userId, subject, body, Date.now());
+    await notifyUser(company.operator_id, 'New support ticket', subject, `/business/desk/support/${id}`);
+    return { ok: true as const, id };
+  });
 }
 
-export async function listSupport(operatorId: string) {
-  return (await getDb()).all<{ id: string; subject: string; body: string; status: string; created_at: number; name: string }>(
-    `SELECT t.id, t.subject, t.body, t.status, t.created_at, u.name
-     FROM support_tickets t JOIN users u ON u.id = t.user_id
-     JOIN companies c ON c.operator_id = ?
-     WHERE t.company_id = c.id OR t.company_id IS NULL
-     ORDER BY t.created_at DESC LIMIT 40`,
-    operatorId,
+export async function listSupport(actorId: string, role: 'operator' | 'passenger') {
+  const scope = role === 'operator' ? 'c.operator_id = ?' : 't.user_id = ?';
+  return (await getDb()).all<{ id: string; subject: string; status: string; name: string; company: string | null }>(
+    `SELECT t.id, t.subject, t.status, u.name, c.name AS company
+     FROM support_tickets t JOIN users u ON u.id = t.user_id LEFT JOIN companies c ON c.id = t.company_id
+     WHERE ${scope} ORDER BY t.status = 'open' DESC, t.created_at DESC LIMIT 80`, actorId,
   );
 }
 
-export async function replySupport(operatorId: string, ticketId: string, bodyRaw: string, close: boolean) {
+type SupportTicket = { id: string; user_id: string; operator_id: string | null; subject: string; body: string; status: string; created_at: number };
+async function scopedSupportTicket(actorId: string, role: 'operator' | 'passenger', ticketId: string, lock = false) {
+  const scope = role === 'operator' ? 'c.operator_id = ?' : 't.user_id = ?';
+  return (await getDb()).get<SupportTicket>(`SELECT t.*, c.operator_id FROM support_tickets t
+    LEFT JOIN companies c ON c.id = t.company_id WHERE t.id = ? AND ${scope} ${lock ? 'FOR UPDATE OF t' : ''}`, ticketId, actorId);
+}
+
+export async function readSupportThread(actorId: string, role: 'operator' | 'passenger', ticketId: string) {
+  const ticket = await scopedSupportTicket(actorId, role, ticketId);
+  if (!ticket) return null;
+  const messages = await (await getDb()).all<{ id: string; author_id: string; body: string; created_at: number }>(
+    'SELECT id, author_id, body, created_at FROM support_messages WHERE ticket_id = ? ORDER BY created_at, id', ticketId,
+  );
+  return { ...ticket, messages: [{ id: ticket.id, author_id: ticket.user_id, body: ticket.body, created_at: ticket.created_at }, ...messages] };
+}
+
+export async function replySupport(actorId: string, role: 'operator' | 'passenger', ticketId: string, bodyRaw: string, close: boolean) {
   const body = cleanText(bodyRaw, 1000);
   if (body.length < 2) return { ok: false as const, message: 'Write a reply.' };
-  const ticket = await (await getDb()).get('SELECT user_id FROM support_tickets WHERE id = ?', ticketId) as { user_id: string } | null;
-  if (!ticket) return { ok: false as const, message: 'Ticket not found.' };
-  await (await getDb()).run('INSERT INTO support_messages (id, ticket_id, author_id, body, created_at) VALUES (?, ?, ?, ?, ?)', nid('msg'), ticketId, operatorId, body, Date.now());
-  if (close) await (await getDb()).run(`UPDATE support_tickets SET status = 'closed' WHERE id = ?`, ticketId);
-  await notifyUser(ticket.user_id, close ? 'Support ticket closed' : 'Reply from Twende', body, '/help');
-  return { ok: true as const };
+  return withTransaction(async () => {
+    const ticket = await scopedSupportTicket(actorId, role, ticketId, true);
+    if (!ticket || ticket.status !== 'open' || !ticket.operator_id) return { ok: false as const, message: 'This conversation is unavailable or closed.' };
+    const db = await getDb();
+    await db.run('INSERT INTO support_messages (id, ticket_id, author_id, body, created_at) VALUES (?, ?, ?, ?, ?)',
+      nid('msg'), ticketId, actorId, body, Date.now());
+    const closed = close && role === 'operator';
+    if (closed) await db.run("UPDATE support_tickets SET status = 'closed' WHERE id = ?", ticketId);
+    const recipient = role === 'operator' ? ticket.user_id : ticket.operator_id;
+    const path = role === 'operator' ? '/help/support' : '/business/desk/support';
+    await notifyUser(recipient, closed ? 'Support ticket closed' : 'New support reply', ticket.subject, `${path}/${ticketId}`);
+    return { ok: true as const, message: 'Reply sent.' };
+  });
 }
 
 export async function addRouteFare(ownerId: string, routeRaw: string, amountRaw: string) {

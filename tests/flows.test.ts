@@ -85,7 +85,7 @@ test('passenger pay, conductor verify, lost and found, owner totals', async () =
   assert.equal(bus21?.earningsNgwee, 36_000);
   assert.equal(bus21?.rides, 72);
   assert.equal(bus34?.earningsNgwee, 25_000);
-  assert.equal(dash.topConductor?.name, 'Bwalya');
+  assert.equal(dash.topConductor?.name, 'Bwalya Mwamba');
   assert.equal(dash.topConductor?.earningsNgwee, 36_000);
   assert.equal(dash.chart.length, 16);
   assert.equal(
@@ -281,6 +281,16 @@ test('signup, pin, support, fare options, and code expiry', async () => {
   assert.equal(verified.ok, true);
   const ticket = await service.openSupport(created.id, 'Card reader', 'The conductor could not see my code.');
   assert.equal(ticket.ok, true);
+  if (!ticket.ok) return;
+  assert.equal(await service.readSupportThread(IDS.mwila, 'passenger', ticket.id), null);
+  assert.equal((await service.readSupportThread(IDS.owner, 'operator', ticket.id))?.messages.length, 1);
+  assert.equal((await service.replySupport(IDS.owner, 'operator', ticket.id, 'We can help with that.', false)).ok, true);
+  assert.equal((await service.replySupport(created.id, 'passenger', ticket.id, 'Thank you.', true)).ok, true);
+  const thread = await service.readSupportThread(created.id, 'passenger', ticket.id);
+  assert.equal(thread?.messages.length, 3);
+  assert.equal(thread?.status, 'open');
+  assert.equal((await service.replySupport(IDS.owner, 'operator', ticket.id, 'Resolved.', true)).ok, true);
+  assert.equal((await service.replySupport(created.id, 'passenger', ticket.id, 'One more thing.', false)).ok, false);
   const fare = await service.addRouteFare(IDS.owner, 'Town to Matero', '7');
   assert.equal(fare.ok, true);
   const settled = await service.settleDay(IDS.owner, '12', '10');

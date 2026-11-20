@@ -1,3 +1,5 @@
+import Link from 'next/link';
+import { listPassengerRides, listSupport } from '@/lib/service';
 import { requireUser } from '@/lib/auth';
 import { supportAction } from '@/lib/actions';
 import { SupportForm } from '@/components/account-forms';
@@ -12,7 +14,8 @@ const FAQ = [
 ];
 
 export default async function HelpPage() {
-  await requireUser(['passenger']);
+  const user = await requireUser(['passenger']);
+  const [rides, tickets] = await Promise.all([listPassengerRides(user.id), listSupport(user.id, 'passenger')]);
   return (
     <div className="safe-top space-y-4 px-5 pb-8 text-[#0B1B3B]">
       <h1 className="text-[32px] font-extrabold tracking-[-0.04em]">Help</h1>
@@ -26,7 +29,15 @@ export default async function HelpPage() {
       </ul>
       <section className="rounded-2xl bg-white p-4">
         <h2 className="font-extrabold">Contact support</h2>
-        <SupportForm action={supportAction} />
+        {rides.length ? <SupportForm action={supportAction} rides={rides} /> : <p className="mt-2 text-sm">After you take a ride, you can contact its operator here.</p>}
+      </section>
+      <section className="rounded-2xl bg-white p-4">
+        <h2 className="font-bold">My support conversations</h2>
+        {tickets.length ? <ul className="mt-2 divide-y divide-[#E6EAF2]">{tickets.map((ticket) => <li key={ticket.id}>
+          <Link href={`/help/support/${ticket.id}`} className="block py-3 text-sm text-[#184BDE]">
+            <strong>{ticket.subject}</strong> · {ticket.company ?? 'Support'} · {ticket.status === 'open' ? 'Open' : 'Closed'}
+          </Link>
+        </li>)}</ul> : <p className="mt-2 text-sm">No conversations yet.</p>}
       </section>
       <p className="text-[12px] text-[#8A93A6]">Payments simulated. SMS is not sent.</p>
     </div>

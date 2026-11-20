@@ -42,10 +42,16 @@ export function CompanyForm({ name }: { name: string }) {
   );
 }
 
-export function SupportForm({ action }: { action: (prev: Fail | null, formData: FormData) => Promise<Fail | null> }) {
+export function SupportForm({ action, rides }: { rides: { id: string; fleetNumber: string; whenLabel: string }[]; action: (prev: Fail | null, formData: FormData) => Promise<Fail | null> }) {
   const [state, run, pending] = useActionState(action, null as Fail | null);
   return (
     <form action={run} className="mt-3 space-y-2">
+      <label className="block text-sm font-semibold">Ride
+        <select name="rideId" required defaultValue="" className="mt-1 h-11 w-full rounded-xl border border-[#D5DCE8] px-3">
+          <option value="" disabled>Choose a ride</option>
+          {rides.map((ride) => <option key={ride.id} value={ride.id}>Bus {ride.fleetNumber} · {ride.whenLabel}</option>)}
+        </select>
+      </label>
       <input name="subject" required placeholder="Subject" aria-label="Subject" className="h-11 w-full rounded-xl bg-[#F4F6FB] px-3 text-[#0B1B3B] placeholder:text-[#5C6578]" />
       <textarea name="body" required placeholder="How can we help?" aria-label="Message" className="h-24 w-full rounded-xl bg-[#F4F6FB] px-3 py-2 text-[#0B1B3B] placeholder:text-[#5C6578]" />
       {state?.message?.startsWith('Sent') ? <p className="text-sm text-[#128A4E]">{state.message}</p> : state?.message ? <p className="text-sm text-[#E5484D]">{state.message}</p> : null}

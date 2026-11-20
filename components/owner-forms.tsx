@@ -1,7 +1,8 @@
 'use client';
 
 import { useActionState } from 'react';
-import { assignConductorAction, payoutAction, registerBusAction, registerConductorAction, savePayoutAction, setBusRouteAction, setBusStatusAction, verifyPickupAction } from '@/lib/actions';
+import { assignConductorAction, logOperatorFoundAction, payoutAction, registerBusAction, registerConductorAction, savePayoutAction, setBusRouteAction, setBusStatusAction, verifyPickupAction } from '@/lib/actions';
+import { CONDUCTOR_CATEGORIES, categoryLabel } from '@/lib/categories';
 import { LUSAKA_ROUTES } from '@/lib/lusaka-routes';
 import type { BusPerformance, ConductorOption, Fail } from '@/lib/types';
 import { useState, type ReactNode } from 'react';
@@ -23,21 +24,31 @@ function Sheet({ label, title, children }: { label: string; title: string; child
   );
 }
 
+const registrationField = "h-12 w-full min-w-0 rounded-xl border border-[#AEB9CD] bg-[#F8FAFF] px-3 font-normal text-[#0B1B3B] placeholder:text-[#5C6578] focus-visible:outline-2 focus-visible:outline-[#1F5BFF]";
+
 export function RegisterBusForm({ conductors }: { conductors: ConductorOption[] }) {
   const [state, action, pending] = useActionState(registerBusAction, null as Fail | null);
   return (
     <Sheet label="Add bus" title="Add a bus">
     <form action={action} className="grid gap-3 rounded-2xl bg-white p-4 shadow-[0_8px_24px_rgba(11,27,59,0.06)] md:grid-cols-4">
-      <input name="fleet" inputMode="numeric" placeholder="Fleet number (optional)" aria-label="Fleet number" className="h-14 rounded-2xl bg-white px-4 text-[#0B1B3B] placeholder:text-[#5C6578]" />
-      <input name="plate" required placeholder="Plate, BLZ 44 ZA" aria-label="Plate" className="h-14 rounded-2xl bg-white px-4 text-[#0B1B3B] placeholder:text-[#5C6578]" />
-      <select name="route" aria-label="Route" defaultValue="" className="h-14 rounded-2xl bg-white px-4 text-[#0B1B3B]">
+      <label className="grid min-w-0 gap-1.5 text-sm font-semibold">Fleet number (optional)
+        <input name="fleet" inputMode="numeric" placeholder="Fleet number (optional)" aria-label="Fleet number" className={registrationField} />
+      </label>
+      <label className="grid min-w-0 gap-1.5 text-sm font-semibold">Number plate
+        <input name="plate" required placeholder="Plate, BLZ 44 ZA" aria-label="Plate" className={registrationField} />
+      </label>
+      <label className="grid min-w-0 gap-1.5 text-sm font-semibold">Route
+        <select name="route" aria-label="Route" defaultValue="" className={registrationField}>
         <option value="">No route</option>
         {LUSAKA_ROUTES.map((item) => <option key={item.route} value={item.route}>{item.route.replaceAll(' to ', ' ↔ ')}</option>)}
       </select>
-      <select name="conductorId" aria-label="Assign conductor" className="h-14 min-w-0 rounded-2xl bg-white px-4">
+      </label>
+      <label className="grid min-w-0 gap-1.5 text-sm font-semibold">Conductor
+        <select name="conductorId" aria-label="Assign conductor" className={registrationField}>
         <option value="">Assign conductor later</option>
         {conductors.map((person) => <option key={person.id} value={person.id}>{person.shortName}{person.busFleet ? ` · Bus ${person.busFleet}` : ''}</option>)}
       </select>
+      </label>
       <p className="text-xs text-[#5C6578] md:col-span-4">Leave the fleet number blank to get an available number automatically.</p>
       <button className={`${buttonClass('copper')} md:col-span-4`} disabled={pending}>{pending ? 'Saving…' : 'Register bus'}</button>
       {state?.message ? <p className="text-sm text-[#9A3B1A] md:col-span-4">{state.message}</p> : null}
@@ -51,13 +62,21 @@ export function RegisterConductorForm({ buses }: { buses: BusPerformance[] }) {
   return (
     <Sheet label="Add conductor" title="Add a conductor">
     <form action={action} className="grid gap-3 rounded-2xl bg-white p-4 shadow-[0_8px_24px_rgba(11,27,59,0.06)] md:grid-cols-2">
-      <input name="name" required placeholder="Name" aria-label="Conductor name" className="h-14 rounded-2xl bg-white px-4 text-[#0B1B3B] placeholder:text-[#5C6578]" />
-      <input name="phone" required placeholder="Phone" aria-label="Phone" className="h-14 rounded-2xl bg-white px-4 text-[#0B1B3B] placeholder:text-[#5C6578]" />
-      <input name="pin" required inputMode="numeric" maxLength={4} placeholder="4-digit PIN" aria-label="PIN" className="h-14 rounded-2xl bg-white px-4 text-[#0B1B3B] placeholder:text-[#5C6578]" />
-      <select name="busId" aria-label="Assign bus" className="h-14 rounded-2xl bg-white px-4 text-[#0B1B3B]" defaultValue="">
+      <label className="grid min-w-0 gap-1.5 text-sm font-semibold">Full name
+        <input name="name" required placeholder="Name" aria-label="Conductor name" className={registrationField} />
+      </label>
+      <label className="grid min-w-0 gap-1.5 text-sm font-semibold">Mobile number
+        <input name="phone" type="tel" autoComplete="tel" required placeholder="Phone" aria-label="Phone" className={registrationField} />
+      </label>
+      <label className="grid min-w-0 gap-1.5 text-sm font-semibold">4-digit PIN
+        <input name="pin" type="password" pattern="[0-9]{4}" autoComplete="new-password" required inputMode="numeric" maxLength={4} placeholder="4-digit PIN" aria-label="PIN" className={registrationField} />
+      </label>
+      <label className="grid min-w-0 gap-1.5 text-sm font-semibold">Assigned bus
+        <select name="busId" aria-label="Assign bus" className={registrationField} defaultValue="">
         <option value="">Assign later</option>
         {buses.map((bus) => <option key={bus.id} value={bus.id}>Bus {bus.fleetNumber}</option>)}
       </select>
+      </label>
       <button className={`${buttonClass('copper')} md:col-span-2`} disabled={pending}>{pending ? 'Saving…' : 'Register conductor'}</button>
       {state?.message ? <p className="text-sm text-[#9A3B1A] md:col-span-2">{state.message}</p> : null}
     </form>
@@ -131,7 +150,7 @@ export function PayoutForms({ phone, network, today }: { phone: string; network:
   );
 }
 
-export function PickupClose() {
+export function PickupClose({ items = [] }: { items?: { id: string; category: string; fleetNumber: string; pickupCode: string | null }[] }) {
   const [code, setCode] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -149,14 +168,47 @@ export function PickupClose() {
         setCode('');
       }
     }}>
-      <h2 className="font-semibold">Close a pickup</h2>
-      <p className="mt-1 text-sm text-[#5C6B63]">Ask the passenger for the code on their phone. It is not shown here.</p>
+      <h2 className="font-semibold">Save a return</h2>
+      <p className="mt-1 text-sm text-[#5C6B63]">Select an unclaimed item or enter the code the passenger provides.</p>
+      <select aria-label="Select item to return" value={items.some((item) => item.pickupCode === code) ? code : ''} onChange={(e) => setCode(e.target.value)} className="mt-2 h-11 w-full rounded-xl border border-[#D5DCE8] px-3">
+        <option value="">Choose an item</option>
+        {items.map((item) => <option key={item.id} value={item.pickupCode ?? ''}>Bus {item.fleetNumber} · {item.category} · {item.pickupCode}</option>)}
+      </select>
       <div className="mt-3 flex gap-2">
-        <input value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} maxLength={8} aria-label="Pickup code" className="h-14 min-w-0 flex-1 rounded-2xl bg-white px-4 text-[#0B1B3B] tracking-[0.2em] placeholder:text-[#5C6578]" />
-        <button className="h-12 rounded-xl bg-[#1F5BFF] px-5 font-bold text-white" disabled={pending}>{pending ? '…' : 'Close'}</button>
+        <input value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} maxLength={8} aria-label="Pickup code" className="h-14 min-w-0 flex-1 rounded-2xl border border-[#AEB9CD] bg-white px-4 text-[#0B1B3B] tracking-[0.2em] placeholder:text-[#5C6578]" />
+        <button className="h-12 rounded-xl bg-[#1F5BFF] px-5 font-bold text-white" disabled={pending || code.length < 4}>{pending ? 'Saving…' : 'Save return'}</button>
       </div>
       {message ? <p className="mt-2 text-sm text-[#1F5BFF]">{message}</p> : null}
       {error ? <p className="mt-2 text-sm text-[#9A3B1A]">{error}</p> : null}
+    </form>
+  );
+}
+
+
+export function OperatorLogFound({ buses }: { buses: BusPerformance[] }) {
+  const [result, submit, pending] = useActionState(logOperatorFoundAction, null);
+  return (
+    <form action={submit} className="space-y-3 rounded-2xl bg-white p-4">
+      <h2 className="font-semibold">Log a found item</h2>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="grid gap-1 text-sm font-semibold">Bus
+          <select name="busId" required defaultValue="" className={registrationField}>
+            <option value="">Choose a bus</option>
+            {buses.map((bus) => <option key={bus.id} value={bus.id}>Bus {bus.fleetNumber}</option>)}
+          </select>
+        </label>
+        <label className="grid gap-1 text-sm font-semibold">Category
+          <select name="category" required defaultValue="" className={registrationField}>
+            <option value="">Choose a category</option>
+            {CONDUCTOR_CATEGORIES.map((id) => <option key={id} value={id}>{categoryLabel(id)}</option>)}
+          </select>
+        </label>
+      </div>
+      <label className="grid gap-1 text-sm font-semibold">Description
+        <input name="description" maxLength={280} className={registrationField} />
+      </label>
+      <button className={buttonClass('copper')} disabled={pending || !buses.length}>{pending ? 'Saving…' : 'Save found item'}</button>
+      {result ? <p role={result.ok ? 'status' : 'alert'} className="text-sm">{result.message}</p> : null}
     </form>
   );
 }

@@ -17,7 +17,7 @@ export default async function PayoutsPage() {
   return (
     <div className="space-y-4 px-4 py-5 md:px-6">
       <h1 className="text-[28px] font-semibold">Payouts</h1>
-      <p className="text-sm text-[#5C6B63]">Verified fares collect here. Payouts are simulated until a mobile-money or bank aggregator is connected. Pricing is not decided, so no fee is taken.</p>
+      <p className="text-sm text-[#5C6B63]">Complete fares collect here. Payouts are simulated until a mobile-money or bank aggregator is connected. Pricing is not decided, so no fee is taken.</p>
       <div className="grid gap-3 sm:grid-cols-3">
         <Stat label="Available" value={formatBalance(summary.availableNgwee)} />
         <Stat label="Today" value={formatGrouped(summary.todayNgwee)} />

@@ -26,7 +26,7 @@ export default async function RidesPage({ searchParams }: { searchParams: Promis
   const spent = rides.filter((ride) => ride.status !== 'void').reduce((sum, ride) => sum + ride.amountNgwee, 0);
   const filters = [
     ['', 'All'],
-    ['verified', 'Completed'],
+    ['verified', 'Complete'],
     ['pending', 'Pending'],
   ] as const;
   return (
@@ -48,7 +48,7 @@ export default async function RidesPage({ searchParams }: { searchParams: Promis
               title={<>Bus {ride.fleetNumber}</>}
               meta={`${ride.route} · ${ride.whenLabel}`}
               amount={formatCompact(ride.amountNgwee)}
-              trailing={ride.status === 'verified' ? <Badge>Completed</Badge> : ride.status === 'pending' ? <Badge tone="copper">Pending</Badge> : <Badge tone="muted">Cancelled</Badge>}
+              trailing={ride.status === 'verified' ? <Badge>Complete</Badge> : ride.status === 'pending' ? <Badge tone="copper">Pending</Badge> : <Badge tone="muted">Cancelled</Badge>}
             />
           </Link>
         ))}

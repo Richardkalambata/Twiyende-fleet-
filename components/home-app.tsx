@@ -95,7 +95,7 @@ export function HomeApp({
                     <span className="block truncate text-[14px] font-bold">{ride.route}</span>
                     <span className="mt-0.5 flex items-center gap-2 text-[12px] font-semibold text-[#3E4A63]">
                       {ride.whenLabel}
-                      {ride.status === 'verified' ? <span className="rounded-full bg-[#E8F8EF] px-2 py-0.5 text-[11px] font-bold text-[#0E7A45]">Completed</span> : ride.status === 'pending' ? <span className="rounded-full bg-[#FFF6E8] px-2 py-0.5 text-[11px] font-bold text-[#9A5B00]">Pending</span> : <span className="rounded-full bg-[#F4F6FB] px-2 py-0.5 text-[11px] font-bold text-[#3E4A63]">Cancelled</span>}
+                      {ride.status === 'verified' ? <span className="rounded-full bg-[#E8F8EF] px-2 py-0.5 text-[11px] font-bold text-[#0E7A45]">Complete</span> : ride.status === 'pending' ? <span className="rounded-full bg-[#FFF6E8] px-2 py-0.5 text-[11px] font-bold text-[#9A5B00]">Pending</span> : <span className="rounded-full bg-[#F4F6FB] px-2 py-0.5 text-[11px] font-bold text-[#3E4A63]">Cancelled</span>}
                     </span>
                   </span>
                   <span className="num text-[15px] font-extrabold">{formatBalance(ride.amountNgwee)}</span>

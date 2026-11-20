@@ -206,7 +206,7 @@ export function ShiftBar() {
         <div ref={mini} className="mx-4 mt-3 h-40 overflow-hidden rounded-2xl bg-[#16305C]" />
         <div className="grid grid-cols-2 gap-2 p-4">
           <article className="rounded-2xl bg-white p-3 text-[#0B1B3B]">
-            <p className="flex items-center gap-2 text-[12px] font-semibold text-[#5C6578]"><span className="grid h-7 w-7 place-items-center rounded-full bg-[#E7EEFF] text-[#1F5BFF]"><ShieldCheck className="h-4 w-4" /></span> Fares verified</p>
+            <p className="flex items-center gap-2 text-[12px] font-semibold text-[#5C6578]"><span className="grid h-7 w-7 place-items-center rounded-full bg-[#E7EEFF] text-[#1F5BFF]"><ShieldCheck className="h-4 w-4" /></span> Complete fares</p>
             <p className="mt-2 text-[28px] font-extrabold leading-none">{shift.verified ?? 0}</p>
           </article>
           <article className="rounded-2xl bg-white p-3 text-[#0B1B3B]">

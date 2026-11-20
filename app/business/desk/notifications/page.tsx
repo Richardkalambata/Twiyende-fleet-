@@ -14,8 +14,8 @@ export default async function FleetNotifications() {
       <section className="rounded-2xl bg-white p-4">
         <h2 className="font-bold">Daily fare summary</h2>
         <p className="text-sm">{summary.date} · Zambia time</p>
-        <p className="mt-2 text-xl font-bold">{formatBalance(summary.amount)} · {summary.rides} verified rides</p>
-        <p className="mt-1 text-sm text-[#5C6578]">Yesterday’s verified fares. The summary changes at midnight Zambia time.</p>
+        <p className="mt-2 text-xl font-bold">{formatBalance(summary.amount)} · {summary.rides} complete rides</p>
+        <p className="mt-1 text-sm text-[#5C6578]">Yesterday’s complete fares. The summary changes at midnight Zambia time.</p>
       </section>
       <Link href="/business/desk/lost" className="block rounded-2xl bg-white p-4 font-semibold text-[#184BDE]">
         {open ? `${open} open lost-item reports` : 'No open lost-item reports'} →

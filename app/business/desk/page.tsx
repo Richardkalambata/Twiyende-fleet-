@@ -60,7 +60,7 @@ export default async function FleetPage({ searchParams }: { searchParams: Promis
             <span className="text-[13px] text-[#5C6578]">Total: {formatBalance(dash.totalNgwee)}</span>
           </div>
           <ul className="mt-4 space-y-3">
-            {dash.topConductors.length === 0 ? <li className="text-sm text-[#5C6578]">No verified fares in this period.</li> : null}
+            {dash.topConductors.length === 0 ? <li className="text-sm text-[#5C6578]">No complete fares in this period.</li> : null}
             {dash.topConductors.map((person) => (
               <li key={person.id}>
                 <div className="flex items-center justify-between text-[14px] font-semibold">
@@ -91,7 +91,7 @@ export default async function FleetPage({ searchParams }: { searchParams: Promis
               </span>
               <span className="text-right">
                 <span className="num block text-[15px] font-bold">{formatBalance(ride.amountNgwee)}</span>
-                <span className={`text-[11px] font-bold ${ride.status === 'verified' ? 'text-[#128A4E]' : 'text-[#C47B12]'}`}>{ride.status === 'verified' ? 'Verified' : ride.status === 'pending' ? 'Awaiting' : 'Cancelled'}</span>
+                <span className={`text-[11px] font-bold ${ride.status === 'verified' ? 'text-[#128A4E]' : 'text-[#C47B12]'}`}>{ride.status === 'verified' ? 'Complete' : ride.status === 'pending' ? 'Pending' : 'Cancelled'}</span>
               </span>
             </li>
           ))}
@@ -116,7 +116,7 @@ export default async function FleetPage({ searchParams }: { searchParams: Promis
                   <td>Bus {ride.fleetNumber}</td>
                   <td>{ride.conductor || '—'}</td>
                   <td className="num font-semibold">{formatBalance(ride.amountNgwee)}</td>
-                  <td className="px-4">{ride.status === 'verified' ? <span className="font-semibold text-[#128A4E]">Verified</span> : ride.status === 'pending' ? <span className="font-semibold text-[#C47B12]">Awaiting</span> : <span>Cancelled</span>}</td>
+                  <td className="px-4">{ride.status === 'verified' ? <span className="font-semibold text-[#128A4E]">Complete</span> : ride.status === 'pending' ? <span className="font-semibold text-[#C47B12]">Pending</span> : <span>Cancelled</span>}</td>
                 </tr>
               ))}
             </tbody>

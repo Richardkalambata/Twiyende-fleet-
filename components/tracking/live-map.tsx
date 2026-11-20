@@ -640,7 +640,7 @@ export function LiveMap({ mode, paidRide }: { mode: 'rider' | 'operator'; paidRi
   const visible = data.buses.filter((item) => route === 'all' || item.route === route);
   const onShift = data.buses.filter((item) => item.onShift && !item.stale).length;
   const idle = data.buses.filter((item) => !item.onShift && !item.stale).length;
-  const stale = data.buses.filter((item) => item.stale).length;
+  const stale = data.buses.filter((item) => item.stale && item.recordedAt).length;
 
   function placeFor(item: LiveBus): string {
     if (!item.recordedAt) return 'No position yet';
@@ -799,8 +799,8 @@ export function LiveMap({ mode, paidRide }: { mode: 'rider' | 'operator'; paidRi
       ) : (
         <div className="absolute left-3 top-3 z-10 flex gap-3 rounded-2xl bg-white px-3 py-2 text-[12px] font-bold text-[#0B1B3B] shadow-[0_8px_24px_rgba(11,27,59,0.1)]">
           <span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-[#12B76A]" /> On shift <span className="text-[#5C6578]">{onShift}</span></span>
-          <span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-[#8A93A6]" /> Idle <span className="text-[#5C6578]">{idle}</span></span>
-          <span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-[#E8A317]" /> Stale <span className="text-[#5C6578]">{stale}</span></span>
+          <span title="No active shift" className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-[#8A93A6]" /> Idle <span className="text-[#5C6578]">{idle}</span></span>
+          <span title="Last GPS update is no longer live" className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-[#E8A317]" /> Stale <span className="text-[#5C6578]">{stale}</span></span>
         </div>
       )}
       {mode === 'operator' ? <div className="absolute left-3 right-3 top-[60px] z-10 flex gap-2 overflow-x-auto md:right-[360px]">
@@ -821,7 +821,7 @@ export function LiveMap({ mode, paidRide }: { mode: 'rider' | 'operator'; paidRi
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#1F5BFF] text-[12px] font-extrabold text-white">{item.fleet}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-[15px] font-extrabold">Bus {item.fleet}{item.ownFleet ? ' · Your fleet' : ''}</span>
-                    <span className={`text-[12px] font-bold ${item.stale ? 'text-[#C47B12]' : item.onShift ? 'text-[#0E7A45]' : 'text-[#5C6578]'}`}>{item.conductor ? `${item.conductor} · ` : ''}{item.stale ? 'Stale' : item.onShift ? 'On shift' : 'Idle'}</span>
+                    <span className={`text-[12px] font-bold ${item.stale ? 'text-[#C47B12]' : item.onShift ? 'text-[#0E7A45]' : 'text-[#5C6578]'}`}>{item.conductor ? `${item.conductor} · ` : ''}{!item.recordedAt ? 'No location' : item.stale ? 'Stale' : item.onShift ? 'On shift' : 'Idle'}</span>
                     <span className="mt-0.5 block truncate text-[12px] font-semibold text-[#3E4A63]">{placeFor(item)}</span>
                   </span>
                   <span className="text-right text-[12px] font-semibold text-[#5C6578]">

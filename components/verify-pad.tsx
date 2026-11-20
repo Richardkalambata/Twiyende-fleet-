@@ -83,7 +83,7 @@ export function VerifyPad({
         </div>
         <div className="mt-8 text-center">
           <span className="check-pop mx-auto grid h-16 w-16 place-items-center rounded-full bg-[#12B76A] text-white"><Check className="h-8 w-8" strokeWidth={2.5} /></span>
-          <p className="mt-4 text-[15px] text-[#5C6578]">Fare verified</p>
+          <p className="mt-4 text-[15px] text-[#5C6578]">Fare complete</p>
           <p className="num text-[40px] font-extrabold tracking-[-0.04em]">{formatBalance(paid.amountNgwee)}</p>
           <p className="text-[16px] font-semibold">{paid.passenger}</p>
           <div className="mx-auto mt-4 grid max-w-[240px] grid-cols-3 gap-2 text-[12px] text-[#5C6578]">

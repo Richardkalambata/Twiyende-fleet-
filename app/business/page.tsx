@@ -12,7 +12,7 @@ const FLOW = [
   { title: 'Add buses', body: 'Fleet number, plate, route, and the default fare.' },
   { title: 'Add conductors', body: 'You create the phone number and PIN. They do not sign themselves up.' },
   { title: 'Assign the day', body: 'One conductor on one bus. That is the only bus their codes will verify.' },
-  { title: 'Watch fares come in', body: 'Verified tickets show on the desk as they happen.' },
+  { title: 'Watch fares come in', body: 'Complete fares show on the desk as they happen.' },
 ];
 
 const FAQ = [
@@ -58,7 +58,7 @@ export default function BusinessHome() {
             </div>
           </div>
         </div>
-        <p className="parallax-glass card-rise glass absolute bottom-[24%] right-[14%] hidden rounded-2xl px-4 py-3 text-[14px] font-semibold text-white md:block">✓ Fare verified · Bus 12 · K5.00</p>
+        <p className="parallax-glass card-rise glass absolute bottom-[24%] right-[14%] hidden rounded-2xl px-4 py-3 text-[14px] font-semibold text-white md:block">✓ Fare complete · Bus 12 · K5.00</p>
       </section>
 
       <section className="py-20 md:py-32">

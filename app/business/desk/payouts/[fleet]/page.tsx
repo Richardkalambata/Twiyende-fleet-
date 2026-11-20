@@ -18,7 +18,7 @@ export default async function BusDayPage({ params }: { params: Promise<{ fleet: 
     <div className="space-y-4 px-4 py-5 text-[#0B1B3B] md:px-6">
       <Link href="/business/desk/payouts" className="text-sm font-semibold text-[#1F5BFF]">Payouts</Link>
       <h1 className="text-[28px] font-extrabold tracking-[-0.03em]">Bus {fleet} · today</h1>
-      <p className="text-[14px] text-[#5C6578]">{rides.length} verified fares · {formatBalance(total)}</p>
+      <p className="text-[14px] text-[#5C6578]">{rides.length} complete fares · {formatBalance(total)}</p>
       <ul className="divide-y divide-[#E6EAF2] rounded-2xl bg-white">
         {rides.map((ride) => (
           <li key={ride.code} className="flex items-center justify-between px-4 py-3 text-sm">
@@ -26,7 +26,7 @@ export default async function BusDayPage({ params }: { params: Promise<{ fleet: 
             <span className="font-bold">{formatBalance(ride.amountNgwee)}</span>
           </li>
         ))}
-        {rides.length === 0 ? <li className="px-4 py-6 text-sm text-[#5C6578]">No verified fares for this bus today.</li> : null}
+        {rides.length === 0 ? <li className="px-4 py-6 text-sm text-[#5C6578]">No complete fares for this bus today.</li> : null}
       </ul>
       <form action={settleAction} className="rounded-2xl bg-white p-4">
         <input type="hidden" name="fleet" value={fleet} />

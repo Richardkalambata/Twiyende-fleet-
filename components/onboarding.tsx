@@ -9,7 +9,7 @@ import { Faq, Reveal, StickyBar } from '@/components/marketing/ui';
 const FAQ = [
   { q: 'How do I pay a fare?', a: 'Top up your wallet, enter the bus number, choose the fare, and show the code on your ticket.' },
   { q: 'How long is a code valid?', a: 'Three hours, and only on the bus you paid for. A code works once.' },
-  { q: 'What if I board the wrong bus?', a: 'Cancel the fare from the ticket before it is verified. The amount returns to your wallet.' },
+  { q: 'What if I board the wrong bus?', a: 'Cancel the fare from the ticket before the conductor confirms it. The amount returns to your wallet.' },
   { q: 'I left something on the bus.', a: 'Open Lost & found, pick the trip, and describe the item. You get a pickup code when it is found.' },
   { q: 'Which networks can I top up with?', a: 'MTN, Airtel, or Zamtel. The wallet updates in the app. This version does not send a live mobile-money charge.' },
 ];
@@ -55,7 +55,7 @@ export function Onboarding() {
             </div>
           </div>
         </div>
-        <p className="parallax-glass card-rise glass absolute bottom-[22%] right-[12%] hidden rounded-2xl px-4 py-3 text-[14px] font-semibold text-white md:block">✓ Fare verified · Bus 12 · K5.00</p>
+        <p className="parallax-glass card-rise glass absolute bottom-[22%] right-[12%] hidden rounded-2xl px-4 py-3 text-[14px] font-semibold text-white md:block">✓ Fare complete · Bus 12 · K5.00</p>
       </section>
 
       <section className="mx-auto grid max-w-[1200px] items-center gap-8 px-5 py-20 md:grid-cols-12 md:gap-16 md:px-8 md:py-32">
@@ -103,7 +103,7 @@ export function Onboarding() {
           <Reveal><h2 className="text-[32px] md:text-[48px]">What you carry</h2></Reveal>
           <div className="mt-8 grid gap-4 md:grid-cols-4">
             <Reveal className="md:col-span-2"><article className="h-full rounded-[24px] bg-[#0B1B3B] p-8 text-white"><p className="text-[13px] font-bold uppercase tracking-[0.14em] text-[#8FB0FF]">Live ticket</p><p className="mt-6 text-[40px] font-extrabold tracking-[0.14em]">EXJP</p><p className="mt-4 text-[16px] leading-[1.6] text-[#D5DCEC]">The code stays on screen until the conductor verifies it.</p></article></Reveal>
-            <Reveal delay={80} className="md:col-span-2"><article className="h-full rounded-[24px] bg-[#F4F6FB] p-8"><p className="text-[13px] font-bold uppercase tracking-[0.14em] text-[#1F5BFF]">Receipts</p><h3 className="mt-4 text-[22px]">Every ride, kept</h3><p className="mt-3 text-[16px] leading-[1.6] text-[#3E4A63]">Bus, route, time, and whether the fare was verified.</p></article></Reveal>
+            <Reveal delay={80} className="md:col-span-2"><article className="h-full rounded-[24px] bg-[#F4F6FB] p-8"><p className="text-[13px] font-bold uppercase tracking-[0.14em] text-[#1F5BFF]">Receipts</p><h3 className="mt-4 text-[22px]">Every ride, kept</h3><p className="mt-3 text-[16px] leading-[1.6] text-[#3E4A63]">Bus, route, time, and whether the fare is complete.</p></article></Reveal>
             <Reveal delay={120}><article className="h-full rounded-[24px] bg-[#F4F6FB] p-8"><h3 className="text-[22px]">Lost & found</h3><p className="mt-3 text-[16px] leading-[1.6] text-[#3E4A63]">Report an item from a trip you paid for and follow it to pickup.</p></article></Reveal>
             <Reveal delay={160} className="md:col-span-3"><article className="rounded-[24px] bg-[#F4F6FB] p-8"><h3 className="text-[22px]">Top up</h3><div className="mt-4 flex flex-wrap gap-2">{['MTN', 'Airtel', 'Zamtel'].map((name) => <span key={name} className="rounded-full bg-white px-3 py-1 text-[13px] font-bold">{name}</span>)}</div></article></Reveal>
           </div>
