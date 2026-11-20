@@ -4,46 +4,63 @@ import Link from 'next/link';
 import { useActionState, useEffect, useState } from 'react';
 import { demoLoginAction, loginAction } from '@/lib/actions';
 import { formatPhone } from '@/lib/phone';
-import type { DemoAccount, Fail } from '@/lib/types';
+import type { DemoAccount } from '@/lib/types';
 import { Logo } from './shell';
 import { toast } from './toast';
 
-export function LoginForm({ accounts, error, gate = 'passenger' }: { accounts: DemoAccount[]; error?: string; gate?: 'passenger' | 'operator' | 'conductor' | 'business' }) {
+export function LoginForm({ accounts, error, gate = 'passenger', operatorSmsRequired = false }: { accounts: DemoAccount[]; error?: string; operatorSmsRequired?: boolean; gate?: 'passenger' | 'operator' | 'conductor' | 'business' }) {
   const resolved = gate === 'business' ? 'operator' : gate;
-  const [state, action, pending] = useActionState(loginAction, null as Fail | null);
-  const [phone, setPhone] = useState(resolved === 'operator' ? '0977000001' : resolved === 'conductor' ? '0962000012' : '0971000001');
+  const [state, action, pending] = useActionState(loginAction, null);
+  const [phone, setPhone] = useState('');
   const [pin, setPin] = useState('');
+  const [legacy, setLegacy] = useState(false);
+  const pinLength = legacy ? 4 : 6;
   const message = state?.message ?? error;
   useEffect(() => { if (message) toast(message); }, [message]);
 
 
   const title = resolved === 'operator' ? 'Operator sign in' : resolved === 'conductor' ? 'Conductor sign in' : 'Welcome back.';
   const subtitle = resolved === 'operator'
-    ? 'Sign in to your company, or create one.'
+    ? (operatorSmsRequired ? 'Enter your PIN, then verify the code sent to your phone.' : 'Sign in with your phone number and six-digit PIN.')
     : resolved === 'conductor'
       ? 'Use the phone number and PIN your operator gave you.'
       : 'Your next ride starts here.';
 
   return (
-    <div className="flex min-h-dvh flex-col bg-[#F4F6FB] px-5 pb-6 text-[#0B1B3B]">
+    <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col md:px-12 lg:max-w-2xl lg:px-20 bg-[#F4F6FB] px-5 pb-6 text-[#0B1B3B]">
       <div className="safe-top"><Logo business={resolved !== 'passenger'} /></div>
       <h1 className="mt-6 text-[clamp(26px,7vw,32px)] font-extrabold tracking-[-0.04em]">{title}</h1>
       <p className="mt-1 text-[15px] leading-5 text-[#5C6578]">{subtitle}</p>
-      <form action={action} className="mt-6">
+      {state?.ok ? (
+        <form action={action} className="mt-6 space-y-4">
+          <p>Enter the six-digit code sent to your registered mobile number.</p>
+          <label className="block">Verification code
+            <input name="code" className="field mt-2" inputMode="numeric" autoComplete="one-time-code" maxLength={6} pattern="[0-9]{6}" required />
+          </label>
+          {message && <p role="alert">{message}</p>}
+          <button disabled={pending} className="h-12 w-full rounded-xl bg-[#1F5BFF] font-bold text-white">Verify and sign in</button>
+          <button type="button" onClick={() => window.location.reload()} className="font-semibold text-[#1F5BFF]">Restart sign-in</button>
+        </form>
+      ) : <form action={action} className="mt-6">
         <label className="block text-[13px] font-medium text-[#5C6578]">
           Phone number
-          <input name="phone" value={phone} onChange={(event) => setPhone(event.target.value)} inputMode="tel" className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[18px] font-semibold text-[#0B1B3B] outline-none placeholder:text-[#5C6578] focus:border-[#1F5BFF]" />
+          <input name="phone" value={phone} onChange={(event) => setPhone(event.target.value)} inputMode="tel" autoComplete="username" required className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[18px] font-semibold text-[#0B1B3B] outline-none placeholder:text-[#5C6578] focus:border-[#1F5BFF]" />
         </label>
         <label className="mt-5 block text-[13px] font-medium text-[#5C6578]">
-          4-digit PIN
-          <input name="pin" type="password" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" autoComplete="current-password" maxLength={4} pattern="[0-9]{4}" required className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[20px] font-semibold tracking-[0.4em] text-[#0B1B3B] outline-none focus:border-[#1F5BFF]" />
+          {legacy ? 'Old four-digit PIN' : 'Six-digit PIN'}
+          <input name="pin" type="password" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, '').slice(0, pinLength))} inputMode="numeric" autoComplete="current-password" maxLength={pinLength} pattern={`[0-9]{${pinLength}}`} required className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[20px] font-semibold tracking-[0.4em] text-[#0B1B3B] outline-none focus:border-[#1F5BFF]" />
         </label>
+        {legacy && <label className="mt-4 block">New six-digit PIN
+          <input name="nextPin" type="password" className="field mt-2" inputMode="numeric" autoComplete="new-password" maxLength={6} pattern="[0-9]{6}" required />
+        </label>}
+        <input type="hidden" name="legacy" value={legacy ? 'yes' : 'no'} />
+        <button type="button" className="mt-3 text-sm font-semibold text-[#1F5BFF]" onClick={() => { setLegacy(!legacy); setPin(''); }}>{legacy ? 'Use my six-digit PIN' : 'Upgrade my old four-digit PIN'}</button>
         <input type="hidden" name="gate" value={resolved} />
         {message ? <p className="mt-3 text-sm text-[#E5484D]" role="alert">{message}</p> : null}
-        <button className="mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-[#1F5BFF] text-[15px] font-bold text-white disabled:opacity-50" disabled={pending || pin.length !== 4}>
+        <button className="mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-[#1F5BFF] text-[15px] font-bold text-white disabled:opacity-50" disabled={pending || pin.length !== pinLength}>
           {pending ? 'Signing in…' : 'Log in'}
         </button>
-      </form>
+      </form>}
       <div className="mt-4 space-y-2 text-center text-[13px] font-semibold">
         {resolved === 'passenger' ? <Link href="/business/login" className="block text-[#1F5BFF]">Operator sign in</Link> : null}
         {resolved === 'passenger' ? <Link href="/business/conductor/login" className="block text-[#5C6578]">Conductor sign in</Link> : null}
@@ -60,7 +77,7 @@ export function LoginForm({ accounts, error, gate = 'passenger' }: { accounts: D
           </>
         ) : null}
       </div>
-      {accounts.length > 0 ? (
+      {!state?.ok && accounts.length > 0 ? (
         <div className="mt-4 space-y-2">
           {accounts.slice(0, 3).map((account) => (
             <form key={account.id} action={demoLoginAction}>

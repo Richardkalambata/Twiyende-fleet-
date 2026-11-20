@@ -20,8 +20,8 @@ export function ProfileForms({ name, mode = 'both' }: { name: string; mode?: 'bo
       {mode !== 'name' ? (
         <form action={savePin} className="rounded-2xl bg-white p-4">
           <h2 className="font-bold">Change PIN</h2>
-          <input name="current" inputMode="numeric" maxLength={4} placeholder="Current PIN" aria-label="Current PIN" className="mt-2 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[16px] text-[#0B1B3B] outline-none placeholder:text-[#5C6578]" />
-          <input name="next" inputMode="numeric" maxLength={4} placeholder="New 4-digit PIN" aria-label="New PIN" className="mt-2 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[16px] text-[#0B1B3B] outline-none placeholder:text-[#5C6578]" />
+          <input name="current" type="password" autoComplete="current-password" inputMode="numeric" maxLength={6} placeholder="Current PIN" aria-label="Current PIN" className="mt-2 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[16px] text-[#0B1B3B] outline-none placeholder:text-[#5C6578]" />
+          <input name="next" type="password" autoComplete="new-password" pattern="[0-9]{6}" inputMode="numeric" maxLength={6} placeholder="New 6-digit PIN" aria-label="New PIN" className="mt-2 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[16px] text-[#0B1B3B] outline-none placeholder:text-[#5C6578]" />
           {pin?.message ? <p className="mt-2 text-sm text-[#E5484D]">{pin.message}</p> : null}
           <button className="press mt-3 h-11 rounded-xl bg-[#0B1B3B] px-4 font-bold text-white" disabled={pinning}>{pinning ? 'Saving…' : 'Update PIN'}</button>
         </form>

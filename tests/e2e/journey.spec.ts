@@ -5,8 +5,8 @@ test('rider pays, conductor verifies, operator sees the fare', async ({ page }) 
   await page.goto('/signup');
   await page.getByLabel('Name').fill('Test Rider');
   await page.getByLabel('Phone').fill(phone);
-  await page.getByLabel('4-digit PIN').fill('2468');
-  await page.getByLabel('Confirm PIN').fill('2468');
+  await page.getByLabel('6-digit PIN').fill('246810');
+  await page.getByLabel('Confirm PIN').fill('246810');
   await page.getByLabel('I agree to the terms').check();
   await page.getByRole('button', { name: 'Create account' }).click();
   await page.waitForURL('**/home');

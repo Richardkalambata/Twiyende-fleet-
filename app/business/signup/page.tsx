@@ -16,7 +16,7 @@ export default function BusinessSignup() {
         <Field name="name" label="Your name" />
         <Field name="company" label="Company" />
         <Field name="phone" label="Phone" />
-        <Field name="pin" label="4-digit PIN" />
+        <Field name="pin" label="6-digit PIN" />
         <label className="block text-sm font-medium">
           Payout network
           <select name="network" className="field mt-1.5" defaultValue="mtn">
@@ -37,7 +37,7 @@ function Field({ name, label }: { name: string; label: string }) {
   return (
     <label className="block text-sm font-medium">
       {label}
-      <input name={name} className="field mt-1.5" />
+      <input name={name} required type={name === 'pin' ? 'password' : name === 'phone' ? 'tel' : 'text'} inputMode={name === 'pin' ? 'numeric' : undefined} maxLength={name === 'pin' ? 6 : undefined} pattern={name === 'pin' ? '[0-9]{6}' : undefined} className="field mt-1.5" />
     </label>
   );
 }

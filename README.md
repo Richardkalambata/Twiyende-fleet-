@@ -67,7 +67,7 @@ Set `DATABASE_URL` to the Neon pooled URL and `DATABASE_URL_UNPOOLED` to the dir
 
 ## Demo accounts
 
-Every demo PIN is **1234**. The sign-in screen can also open these accounts in one tap. Set `DEMO_ROLE_SWITCHER=0` before any real deployment to turn that off.
+Every demo PIN is **123456**. The sign-in screen can also open these accounts in one tap. One-tap access requires `DEMO_ROLE_SWITCHER=1`. Enable it only on an isolated demo database.
 
 | Role | Name | Phone | Notes |
 | --- | --- | --- | --- |
@@ -85,7 +85,7 @@ The rider profile only lists other riders. Business settings lists the operator 
 
 1. Open `/` and walk through onboarding, or go to `/login` and sign in as **Richard** (passenger). Home shows K120, bus 12 and a fare of K5.
 2. Enter bus **12**, leave the fare at **5**, and tap **Pay K5**. The receipt shows a 4-character code and the new balance, K115.
-3. Open `/business/login` and sign in as **Mwila** (phone 0962 000 012, PIN 1234). Mwila is assigned to bus 12 today.
+3. Open `/business/login` and sign in as **Mwila** (phone 0962 000 012, PIN 123456). Mwila is assigned to bus 12 today.
 4. On **Verify**, type the code and tap **Verify**. The fare shows as paid and the code is now used. Entering it again says it was already used. A code for bus 12 is rejected on Chanda’s bus 15.
 5. Sign in as **Richard Kalambata** at `/business/login`. Overview totals include the new fare. **Assignments** shows who is on which bus today. **Buses** and **Conductors** can register a new fleet number and a conductor.
 
@@ -107,3 +107,8 @@ Fares move from the passenger wallet to the owner’s verified takings. Tips mov
 ## Reset
 
 **Settings → Reset demo data** on the operator account restores the sample fleet, Richard’s K120, today’s assignments, and the lost-and-found queue. The dataset also rebuilds itself when the Lusaka date changes, so “today” stays populated.
+
+
+### Operator sign-in verification
+
+Operators sign in with their six-digit PIN while `OPERATOR_SMS_REQUIRED=0` (the default). To enable SMS verification, set `OPERATOR_SMS_REQUIRED=1` and configure `TWILIO_VERIFY_SERVICE_SID`, `TWILIO_API_KEY`, and `TWILIO_API_SECRET` on the server. Configure the Verify service for six-digit SMS codes and allow Zambia destinations. Existing operator sessions require a fresh sign-in. Users with four-digit PINs can select **Upgrade my old four-digit PIN** at sign-in. When SMS is enabled, operators complete the PIN upgrade after verifying the code.

@@ -71,7 +71,7 @@ export default async function LostDetailPage({ params }: { params: Promise<{ id:
                 <span className="block text-sm text-[#6A756E]">{item.pickupUntilLabel}</span>
               </span>
             </Link>
-            {item.smsSent ? <p className="text-center text-xs text-[#6A756E]">Pickup code queued by SMS to your phone.</p> : null}
+            {item.smsSent ? <p className="text-center text-xs text-[#6A756E]">Demo SMS recorded. Your pickup code is shown here.</p> : null}
             <FoundActions
               itemId={item.id}
               tipNgwee={item.tipNgwee}

@@ -18,6 +18,8 @@ TRUNCATE TABLE
   notifications,
   support_messages,
   support_tickets,
+  operator_verifications,
+  login_limits,
   sessions,
   wallets,
   buses,
@@ -51,6 +53,22 @@ CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users (id),
   expires_at BIGINT NOT NULL
+);
+
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS operator_verified BOOLEAN NOT NULL DEFAULT FALSE;
+CREATE TABLE IF NOT EXISTS login_limits (
+  key TEXT PRIMARY KEY,
+  attempts INTEGER NOT NULL,
+  expires_at BIGINT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS operator_verifications (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  provider_sid TEXT NOT NULL,
+  pin_hash TEXT NOT NULL,
+  next_hash TEXT,
+  expires_at BIGINT NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS buses (

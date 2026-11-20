@@ -12,9 +12,9 @@ export function PhoneShell({
   const navy = tone === 'navy';
   return (
     <div className={navy ? 'min-h-dvh bg-[#071433] text-white' : 'min-h-dvh bg-[#E8EDF5] text-[#0B1B3B]'}>
-      <div className={`mx-auto flex h-dvh w-full max-w-[430px] flex-col ${nav ? 'sm:max-w-none lg:my-0 lg:h-dvh lg:max-w-none lg:flex-row lg:rounded-none lg:shadow-none' : 'lg:max-w-[680px]'} ${navy ? 'bg-[#071433] text-white' : 'bg-[#F4F6FB] text-[#0B1B3B]'} md:my-4 md:h-[calc(100dvh-2rem)] md:overflow-hidden md:rounded-[28px] md:shadow-[0_24px_60px_rgba(11,27,59,0.12)] print:!m-0 print:!h-auto print:!max-w-none print:!overflow-visible print:!shadow-none`}>
+      <div data-workspace={nav ? "true" : undefined} className={`mx-auto flex h-dvh w-full max-w-[430px] flex-col ${nav ? 'sm:max-w-none lg:my-0 lg:h-dvh lg:max-w-none lg:flex-row lg:rounded-none lg:shadow-none' : 'lg:max-w-[680px]'} ${navy ? 'bg-[#071433] text-white' : 'bg-[#F4F6FB] text-[#0B1B3B]'} md:my-4 md:h-[calc(100dvh-2rem)] md:overflow-hidden md:rounded-[28px] md:shadow-[0_24px_60px_rgba(11,27,59,0.12)] print:!m-0 print:!h-auto print:!max-w-none print:!overflow-visible print:!shadow-none`}>
         <div id="main" className="min-h-0 min-w-0 flex-1 overflow-y-auto print:overflow-visible">{children}</div>
-        {nav ? <div className="shrink-0 print:hidden lg:order-first lg:w-56 lg:border-r lg:border-[#E4E8F0] lg:bg-[#0B1B3B]">{nav}</div> : null}
+        {nav ? <div className="shrink-0 print:hidden md:order-first lg:order-first lg:w-56 lg:border-r lg:border-[#E4E8F0] lg:bg-[#0B1B3B]">{nav}</div> : null}
       </div>
     </div>
   );

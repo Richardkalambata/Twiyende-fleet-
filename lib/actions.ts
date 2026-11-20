@@ -39,14 +39,33 @@ import {
   saveConductorPayoutDestination,
   markNotificationRead,
 } from './service';
+import { beginOperatorVerification, completeOperatorVerification } from './operator-verification';
+import { getDb } from './db';
+import { requiresOperatorSms } from './operator-sms-policy';
+import { hashPin } from './pin';
 import type { Fail } from './types';
 
 function refresh() {
   revalidatePath('/', 'layout');
 }
 
-export async function loginAction(_prev: Fail | null, formData: FormData): Promise<Fail | null> {
-  const result = await authenticate(String(formData.get('phone') ?? ''), String(formData.get('pin') ?? ''));
+type LoginState = Fail | { ok: true; step: 'sms'; message?: string } | null;
+
+export async function loginAction(previous: LoginState, formData: FormData): Promise<LoginState> {
+  if (previous?.ok && previous.step === 'sms') {
+    if (!requiresOperatorSms()) return { ok: false, message: 'Restart sign-in to continue with your PIN.' };
+    const userId = await completeOperatorVerification(String(formData.get('code') ?? ''));
+    if (!userId) return { ok: true, step: 'sms', message: 'That code could not be verified. Try again or restart sign-in.' };
+    await createSession(userId, true);
+    redirect('/business/desk');
+  }
+  const pin = String(formData.get('pin') ?? '');
+  const legacy = formData.get('legacy') === 'yes';
+  const nextPin = String(formData.get('nextPin') ?? '');
+  if (legacy && (!/^\d{4}$/.test(pin) || !/^\d{6}$/.test(nextPin))) {
+    return { ok: false, message: 'Enter your old PIN and a new six-digit PIN.' };
+  }
+  const result = await authenticate(String(formData.get('phone') ?? ''), pin, legacy);
   if (!result.ok) return result;
   const gate = String(formData.get('gate') ?? 'passenger');
   if (gate === 'passenger' && result.user.role !== 'passenger') {
@@ -70,6 +89,16 @@ export async function loginAction(_prev: Fail | null, formData: FormData): Promi
   }
   if (gate === 'business' && result.user.role !== 'operator') {
     return { ok: false, message: 'Passengers and conductors use their own sign-in.' };
+  }
+  const nextHash = legacy ? hashPin(nextPin) : null;
+  if (result.user.role === 'operator' && requiresOperatorSms()) {
+    const sent = await beginOperatorVerification(result.user.id, result.user.phone, result.pinHash, nextHash);
+    if (!sent) return { ok: false, message: 'We could not send a code. Wait a minute and try again.' };
+    return { ok: true, step: 'sms' };
+  }
+  if (nextHash) {
+    const updated = await (await getDb()).get('UPDATE users SET pin_hash = ? WHERE id = ? AND pin_hash = ? RETURNING id', nextHash, result.user.id, result.pinHash);
+    if (!updated) return { ok: false, message: 'Your PIN has changed. Sign in again.' };
   }
   await destroySession();
   await createSession(result.user.id);
@@ -214,10 +243,12 @@ export async function registerConductorAction(_prev: Fail | null, formData: Form
   redirect('/business/desk/conductors');
 }
 
-export async function setBusRouteAction(formData: FormData) {
+export async function setBusRouteAction(_previous: Fail | { ok: true; message: string } | null, formData: FormData) {
   const user = await requireUser(['operator']);
-  await setBusRoute(user.id, String(formData.get('busId') ?? ''), String(formData.get('route') ?? ''));
+  const result = await setBusRoute(user.id, String(formData.get('busId') ?? ''), String(formData.get('route') ?? ''));
+  if (!result.ok) return result;
   refresh();
+  return { ok: true as const, message: 'Route saved.' };
 }
 
 export async function setBusStatusAction(formData: FormData) {
@@ -284,8 +315,7 @@ export async function signupOperatorAction(_prev: Fail | null, formData: FormDat
     network: String(formData.get('network') ?? 'mtn'),
   });
   if (!result.ok) return result;
-  await createSession(result.id);
-  redirect('/business/desk');
+  redirect('/business/login');
 }
 
 export async function assignShiftAction(formData: FormData) {

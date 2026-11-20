@@ -68,8 +68,8 @@ export function RegisterConductorForm({ buses }: { buses: BusPerformance[] }) {
       <label className="grid min-w-0 gap-1.5 text-sm font-semibold">Mobile number
         <input name="phone" type="tel" autoComplete="tel" required placeholder="Phone" aria-label="Phone" className={registrationField} />
       </label>
-      <label className="grid min-w-0 gap-1.5 text-sm font-semibold">4-digit PIN
-        <input name="pin" type="password" pattern="[0-9]{4}" autoComplete="new-password" required inputMode="numeric" maxLength={4} placeholder="4-digit PIN" aria-label="PIN" className={registrationField} />
+      <label className="grid min-w-0 gap-1.5 text-sm font-semibold">6-digit PIN
+        <input name="pin" type="password" pattern="[0-9]{6}" autoComplete="new-password" required inputMode="numeric" maxLength={6} placeholder="6-digit PIN" aria-label="PIN" className={registrationField} />
       </label>
       <label className="grid min-w-0 gap-1.5 text-sm font-semibold">Assigned bus
         <select name="busId" aria-label="Assign bus" className={registrationField} defaultValue="">
@@ -85,6 +85,7 @@ export function RegisterConductorForm({ buses }: { buses: BusPerformance[] }) {
 }
 
 export function BusControls({ bus, conductors }: { bus: BusPerformance; conductors: ConductorOption[] }) {
+  const [routeResult, saveRoute, savingRoute] = useActionState(setBusRouteAction, null);
   return (
     <div className="flex flex-wrap items-center gap-2">
       <form action={setBusStatusAction}>
@@ -92,16 +93,17 @@ export function BusControls({ bus, conductors }: { bus: BusPerformance; conducto
         <input type="hidden" name="status" value={bus.status === 'active' ? 'offline' : 'active'} />
         <button className="h-10 rounded-full border border-[#E4E8F0] bg-[#F1F4FA] px-3 text-sm text-[#0B1B3B]">{bus.status === 'active' ? 'Take offline' : 'Mark active'}</button>
       </form>
-      <form action={setBusRouteAction} className="flex items-center gap-2">
+      <form action={saveRoute} className="flex items-center gap-2">
         <input type="hidden" name="busId" value={bus.id} />
-        <select name="route" defaultValue={bus.route ?? ''} aria-label={`Route for bus ${bus.fleetNumber}`} className="h-10 max-w-[180px] rounded-full bg-white px-3 text-sm text-[#0B1B3B]">
+        <select name="route" defaultValue={bus.route ?? ''} aria-label={`Route for bus ${bus.fleetNumber}`} className="h-10 min-w-0 max-w-[180px] rounded-full bg-white px-3 text-sm text-[#0B1B3B]">
           <option value="">No route</option>
           {[...new Set([bus.route, ...LUSAKA_ROUTES.map((item) => item.route)].filter((item): item is string => Boolean(item)))].map((name) => (
             <option key={name} value={name}>{name.replaceAll(' to ', ' ↔ ')}</option>
           ))}
         </select>
-        <button className="h-10 rounded-xl bg-[#1F5BFF] px-3 text-sm font-bold text-white">Save route</button>
+        <button disabled={savingRoute} className="h-10 shrink-0 rounded-xl bg-[#1F5BFF] px-3 text-sm font-bold text-white">{savingRoute ? "Saving…" : "Save route"}</button>
       </form>
+      {routeResult && <p className="basis-full text-sm" role={routeResult.ok ? "status" : "alert"}>{routeResult.message}</p>}
       <ConductorAssignmentForm bus={bus} conductors={conductors} />
     </div>
   );

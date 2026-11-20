@@ -93,7 +93,6 @@ class UserError extends Error {
   }
 }
 
-const loginFailures = new Map<string, { count: number; until: number }>();
 
 function asFail(error: unknown): Fail {
   if (error instanceof UserError) return { ok: false, message: error.message };
@@ -238,27 +237,31 @@ export function homeFor(role: Role): string {
   return '/home';
 }
 
-export async function authenticate(phoneRaw: string, pin: string): Promise<{ ok: true; user: PublicUser } | Fail> {
+export async function authenticate(phoneRaw: string, pin: string, allowLegacy = false): Promise<{ ok: true; user: PublicUser; pinHash: string } | Fail> {
   const phone = normalizePhone(phoneRaw);
   if (!phone) return { ok: false, message: 'Enter a Zambian mobile number, like 0971 000 001.' };
-  if (!/^\d{4}$/.test(pin)) return { ok: false, message: 'The PIN is 4 digits.' };
-  const now = Date.now();
-  const prior = loginFailures.get(phone);
-  if (prior && prior.until > now && prior.count >= 5) {
-    return { ok: false, message: 'Too many tries. Wait a minute, then try again.' };
+  if (!/^\d{6}$/.test(pin) && !(allowLegacy && /^\d{4}$/.test(pin))) {
+    return { ok: false, message: 'Enter your six-digit PIN.' };
   }
-  const row = await (await getDb()).get('SELECT * FROM users WHERE phone = ?', phone) as UserRow | undefined;
+  const now = Date.now();
+  const db = await getDb();
+  const key = `pin:${phone}`;
+  const attempt = await db.get(`INSERT INTO login_limits (key, attempts, expires_at) VALUES (?, 1, ?)
+    ON CONFLICT (key) DO UPDATE SET
+      attempts = CASE WHEN login_limits.expires_at <= ? THEN 1 ELSE login_limits.attempts + 1 END,
+      expires_at = CASE WHEN login_limits.expires_at <= ? THEN EXCLUDED.expires_at ELSE login_limits.expires_at END
+    WHERE login_limits.expires_at <= ? OR login_limits.attempts < 5 RETURNING key`,
+  key, now + 60_000, now, now, now);
+  if (!attempt) return { ok: false, message: 'Too many tries. Wait a minute, then try again.' };
+  const row = await db.get<UserRow>('SELECT * FROM users WHERE phone = ?', phone);
   if (!row || !verifyPin(pin, row.pin_hash)) {
-    const count = prior && prior.until > now ? prior.count + 1 : 1;
-    loginFailures.set(phone, { count, until: now + 60_000 });
     return { ok: false, message: 'That phone number and PIN do not match.' };
   }
-  loginFailures.delete(phone);
-  return { ok: true, user: mapUser(row) };
+  return { ok: true, user: mapUser(row), pinHash: row.pin_hash };
 }
 
 export async function authenticateDemo(userId: string): Promise<{ ok: true; user: PublicUser } | Fail> {
-  if (process.env.DEMO_ROLE_SWITCHER === '0') {
+  if (process.env.DEMO_ROLE_SWITCHER !== '1') {
     return { ok: false, message: 'Demo sign-in is turned off.' };
   }
   const row = await (await getDb()).get('SELECT * FROM users WHERE id = ? AND demo = TRUE', userId) as UserRow | undefined;
@@ -267,7 +270,7 @@ export async function authenticateDemo(userId: string): Promise<{ ok: true; user
 }
 
 export async function listDemoAccounts(): Promise<DemoAccount[]> {
-  if (process.env.DEMO_ROLE_SWITCHER === '0') return [];
+  if (process.env.DEMO_ROLE_SWITCHER !== '1') return [];
   const rows = await (await getDb()).all(`SELECT * FROM users WHERE demo = TRUE`) as UserRow[];
   const buses = await (await getDb()).all('SELECT fleet_number, conductor_id FROM buses') as Array<{
     fleet_number: string;
@@ -392,6 +395,12 @@ export async function payFare(passengerId: string, fleetRaw: string, fareRaw: st
   if (!bus) return { ok: false as const, message: `No Twende bus ${fleet}. Check the number on the vehicle.` };
   if (bus.status !== 'active' || !bus.conductor_id) {
     return { ok: false as const, message: `Bus ${fleet} is not taking Twende payments right now.` };
+  }
+  const configuredFares = await (await getDb()).all<{ amount_ngwee: number }>(
+    'SELECT amount_ngwee FROM route_fares WHERE owner_id = ? AND route = ?', bus.owner_id, bus.route,
+  );
+  if (configuredFares.length && !configuredFares.some((fare) => fare.amount_ngwee === amount)) {
+    return { ok: false as const, message: 'Choose one of the fares set for this route.' };
   }
   const balance = await getBalance(passengerId);
   if (balance < amount) {
@@ -1289,7 +1298,7 @@ export async function registerConductor(ownerId: string, nameRaw: string, phoneR
   const phone = normalizePhone(phoneRaw);
   if (name.length < 2) return { ok: false as const, message: 'Enter the conductor’s name.' };
   if (!phone) return { ok: false as const, message: 'Enter a Zambian mobile number for the conductor.' };
-  if (!/^\d{4}$/.test(pin)) return { ok: false as const, message: 'Choose a 4-digit PIN for the conductor.' };
+  if (!/^\d{6}$/.test(pin)) return { ok: false as const, message: 'Choose a 6-digit PIN for the conductor.' };
   try {
     const id = nid('usr');
     await withTransaction(async () => {
@@ -1476,7 +1485,7 @@ export async function signupPassenger(input: { name: string; phone: string; pin:
   const phone = normalizePhone(input.phone);
   if (name.length < 2) return { ok: false as const, message: 'Enter your name.' };
   if (!phone) return { ok: false as const, message: 'Enter a Zambian mobile number.' };
-  if (!/^\d{4}$/.test(input.pin)) return { ok: false as const, message: 'Choose a 4-digit PIN.' };
+  if (!/^\d{6}$/.test(input.pin)) return { ok: false as const, message: 'Choose a 6-digit PIN.' };
   if (!['mtn', 'airtel', 'zamtel'].includes(input.network)) {
     return { ok: false as const, message: 'Choose MTN, Airtel, or Zamtel.' };
   }
@@ -1501,7 +1510,7 @@ export async function signupOperator(input: { name: string; company: string; pho
   const phone = normalizePhone(input.phone);
   if (name.length < 2 || company.length < 2) return { ok: false as const, message: 'Enter your name and company.' };
   if (!phone) return { ok: false as const, message: 'Enter a Zambian mobile number.' };
-  if (!/^\d{4}$/.test(input.pin)) return { ok: false as const, message: 'Choose a 4-digit PIN.' };
+  if (!/^\d{6}$/.test(input.pin)) return { ok: false as const, message: 'Choose a 6-digit PIN.' };
   const id = nid('usr');
   try {
     await withTransaction(async () => {
@@ -1575,7 +1584,7 @@ export async function changePin(userId: string, currentPin: string, nextPin: str
   const user = await userById(userId);
   if (!user) return { ok: false as const, message: 'Sign in again.' };
   if (!verifyPin(currentPin, user.pin_hash)) return { ok: false as const, message: 'Current PIN is wrong.' };
-  if (!/^\d{4}$/.test(nextPin)) return { ok: false as const, message: 'Choose a 4-digit PIN.' };
+  if (!/^\d{6}$/.test(nextPin)) return { ok: false as const, message: 'Choose a 6-digit PIN.' };
   await (await getDb()).run('UPDATE users SET pin_hash = ? WHERE id = ?', hashPin(nextPin), userId);
   return { ok: true as const };
 }

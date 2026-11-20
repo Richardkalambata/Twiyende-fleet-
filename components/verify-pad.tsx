@@ -127,6 +127,8 @@ export function VerifyPad({
           </form>
         </div>
       </div>
+      <div className="md:mx-auto md:w-full md:max-w-3xl lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:gap-6">
+      <section>
       <h1 className="mt-5 text-[28px] font-extrabold tracking-[-0.03em]">Hello, {name}</h1>
       <div className="mt-3 rounded-2xl bg-[#0B1B3B] px-4 py-3">
         <p className="text-[11px] font-bold tracking-[0.12em] text-[#D5DCEC]">TODAY&apos;S BUS</p>
@@ -135,6 +137,8 @@ export function VerifyPad({
           <p className="text-right text-[13px] font-semibold text-[#D5DCEC]">{route}<br />{formatGrouped(amount)} · {rides} rides</p>
         </div>
       </div>
+      </section>
+      <section className="flex min-w-0 flex-col">
       <h2 className="mt-5 text-[20px] font-extrabold">Verify ride code</h2>
       <p className="text-[13px] font-semibold text-[#D5DCEC]">Enter the code shown by the passenger.</p>
       <form className="mt-3 space-y-3" onSubmit={(event) => {
@@ -171,6 +175,8 @@ export function VerifyPad({
         <button type="submit" disabled={pending || code.length < 4} className="press h-12 w-full rounded-xl bg-[#1F5BFF] font-bold text-white disabled:opacity-50">{pending ? 'Checking…' : 'Verify code'}</button>
       </form>
       <p className="mt-2 text-center text-[12px] font-semibold text-[#D5DCEC]">Codes are valid once, on your assigned bus only.</p>
+      </section>
+      </div>
     </div>
   );
 }
