@@ -1,0 +1,10 @@
+export const blur = {
+  "campaign-rider": "data:image/webp;base64,UklGRlwAAABXRUJQVlA4IFAAAADwAQCdASoQAAkAA4BaJYgCdAEDqTAHMgAA/mFLaWcA+zv/Y3gOXFSnH3rCDdvMSkPvT6f3+ZjM6Jx465IbYEzqY2zSUpo5y8VQbVCURR5gAA==",
+  "campaign-business": "data:image/webp;base64,UklGRloAAABXRUJQVlA4IE4AAADwAQCdASoQAAkAA4BaJYgCdACzz1iZyAAA/ut4jgyVXCiJlynvy/wH+rBv0Snb8XbhmQgYA/80JEQFlbTZzRdNattcE7k03NPqyj0AAAA=",
+  "moment-ride": "data:image/webp;base64,UklGRnoAAABXRUJQVlA4IG4AAADwAQCdASoQAAwAA4BaJYgCdAC8SFyTa6AA/u5Tl+z/n4Tl6Ok6WSMHpAN1G31+MKXLmtcK923RweGVujrTYKuaPykYLgBUFhLzaRJXWOf3CeW99Ynk/tJjRCphSGK+3wkfJbZJNAgnmmBO032AAA==",
+  "moment-verify": "data:image/webp;base64,UklGRoQAAABXRUJQVlA4IHgAAABQAgCdASoQAAwAA4BaJZgCdAYu52tGUm0XMgAA4nwcA2SJBO/vMDo8w7mC+szvfud6E6tbCuThXxVrL+VKldcc/av1YRdlf5KuI173fgwMCPEIOocpmy/tEnwc7p/JG2dFjSAADWb2Ed3AAVNioss9pNIRR/OQAAA=",
+  "device-desk": "data:image/webp;base64,UklGRmgAAABXRUJQVlA4IFwAAADwAQCdASoQAAwAA4BaJZgAAp/NPQYzgAAA/ug7J8SXbfVEabr5kYFZkVh3WoOll3BF87FLs6i/7Np3vs0zr4gw+HluIlsDq1wGZfwtShCBAmx2zecfub5B22AAAA==",
+  "device-hand-home": "data:image/webp;base64,UklGRqwAAABXRUJQVlA4IKAAAAAwBACdASoQABUAPu1iqU2ppaOiMAgBMB2JZgCdMoMpADu6nCZZ1JanQqQA/VAzk+EPTRWXxq0T0UqZCNJ4AZuO2BZUjDT92fcaPPOX7ibyxjpWb9buSmxvvg8ClyiwZE8iMH9dLQUMZ8bVrCsc3TlcRVZu4IjXfavOsDKcXNjP0w57b8k3w3VEJYI5vop+yocuJzWMhHKqyzzBz+5FIAAA",
+  "device-hand-pay": "data:image/webp;base64,UklGRqgAAABXRUJQVlA4IJwAAABwBACdASoQABUAPu1iqU2ppaOiMAgBMB2JYgCdMoMnQYAAQotfXZbweykpgAD9UDOT4Q9NFZe7cEP98+nWnu3jee8J7MVyp1C3eJbL/ejRIQE6rjDPCvs7zpdSiuVvJ4N5RBL1M8UzsQBd0zGoydks43O3J9K+t29vs78Up2HJS8Q3VPwt0+8gf0kVtIq6HY4uDVyZSzfhpbK0QAA=",
+  "device-hand-ticket": "data:image/webp;base64,UklGRrAAAABXRUJQVlA4IKQAAAAQBACdASoQABUAPu1iqU2ppaOiMAgBMB2JYgCdMoMsdDtq1C8y2TAGAAD9UDOT4Q9NFZe7cEP98+nWnu3jee8J657x37nsSlVBARy4XKhH+4rPLE1lCrtiJE07cexp3/QkX2eYiCKYh751ZwwNv+cm/7pdXi4BmmcV/vYN7CzYz9MOe4rpnQKK2WB2XyTWd6BS24tuqf1N6Uyqss9esDCMg7IAAA==",
+} as const;
