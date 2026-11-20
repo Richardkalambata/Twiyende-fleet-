@@ -6,7 +6,7 @@ import type { LiveBus } from '@/lib/tracking';
 import { LUSAKA_STREETS, describePlace } from '@/lib/lusaka-places';
 import { demoRoutePath, routeGeometry, type GeoPoint } from '@/lib/lusaka-routes';
 import { DEMO_RIDER, LUSAKA_BOUNDS, OPEN_FRAME_M, accuracyRing, alongError, approachFromDistances, demoSpeed, formatDistance, formatUpdated, glideDistance, glideSpeed, haversineMetres, lerpAngle, pointAtDistance, projectOnto, reachMinutes, riderCounts, routeLength, showsAccuracyHalo, snapToRoad, trailSamples, trimTrail, type Approach } from '@/lib/tracking-math';
-import { busHotspots } from './hotspots';
+import { mapHotspots } from './hotspots';
 import { createBusPin } from './bus-pin';
 import type { PaidRide } from './map-screen';
 import { MAP_STYLE, tuneMapStyle } from './map-style';
@@ -492,13 +492,13 @@ export function LiveMap({ mode, paidRide }: { mode: 'rider' | 'operator'; paidRi
   const shown = useMemo(() => data.buses.filter((bus) => bus.recordedAt && (
     bus.id === aboard || route === 'all' || bus.route === route
   )), [aboard, data.buses, route]);
-  const hotspots = useMemo(() => busHotspots(shown), [shown]);
+  const hotspots = useMemo(() => mapHotspots(shown), [shown]);
   const activeHotspot = hotspots.find((spot) => spot.id === openHotspot);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
-    const hidden = new Set(hotspots.flatMap((spot) => spot.buses.map((bus) => bus.id)));
+    const hidden = new Set(hotspots.filter((spot) => spot.buses.length >= 16).flatMap((spot) => spot.buses.map((bus) => bus.id)));
     const active = new Set(hotspots.map((spot) => spot.id));
     for (const spot of hotspots) {
       const position: [number, number] = [spot.lng, spot.lat];
@@ -506,15 +506,15 @@ export function LiveMap({ mode, paidRide }: { mode: 'rider' | 'operator'; paidRi
       if (!marker) {
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'rounded-full border-2 border-white bg-[#184BDE] px-4 py-2 text-sm font-extrabold text-white shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#184BDE]';
+        button.className = spot.name ? 'max-w-32 rounded-lg border border-[#184BDE] bg-white px-2 py-1 text-center text-[11px] font-extrabold leading-tight text-[#0B1B3B] shadow-md focus-visible:outline-2 focus-visible:outline-[#184BDE]' : 'rounded-full border-2 border-white bg-[#184BDE] px-4 py-2 text-sm font-extrabold text-white shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#184BDE]';
         button.addEventListener('click', () => setOpenHotspot((current) => current === spot.id ? null : spot.id));
         marker = map.marker(button, 'center', position);
         hotspotMarkers.current.set(spot.id, marker);
       }
       marker.setLngLat(position);
       const button = marker.getElement();
-      button.textContent = `${spot.buses.length} buses`;
-      button.setAttribute('aria-label', `Bus hotspot: ${spot.buses.length} buses. Show bus list.`);
+      button.textContent = spot.name ? `${spot.name}${spot.buses.length ? ` · ${spot.buses.length}` : ''}` : `${spot.buses.length} buses`;
+      button.setAttribute('aria-label', `${spot.name ?? 'Bus hotspot'}: ${spot.buses.length} tracked buses. Show details.`);
       button.setAttribute('aria-expanded', String(openHotspot === spot.id));
     }
     for (const [id, marker] of hotspotMarkers.current) {
@@ -771,9 +771,10 @@ export function LiveMap({ mode, paidRide }: { mode: 'rider' | 'operator'; paidRi
       {activeHotspot ? (
         <section aria-label="Bus hotspot" className="absolute inset-x-4 top-28 z-30 max-h-[45vh] overflow-auto rounded-2xl bg-white p-4 text-[#0B1B3B] shadow-lg sm:right-auto sm:w-72">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="font-extrabold">Hotspot · {activeHotspot.buses.length} buses</h2>
+            <h2 className="font-extrabold">{activeHotspot.name ?? 'Bus hotspot'}</h2>
             <button type="button" onClick={() => setOpenHotspot(null)} className="min-h-10 text-sm font-semibold text-[#184BDE]">Close</button>
           </div>
+          <p className="mb-2 text-sm text-[#5C6578]">{activeHotspot.buses.length ? `${activeHotspot.buses.length} tracked buses nearby` : 'No tracked buses nearby'}</p>
           <ul className="divide-y divide-[#E4E8F0]">
             {[...activeHotspot.buses].sort((a, b) => a.fleet.localeCompare(b.fleet, undefined, { numeric: true })).map((item) => (
               <li key={item.id}>
