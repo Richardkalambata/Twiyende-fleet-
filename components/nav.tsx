@@ -4,11 +4,12 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { BusIcon, HomeIcon, LostIcon, RidesIcon, ShieldIcon, UserIcon } from './icons';
+import { Logo } from './shell';
 import { Map } from 'lucide-react';
 
 function Item({ href, label, active, children }: { href: string; label: string; active: boolean; dark?: boolean; children: ReactNode }) {
   return (
-    <Link href={href} className={`nav-item flex h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[12px] font-semibold ${active ? 'text-[#0B1B3B]' : 'text-[#D5DCEC]'}`}>
+    <Link href={href} aria-current={active ? 'page' : undefined} className={`nav-item flex h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[12px] font-semibold lg:flex-none lg:flex-row lg:justify-start lg:gap-3 lg:rounded-xl lg:px-4 lg:text-sm ${active ? 'text-[#0B1B3B] lg:!bg-white' : 'text-[#D5DCEC]'}`}>
       {children}
       <span>{label}</span>
     </Link>
@@ -17,9 +18,10 @@ function Item({ href, label, active, children }: { href: string; label: string; 
 
 function Bar({ label, index, cols, children }: { label: string; index: number; cols: number; children: ReactNode }) {
   return (
-    <nav className="px-4 pb-[max(12px,env(safe-area-inset-bottom))]" aria-label={label}>
-      <div className="nav-bar glass grid rounded-full p-1.5" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, ['--i' as string]: index, ['--cols' as string]: cols }}>
-        <span className="nav-pill" aria-hidden />
+    <nav className="px-4 pb-[max(12px,env(safe-area-inset-bottom))] lg:pt-8" aria-label={label}>
+      <div className="mb-8 hidden px-3 lg:block"><Logo tone="light" business={label === 'Conductor'} /></div>
+      <div className={`nav-bar glass grid rounded-full p-1.5 lg:flex lg:flex-col lg:gap-2 lg:rounded-none lg:!bg-transparent lg:!shadow-none ${cols === 5 ? 'grid-cols-5' : 'grid-cols-4'}`} style={{ ['--i' as string]: index, ['--cols' as string]: cols }}>
+        <span className="nav-pill lg:hidden" aria-hidden />
         {children}
       </div>
     </nav>

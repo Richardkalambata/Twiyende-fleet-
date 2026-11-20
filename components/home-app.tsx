@@ -34,14 +34,15 @@ export function HomeApp({
   const letters = name.split(/\s+/).filter(Boolean).map((part) => part[0]).slice(0, 2).join('').toUpperCase() || initials;
   if (paying) return <PayForm buses={buses} balanceNgwee={balanceNgwee} initialFleet={preset} onClose={() => setPaying(false)} />;
   return (
-    <div className="px-5 pb-4 text-[#0B1B3B]">
+    <div className="mx-auto max-w-[1440px] px-5 pb-4 text-[#0B1B3B] lg:px-10 lg:py-8">
       <header className="safe-top flex items-center justify-between">
         <Logo />
         <Avatar initials={letters} size={36} />
       </header>
       <p className="mt-3 text-[15px] text-[#5C6578]">{greeting},</p>
       <h1 className="text-[32px] font-extrabold leading-none tracking-[-0.04em]">{name.split(' ')[0]}</h1>
-      <div className="tilt-host mt-3 grid grid-cols-2 gap-2">
+      <div className="lg:mt-4 lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start lg:gap-8">
+      <div className="tilt-host mt-3 grid grid-cols-2 gap-2 lg:gap-4">
         <section data-tilt className="mesh elevate relative col-span-2 overflow-hidden rounded-[20px] p-4 text-white">
           <span className="sheen" aria-hidden />
           <p className="text-[13px] font-semibold text-[#D5DCEC]">Available balance</p>
@@ -80,7 +81,7 @@ export function HomeApp({
           </span>
         </Link>
       </div>
-      <section className="mt-4">
+      <section className="mt-4 lg:rounded-[20px] lg:bg-white lg:p-5">
         <div className="flex items-center justify-between">
           <h2 className="text-[16px] font-extrabold">Recent rides</h2>
           <Link href="/rides" className="text-[13px] font-semibold text-[#1F5BFF]">See all</Link>
@@ -105,6 +106,7 @@ export function HomeApp({
           </ul>
         )}
       </section>
+      </div>
     </div>
   );
 }
