@@ -8,14 +8,10 @@ import type { DemoAccount } from '@/lib/types';
 import { Logo } from './shell';
 import { toast } from './toast';
 
-const signInRoles = [
-  { role: 'passenger', label: 'Rider', href: '/login' },
-  { role: 'conductor', label: 'Conductor', href: '/business/conductor/login' },
-  { role: 'operator', label: 'Operator', href: '/business/login' },
-] as const;
-
 export function LoginForm({ accounts, error, gate = 'passenger', operatorSmsRequired = false }: { accounts: DemoAccount[]; error?: string; operatorSmsRequired?: boolean; gate?: 'passenger' | 'operator' | 'conductor' | 'business' }) {
   const resolved = gate === 'business' ? 'operator' : gate;
+  const business = resolved !== 'passenger';
+  const landing = business ? '/business' : '/';
   const [state, action, pending] = useActionState(loginAction, null);
   const [phone, setPhone] = useState('');
   const [pin, setPin] = useState('');
@@ -33,25 +29,19 @@ export function LoginForm({ accounts, error, gate = 'passenger', operatorSmsRequ
       : 'Your next ride starts here.';
 
   return (
-    <main className="min-h-dvh bg-[#F4F6FB] text-[#0B1B3B] lg:grid lg:grid-cols-[minmax(280px,34%)_minmax(0,1fr)]" id="main">
-      <aside className="hidden flex-col bg-[#0B1B3B] px-10 py-12 text-white lg:flex xl:px-16">
-        <Link href="/" className="self-start"><Logo tone="light" /></Link>
-        <nav aria-label="Sign-in roles" className="mt-20 w-full max-w-xs space-y-2">
-          {signInRoles.map(({ role, label, href }) => (
-            <Link
-              key={role}
-              href={href}
-              aria-current={resolved === role ? 'page' : undefined}
-              className="flex min-h-12 items-center rounded-xl px-4 text-sm font-semibold text-white/80 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white aria-[current=page]:bg-white aria-[current=page]:text-[#0B1B3B]"
-            >
-              {label}
-            </Link>
-          ))}
-        </nav>
+    <main className="min-h-dvh bg-[#F4F6FB] text-[#0B1B3B] lg:grid lg:grid-cols-2 lg:bg-white" id="main">
+      <aside aria-hidden="true" className="relative hidden bg-[#0B1B3B] lg:block">
+        <div
+          className="absolute inset-0 bg-cover bg-[position:68%_center]"
+          style={{ backgroundImage: `url('/images/brand/campaign-${business ? 'business' : 'rider'}-1080.webp')` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0B1B3B]/45 to-transparent" />
       </aside>
-      <div className="flex min-w-0 items-center justify-center px-5 pb-6 md:px-12 lg:p-12">
-        <div className="flex w-full max-w-xl flex-col lg:rounded-[28px] lg:border lg:border-[#DCE3EF] lg:bg-white lg:p-10 xl:p-12">
-          <div className="safe-top lg:hidden"><Logo business={resolved !== 'passenger'} /></div>
+      <div className="flex min-w-0 items-center justify-center px-5 pb-6 md:px-12 lg:p-16">
+        <div className="flex w-full max-w-xl flex-col">
+          <div className="safe-top lg:mb-10 lg:pt-0">
+            <Link href={landing} aria-label={business ? 'Twende Fleet Business home' : 'Twende Rider home'}><Logo business={business} /></Link>
+          </div>
           <h1 className="mt-6 text-[clamp(26px,7vw,32px)] font-extrabold tracking-[-0.04em] lg:mt-0 lg:text-[40px]">{title}</h1>
           <p className="mt-1 text-[15px] leading-5 text-[#5C6578]">{subtitle}</p>
           {state?.ok ? (
@@ -84,22 +74,20 @@ export function LoginForm({ accounts, error, gate = 'passenger', operatorSmsRequ
               {pending ? 'Signing in…' : 'Log in'}
             </button>
           </form>}
-          <div className="mt-4 space-y-2 text-center text-[13px] font-semibold">
-            {resolved === 'passenger' ? <Link href="/business/login" className="block text-[#1F5BFF] lg:hidden">Operator sign in</Link> : null}
-            {resolved === 'passenger' ? <Link href="/business/conductor/login" className="block text-[#5C6578] lg:hidden">Conductor sign in</Link> : null}
+          {business && <div className="mt-4 space-y-2 text-center text-[13px] font-semibold">
             {resolved === 'operator' ? (
               <>
                 <Link href="/business/signup" className="block text-[#1F5BFF]">Create a company</Link>
-                <Link href="/business/conductor/login" className="block text-[#5C6578] lg:hidden">Are you a conductor? Sign in here</Link>
+                <Link href="/business/conductor/login" className="block text-[#5C6578]">Are you a conductor? Sign in here</Link>
               </>
             ) : null}
             {resolved === 'conductor' ? (
               <>
                 <p className="font-medium text-[#5C6578]">No account? Ask your bus operator to add you.</p>
-                <Link href="/business/login" className="block text-[#1F5BFF] lg:hidden">Are you the operator? Sign in here</Link>
+                <Link href="/business/login" className="block text-[#1F5BFF]">Are you the operator? Sign in here</Link>
               </>
             ) : null}
-          </div>
+          </div>}
           {!state?.ok && accounts.length > 0 ? (
             <div className="mt-4 space-y-2">
               {accounts.slice(0, 3).map((account) => (
