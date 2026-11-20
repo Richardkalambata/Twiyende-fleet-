@@ -94,7 +94,7 @@ export function Onboarding() {
         <Reveal delay={80} className="md:order-1 md:col-span-6">
           <p className="text-[13px] font-bold uppercase tracking-[0.14em] text-[#1F5BFF]">The conductor</p>
           <h2 className="mt-4 text-[32px] md:text-[48px]">Verified in the time it takes to smile.</h2>
-          <p className="lead mt-6 text-[#3E4A63]">They type the four characters. The ticket turns green. A used code, or a code for another bus, stops there.</p>
+          <p className="lead mt-6 text-[#3E4A63]">They enter the fare code. The ticket turns green. A used code, or a code for another bus, stops there.</p>
         </Reveal>
       </section>
 

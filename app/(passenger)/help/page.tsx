@@ -5,7 +5,7 @@ import { SupportForm } from '@/components/account-forms';
 export const metadata = { title: 'Help' };
 
 const FAQ = [
-  ['How do I pay?', 'Top up your wallet, enter the bus number, and show the 4-character code to the conductor.'],
+  ['How do I pay?', 'Top up your wallet, enter the bus number, and show the fare code to the conductor.'],
   ['How long is a code valid?', 'Three hours, and only on the bus you paid for. A code works once.'],
   ['I left something on the bus.', 'Open Lost & found, pick the trip, and describe the item. You will get a pickup code when it is found.'],
   ['Are payments real?', 'Top-ups are simulated. No mobile-money charge is sent. SMS is recorded, not delivered.'],

@@ -405,27 +405,15 @@ export async function payFare(passengerId: string, fleetRaw: string, fareRaw: st
   try {
     return await withTransaction(async () => {
       const db = await getDb();
-      for (let attempt = 0; attempt < 8; attempt += 1) {
-        const code = randomCode(4);
-        const rideId = nid('ride');
-        const inserted = await db.run(`INSERT INTO rides
-            (id, passenger_id, passenger_label, bus_id, conductor_id, amount_ngwee, code, status, created_at, verified_at, route_snapshot, expires_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, NULL, ?, ?)
-            ON CONFLICT (code) DO NOTHING`, rideId, passengerId, passenger.short_name, bus.id, bus.conductor_id, amount, code, Date.now(), bus.route, Date.now() + 3 * 60 * 60 * 1000);
-        if (inserted.changes === 0) continue;
-
-        const balanceNgwee = await writeWallet(passengerId, -amount, 'fare', `Fare for Bus ${bus.fleet_number}`, { rideId });
-        return {
-          ok: true as const,
-          rideId,
-          code,
-          amountNgwee: amount,
-          balanceNgwee,
-          fleetNumber: bus.fleet_number,
-          route: bus.route,
-        };
-      }
-      throw new UserError('Could not create a fare code. Please try again.');
+      const code = await reserveUniqueCode();
+      const rideId = nid('ride');
+      const now = Date.now();
+      await db.run(`INSERT INTO rides
+        (id, passenger_id, passenger_label, bus_id, conductor_id, amount_ngwee, code, status, created_at, verified_at, route_snapshot, expires_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, NULL, ?, ?)`,
+        rideId, passengerId, passenger.short_name, bus.id, bus.conductor_id, amount, code, now, bus.route, now + 3 * 60 * 60 * 1000);
+      const balanceNgwee = await writeWallet(passengerId, -amount, 'fare', `Fare for Bus ${bus.fleet_number}`, { rideId });
+      return { ok: true as const, rideId, code, amountNgwee: amount, balanceNgwee, fleetNumber: bus.fleet_number, route: bus.route };
     });
   } catch (error) {
     return asFail(error);
@@ -645,14 +633,20 @@ export function networkDisplay(network: string): string {
   return networkLabel(network);
 }
 
-async function newPickupCode() {
+// Called inside the transaction that creates the fare or pickup record.
+async function reserveUniqueCode() {
   const db = await getDb();
-  await db.run('SELECT pg_advisory_xact_lock(?)', 872342);
-  for (let attempt = 0; attempt < 12; attempt += 1) {
-    const code = randomCode(4);
-    if (!await db.get('SELECT id FROM lost_items WHERE pickup_code = ?', code)) return code;
+  for (const length of [6, 7, 8]) {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const code = randomCode(length);
+      const reserved = await db.run(`INSERT INTO issued_codes (code)
+        SELECT ? WHERE NOT EXISTS (SELECT 1 FROM rides WHERE code = ?)
+          AND NOT EXISTS (SELECT 1 FROM lost_items WHERE pickup_code = ?)
+        ON CONFLICT (code) DO NOTHING`, code, code, code);
+      if (reserved.changes === 1) return code;
+    }
   }
-  throw new UserError('Could not create a pickup code. Try again.');
+  throw new UserError('Could not create a unique code. Please try again.');
 }
 
 async function issuePickup(itemId: string, foundBy: string) {
@@ -663,7 +657,7 @@ async function issuePickup(itemId: string, foundBy: string) {
   const bus = await busById(item.bus_id);
   if (!bus) throw new UserError('That bus is no longer registered.');
   const existing = await (await getDb()).get<{ pickup_code: string | null }>('SELECT pickup_code FROM lost_items WHERE id = ?', itemId);
-  const code = existing?.pickup_code ?? await newPickupCode();
+  const code = existing?.pickup_code ?? await reserveUniqueCode();
   const updated = await (await getDb()).run(`UPDATE lost_items
       SET status = 'pickup_pending', pickup_code = ?, pickup_place = ?, pickup_until = ?, found_by = ?, found_at = ?, conductor_id = ?
       WHERE id = ? AND status IN ('reported', 'waiting')`, code, PICKUP_PLACE, nextPickupDeadline(), foundBy, Date.now(), foundBy, itemId);
@@ -728,7 +722,7 @@ export async function reportLost(
           description,
           photoData,
           notifySms,
-          await newPickupCode(),
+          await reserveUniqueCode(),
           Date.now(),);
       return { itemId, matched: false, issued: null };
     });
@@ -793,7 +787,7 @@ export async function logFoundItem(conductorId: string, category: string, descri
       await (await getDb()).run(`INSERT INTO lost_items (
           id, ride_id, passenger_id, bus_id, conductor_id, owner_id, category, description, photo_data,
           notify_sms, status, pickup_code, pickup_place, pickup_until, source, found_by, found_at, closed_at, created_at, tip_ngwee
-        ) VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, FALSE, 'waiting', ?, NULL, NULL, 'conductor', ?, ?, NULL, ?, 0)`, itemId, bus.id, conductorId, ownerId, category, description || categoryLabelSafe(category), photoData, await newPickupCode(), conductorId, Date.now(), Date.now());
+        ) VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, FALSE, 'waiting', ?, NULL, NULL, 'conductor', ?, ?, NULL, ?, 0)`, itemId, bus.id, conductorId, ownerId, category, description || categoryLabelSafe(category), photoData, await reserveUniqueCode(), conductorId, Date.now(), Date.now());
       return { matched: false, itemId, issued: null };
     });
     if (outcome.issued) await notifyPickup({ ...outcome.issued, itemId: outcome.itemId });

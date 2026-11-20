@@ -149,8 +149,8 @@ export function ConductorLostBoard({
           ))}
         </select>
         <div className="mt-2 flex gap-2">
-          <input id="pickup-code" value={pickup} onChange={(event) => setPickup(event.target.value.toUpperCase())} maxLength={4} className="h-14 min-w-0 flex-1 rounded-2xl border border-[#E4E8F0] bg-white px-4 text-[#0B1B3B] tracking-[0.2em] outline-none placeholder:text-[#5C6578]" />
-          <button type="submit" className="h-14 rounded-full bg-[#1F5BFF] px-4 font-semibold text-white" disabled={pending !== null || pickup.trim().length !== 4}>Save return</button>
+          <input id="pickup-code" value={pickup} onChange={(event) => setPickup(event.target.value.toUpperCase())} maxLength={8} className="h-14 min-w-0 flex-1 rounded-2xl border border-[#E4E8F0] bg-white px-4 text-[#0B1B3B] tracking-[0.2em] outline-none placeholder:text-[#5C6578]" />
+          <button type="submit" className="h-14 rounded-full bg-[#1F5BFF] px-4 font-semibold text-white" disabled={pending !== null || pickup.trim().length < 4}>Save return</button>
         </div>
       </form>
       <p className="mt-2 text-xs text-[#5C6578]">Returned items leave this list after 24 hours.</p>

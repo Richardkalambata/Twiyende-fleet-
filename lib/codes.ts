@@ -30,8 +30,8 @@ export function confusingCodeMessage(code: string): string | null {
   if (/[0O1IL]/i.test(code)) {
     return 'Twende codes skip 0, O, 1 and I so they are easy to read. Check the screen again.';
   }
-  if (!/^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}$/.test(code)) {
-    return 'Enter all 4 characters from the passenger’s screen.';
+  if (!/^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4,8}$/.test(code)) {
+    return 'Enter the full code as shown.';
   }
   return null;
 }

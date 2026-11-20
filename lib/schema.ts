@@ -123,6 +123,11 @@ CREATE TABLE IF NOT EXISTS sms_messages (
   created_at BIGINT NOT NULL
 );
 
+-- Reservations persist after a fare or lost-item record is removed.
+CREATE TABLE IF NOT EXISTS issued_codes (
+  code TEXT PRIMARY KEY
+);
+
 CREATE TABLE IF NOT EXISTS payouts (
   id TEXT PRIMARY KEY,
   owner_id TEXT NOT NULL REFERENCES users (id),

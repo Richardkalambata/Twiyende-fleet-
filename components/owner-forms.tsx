@@ -139,7 +139,7 @@ export function PickupClose() {
       <h2 className="font-semibold">Close a pickup</h2>
       <p className="mt-1 text-sm text-[#5C6B63]">Ask the passenger for the code on their phone. It is not shown here.</p>
       <div className="mt-3 flex gap-2">
-        <input value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} maxLength={4} aria-label="Pickup code" className="h-14 min-w-0 flex-1 rounded-2xl bg-white px-4 text-[#0B1B3B] tracking-[0.2em] placeholder:text-[#5C6578]" />
+        <input value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} maxLength={8} aria-label="Pickup code" className="h-14 min-w-0 flex-1 rounded-2xl bg-white px-4 text-[#0B1B3B] tracking-[0.2em] placeholder:text-[#5C6578]" />
         <button className="h-12 rounded-xl bg-[#1F5BFF] px-5 font-bold text-white" disabled={pending}>{pending ? '…' : 'Close'}</button>
       </div>
       {message ? <p className="mt-2 text-sm text-[#1F5BFF]">{message}</p> : null}

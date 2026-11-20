@@ -35,7 +35,7 @@ export function VerifyPad({
 
   function push(char: string) {
     setError(null);
-    setCode((current) => (current + char).slice(0, 4));
+    setCode((current) => (current + char).slice(0, 8));
   }
 
   async function verify() {
@@ -140,8 +140,8 @@ export function VerifyPad({
       </div>
       <h2 className="mt-5 text-[20px] font-extrabold">Verify ride code</h2>
       <p className="text-[13px] font-semibold text-[#D5DCEC]">Enter the code shown by the passenger.</p>
-      <div className="mt-3 grid grid-cols-4 gap-2">
-        {Array.from({ length: 4 }, (_, index) => (
+      <div className="mt-3 grid gap-1" style={{ gridTemplateColumns: `repeat(${Math.max(4, code.length)}, minmax(0, 1fr))` }}>
+        {Array.from({ length: Math.max(4, code.length) }, (_, index) => (
           <div key={index} className="grid h-16 place-items-center rounded-2xl bg-[#0B1B3B] text-[28px] font-extrabold text-white ring-1 ring-[#8FB0FF]">{code[index] ?? ''}</div>
         ))}
       </div>
@@ -154,11 +154,10 @@ export function VerifyPad({
         </div>
       ) : (
         <div className="glow-code mt-3 grid grid-cols-3 gap-2 rounded-2xl bg-[#0B1B3B] p-2">
-          {['1','2','3','4','5','6','7','8','9'].map((digit) => (
+          {['2','3','4','5','6','7','8','9'].map((digit) => (
             <button key={digit} type="button" className="press h-14 rounded-xl bg-[#16305C] text-[20px] font-extrabold text-white" onClick={() => push(digit)}>{digit}</button>
           ))}
           <button type="button" className="press h-14 rounded-xl bg-[#16305C] text-xs font-bold text-white" onClick={() => setLetters(true)}>ABC</button>
-          <button type="button" className="press h-14 rounded-xl bg-[#16305C] text-[20px] font-extrabold text-white" onClick={() => push('0')}>0</button>
           <button type="button" className="press h-14 rounded-xl bg-[#16305C] text-[20px] font-bold text-white" aria-label="Delete" onClick={() => setCode((value) => value.slice(0, -1))}>⌫</button>
         </div>
       )}
