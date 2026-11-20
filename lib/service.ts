@@ -1,9 +1,10 @@
+import { createHash } from 'node:crypto';
 import { getDb, isInTransaction, resetDatabase, withTransaction } from './db';
 import { PICKUP_PLACE, TIP_AMOUNTS_NGWEE } from './constants';
 import { confusingCodeMessage, normalizeFleetNumber, randomCode } from './codes';
 import { isCategory } from './categories';
 import { formatBalance, formatCompact, parseFare, parseMoney } from './money';
-import { getPaymentProvider, type MobileMoneyNetwork, type PayoutNetwork } from './payments';
+import { getPaymentProvider, type PayoutNetwork } from './payments';
 import { hashPin, verifyPin } from './pin';
 import { formatPhone, normalizePhone } from './phone';
 import { getSmsProvider } from './sms';
@@ -146,7 +147,7 @@ async function writeWallet(
   delta: number,
   type: string,
   note: string,
-  extra: { rideId?: string | null; lostId?: string | null; provider?: string | null; providerRef?: string | null } = {},
+  extra: { transactionId?: string; rideId?: string | null; lostId?: string | null; provider?: string | null; providerRef?: string | null } = {},
 ): Promise<number> {
   if (!isInTransaction()) return withTransaction(() => writeWallet(userId, delta, type, note, extra));
   await (await getDb()).run('SELECT pg_advisory_xact_lock(hashtext(?))', userId);
@@ -157,7 +158,7 @@ async function writeWallet(
   const next = current + delta;
   await (await getDb()).run(`INSERT INTO wallet_transactions
       (id, user_id, type, amount_ngwee, balance_after, provider, provider_ref, ride_id, lost_item_id, note, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, nid('wtx'),
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, extra.transactionId ?? nid('wtx'),
       userId,
       type,
       delta,
@@ -538,7 +539,7 @@ export async function listConductorTrips(userId: string) {
   };
 }
 
-export async function topUp(passengerId: string, network: string, phoneRaw: string, amountRaw: string) {
+export async function topUp(passengerId: string, network: string, phoneRaw: string, amountRaw: string, requestId = nid('top')) {
   const phone = normalizePhone(phoneRaw);
   if (!phone) return { ok: false as const, message: 'Enter the mobile-money number to charge.' };
   if (network !== 'mtn' && network !== 'airtel' && network !== 'zamtel') {
@@ -546,23 +547,34 @@ export async function topUp(passengerId: string, network: string, phoneRaw: stri
   }
   const amount = parseMoney(amountRaw, 50_000);
   if (amount == null) return { ok: false as const, message: 'Enter a top-up from K1 to K500.' };
-  const reference = nid('top');
-  const result = await getPaymentProvider().topUp({
-    network: network as MobileMoneyNetwork,
-    phone,
-    amountNgwee: amount,
-    reference,
-    passengerId,
-  });
-  if (!result.ok) return { ok: false as const, message: result.message };
+  if (!/^[A-Za-z0-9_-]{12,80}$/.test(requestId)) {
+    return { ok: false as const, message: 'Start a new top-up and try again.' };
+  }
+  const reference = createHash('sha256').update(JSON.stringify([passengerId, requestId])).digest('hex');
+  const transactionId = `top_${reference}`;
   try {
-    const balanceNgwee = await withTransaction(async () =>
-      await writeWallet(passengerId, amount, 'topup', `Top up from ${networkLabel(network)}`, {
-        provider: network,
-        providerRef: result.providerRef,
-      }),
-    );
-    return { ok: true as const, balanceNgwee, providerRef: result.providerRef };
+    return await withTransaction(async () => {
+      const db = await getDb();
+      await db.run('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', transactionId);
+      const prior = await db.get<{ amount_ngwee: number; provider: string; provider_ref: string }>(
+        'SELECT amount_ngwee, provider, provider_ref FROM wallet_transactions WHERE id = ? AND user_id = ?',
+        transactionId, passengerId,
+      );
+      if (prior) {
+        if (prior.amount_ngwee !== amount || prior.provider !== network) {
+          return { ok: false as const, message: 'This top-up was already submitted with different details.' };
+        }
+        return { ok: true as const, balanceNgwee: await getBalance(passengerId), providerRef: prior.provider_ref };
+      }
+      const result = await getPaymentProvider().topUp({
+        network, phone, amountNgwee: amount, reference, passengerId,
+      });
+      if (!result.ok) return { ok: false as const, message: result.message };
+      const balanceNgwee = await writeWallet(passengerId, amount, 'topup', `Top up from ${networkLabel(network)}`, {
+        transactionId, provider: network, providerRef: result.providerRef,
+      });
+      return { ok: true as const, balanceNgwee, providerRef: result.providerRef };
+    });
   } catch (error) {
     return asFail(error);
   }

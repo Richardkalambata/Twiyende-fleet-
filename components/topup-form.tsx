@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { topUpAction } from '@/lib/actions';
-import { Plus } from 'lucide-react';
+import { LoaderCircle, Plus } from 'lucide-react';
 import { toast } from './toast';
 import { formatBalance, parseMoney } from '@/lib/money';
 import { formatPhone, normalizePhone } from '@/lib/phone';
@@ -24,8 +24,9 @@ export function TopUpForm({ phone, balanceNgwee }: { phone: string; balanceNgwee
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState<number | null>(null);
-  const [review, setReview] = useState<{ amount: number; network: typeof network; phone: string } | null>(null);
+  const [review, setReview] = useState<{ amount: number; network: typeof network; phone: string; requestId: string } | null>(null);
   const [reentered, setReentered] = useState('');
+  const [retry, setRetry] = useState(false);
   const submitting = useRef(false);
   const amountNgwee = parseMoney(amount, 50_000);
 
@@ -38,7 +39,8 @@ export function TopUpForm({ phone, balanceNgwee }: { phone: string; balanceNgwee
       return;
     }
     setReentered('');
-    setReview({ amount: amountNgwee, network, phone: confirmedPhone });
+    setRetry(false);
+    setReview({ amount: amountNgwee, network, phone: confirmedPhone, requestId: crypto.randomUUID() });
   }
 
   async function submit() {
@@ -51,8 +53,9 @@ export function TopUpForm({ phone, balanceNgwee }: { phone: string; balanceNgwee
     setPending(true);
     setError(null);
     try {
-      const result = await topUpAction(review.network, review.phone, (review.amount / 100).toFixed(2));
+      const result = await topUpAction(review.network, review.phone, (review.amount / 100).toFixed(2), review.requestId);
       if (!result.ok) {
+        setRetry(true);
         setError(result.message);
         toast(result.message);
         return;
@@ -62,9 +65,8 @@ export function TopUpForm({ phone, balanceNgwee }: { phone: string; balanceNgwee
       setReentered('');
       router.refresh();
     } catch {
-      setReview(null);
-      setReentered('');
-      const message = 'Connection interrupted. Check your wallet balance before trying again.';
+      setRetry(true);
+      const message = 'Connection interrupted. Try again to check the same deposit request.';
       setError(message);
       toast(message);
       router.refresh();
@@ -77,7 +79,7 @@ export function TopUpForm({ phone, balanceNgwee }: { phone: string; balanceNgwee
   if (review) {
     const label = NETWORKS.find((item) => item.id === review.network)?.label;
     return (
-      <form onSubmit={(event) => { event.preventDefault(); void submit(); }} className="space-y-4 px-5 pb-8 text-[#0B1B3B]">
+      <form aria-busy={pending} onSubmit={(event) => { event.preventDefault(); void submit(); }} className="space-y-4 px-5 pb-8 text-[#0B1B3B]">
         <h2 className="text-xl font-extrabold">Confirm top-up</h2>
         <div className="rounded-2xl bg-[#E7EEFF] p-4">
           <p className="text-sm text-[#3E4A63]">Amount to add</p>
@@ -89,10 +91,11 @@ export function TopUpForm({ phone, balanceNgwee }: { phone: string; balanceNgwee
           <input autoFocus autoComplete="off" inputMode="decimal" value={reentered} disabled={pending} onChange={(event) => { setReentered(event.target.value); setError(null); }} className="mt-2 w-full rounded-xl border border-[#D5DCE8] bg-white px-3 py-2 text-lg" />
         </label>
         {error ? <p className="text-sm text-[#C32C32]" role="alert">{error}</p> : null}
-        <button type="submit" disabled={pending || !reentered.trim()} className="h-12 w-full rounded-xl bg-[#1F5BFF] font-bold text-white disabled:opacity-50">
-          {pending ? 'Adding funds…' : `Confirm +${formatBalance(review.amount)}`}
+        <button type="submit" disabled={pending || !reentered.trim()} className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#1F5BFF] font-bold text-white disabled:opacity-50">
+          {pending ? <><LoaderCircle aria-hidden className="size-5 animate-spin" /> Requesting payment…</> : retry ? 'Try again' : `Confirm +${formatBalance(review.amount)}`}
         </button>
-        <button type="button" disabled={pending} onClick={() => { setReview(null); setError(null); }} className="h-10 w-full font-bold text-[#184bde] disabled:opacity-50">Edit top-up</button>
+        {pending ? <p role="status" className="text-sm">Your top-up is processing. Please wait.</p> : null}
+        <button type="button" disabled={pending || retry} onClick={() => { setReview(null); setError(null); }} className="h-10 w-full font-bold text-[#184bde] disabled:opacity-50">Edit top-up</button>
       </form>
     );
   }

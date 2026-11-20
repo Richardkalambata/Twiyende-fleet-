@@ -18,7 +18,7 @@ export class SimulatedPaymentProvider implements PaymentProvider {
     await new Promise((resolve) => setTimeout(resolve, 600));
     return {
       ok: true,
-      providerRef: reference('SIM'),
+      providerRef: `SIM-${request.reference}`,
       message: 'Simulated mobile-money top-up accepted.',
     };
   }

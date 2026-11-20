@@ -125,9 +125,9 @@ export async function verifyAction(code: string) {
   return result;
 }
 
-export async function topUpAction(network: string, phone: string, amount: string) {
+export async function topUpAction(network: string, phone: string, amount: string, requestId: string) {
   const user = await requireUser(['passenger']);
-  const result = await topUp(user.id, network, phone, amount);
+  const result = await topUp(user.id, network, phone, amount, requestId);
   if (result.ok) refresh();
   return result;
 }
