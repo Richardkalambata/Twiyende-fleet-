@@ -363,9 +363,9 @@ export async function getReceipt(passengerId: string, rideId: string): Promise<R
   };
 }
 
-export async function listWalletActivity(userId: string, limit = 8): Promise<WalletActivity[]> {
+export async function listWalletActivity(userId: string, limit = 8, offset = 0): Promise<WalletActivity[]> {
   const rows = await (await getDb()).all(`SELECT id, type, amount_ngwee, balance_after, note, created_at FROM wallet_transactions
-      WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`, userId, limit) as Array<{
+      WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`, userId, limit, offset) as Array<{
     id: string;
     type: string;
     amount_ngwee: number;

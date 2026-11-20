@@ -26,14 +26,14 @@ export function TicketWatch({ id, initial, code }: { id: string; initial: string
       {verified ? (
         <p className="check-pop mt-3 inline-flex items-center gap-1 text-[14px] font-bold text-[#0E7A45]">
           <Check className="h-4 w-4" strokeWidth={2.5} />
-          Verified by conductor
+          Completed
         </p>
       ) : status === 'void' ? (
         <p className="mt-3 text-[14px] font-bold text-[#3E4A63]">Cancelled</p>
       ) : (
         <p className="mt-3 inline-flex items-center gap-2 text-[14px] font-bold text-[#9A5B00]">
           <span className="pulse-dot inline-block h-2 w-2 rounded-full bg-[#E8833A]" />
-          Awaiting verification
+          Pending · Waiting for conductor
         </p>
       )}
     </div>

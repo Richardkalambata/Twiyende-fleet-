@@ -76,12 +76,8 @@ export function HomeApp({
             <span className="mt-0.5 block text-[12px] font-semibold text-[#3E4A63]">Report an item</span>
           </span>
         </Link>
-        <Link href="/topup" className="press col-span-2 flex h-14 items-center gap-3 rounded-[20px] bg-white px-3 text-[#0B1B3B]">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#E7EEFF] text-[#1F5BFF]"><Plus className="h-5 w-5" aria-hidden /></span>
-          <span>
-            <span className="block text-[15px] font-extrabold">Add funds</span>
-            <span className="block text-[12px] font-semibold text-[#3E4A63]">MTN, Airtel, or Zamtel</span>
-          </span>
+        <Link href="/wallet" className="press col-span-2 flex min-h-12 items-center justify-between rounded-xl bg-white px-4 text-sm font-bold text-[#0B1B3B]">
+          Transaction history <span aria-hidden>→</span>
         </Link>
       </div>
       <section className="mt-4 lg:rounded-[20px] lg:bg-white lg:p-5">

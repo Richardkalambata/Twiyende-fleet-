@@ -715,7 +715,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
 
   return (
     <div className="relative h-full">
-      <div ref={holder} className={mode === 'rider' ? 'h-[calc(100dvh-88px)] w-full lg:h-full' : 'h-[62vh] w-full md:h-dvh'} />
+      <div ref={holder} className={mode === 'rider' ? 'h-full w-full' : 'h-[62vh] w-full md:h-dvh'} />
       {mapError ? <p role="alert" className="absolute inset-x-4 top-20 z-10 rounded-xl bg-white p-4 text-sm font-semibold">The street map could not load. Reload to try again.</p> : null}
       {mode === 'rider' ? (
         <div className="absolute left-4 top-4 z-10 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-[#0B1B3B] shadow-md">

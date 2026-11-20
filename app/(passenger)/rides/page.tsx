@@ -26,13 +26,14 @@ export default async function RidesPage({ searchParams }: { searchParams: Promis
   const spent = rides.filter((ride) => ride.status !== 'void').reduce((sum, ride) => sum + ride.amountNgwee, 0);
   const filters = [
     ['', 'All'],
-    ['verified', 'Verified'],
+    ['verified', 'Completed'],
     ['pending', 'Pending'],
   ] as const;
   return (
     <div className="safe-top px-5 pb-6">
       <h1 className="text-[32px] font-extrabold tracking-[-0.04em] text-[#0B1B3B]">My rides</h1>
       <p className="text-[14px] text-[#5C6578]">{rides.length} rides · {formatCompact(spent)} spent</p>
+      <Link href="/wallet" className="mt-2 inline-block text-sm font-semibold text-[#184BDE]">Transaction history</Link>
       <div className="mt-3 flex gap-2">
         {filters.map(([id, label]) => (
           <Link key={label} href={id ? `/rides?status=${id}` : '/rides'} className={`rounded-full px-3 py-1 text-[13px] font-bold ${(!params.status && !id) || params.status === id ? 'bg-[#1F5BFF] text-white' : 'bg-white text-[#0B1B3B]'}`}>{label}</Link>

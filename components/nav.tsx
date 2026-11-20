@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { BusIcon, HomeIcon, LostIcon, RidesIcon, ShieldIcon, UserIcon } from './icons';
 import { Logo } from './shell';
-import { Map } from 'lucide-react';
+import { LogOut, Map } from 'lucide-react';
+import { signOutAction } from '@/lib/actions';
 
 function Item({ href, label, active, children }: { href: string; label: string; active: boolean; dark?: boolean; children: ReactNode }) {
   return (
@@ -24,11 +25,11 @@ function Bar({ label, index, cols, children }: { label: string; index: number; c
         <span className="nav-pill lg:hidden" aria-hidden />
         {children}
       </div>
-      {label === 'Passenger' ? (
-        <Link href="/topup" className="mt-auto mb-4 hidden min-h-12 items-center justify-center rounded-xl bg-[#1F5BFF] px-4 font-bold text-white lg:flex">
-          <span aria-hidden className="mr-2 text-xl">+</span> Add funds
-        </Link>
-      ) : null}
+      <form action={signOutAction} className="mt-1 lg:mt-auto lg:border-t lg:border-white/20 lg:pt-4">
+        <button type="submit" className="flex min-h-9 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold lg:min-h-12 lg:justify-start lg:text-white lg:hover:bg-white/10">
+          <LogOut className="size-4" aria-hidden /> Log out
+        </button>
+      </form>
     </nav>
   );
 }
