@@ -5,6 +5,7 @@ TRUNCATE TABLE
   bus_locations,
   bus_latest,
   shifts,
+  code_leases,
   stops,
   sms_messages,
   conductor_payouts,
@@ -70,7 +71,7 @@ CREATE TABLE IF NOT EXISTS rides (
   bus_id TEXT NOT NULL REFERENCES buses (id),
   conductor_id TEXT REFERENCES users (id),
   amount_ngwee INTEGER NOT NULL,
-  code TEXT NOT NULL UNIQUE,
+  code TEXT NOT NULL,
   status TEXT NOT NULL CHECK (status IN ('pending', 'verified', 'void')),
   created_at BIGINT NOT NULL,
   verified_at BIGINT,
@@ -103,7 +104,7 @@ CREATE TABLE IF NOT EXISTS lost_items (
   photo_data TEXT,
   notify_sms BOOLEAN NOT NULL DEFAULT FALSE,
   status TEXT NOT NULL CHECK (status IN ('reported', 'waiting', 'not_found', 'pickup_pending', 'closed')),
-  pickup_code TEXT UNIQUE,
+  pickup_code TEXT,
   pickup_place TEXT,
   pickup_until BIGINT,
   source TEXT NOT NULL CHECK (source IN ('passenger', 'conductor')),
@@ -123,10 +124,15 @@ CREATE TABLE IF NOT EXISTS sms_messages (
   created_at BIGINT NOT NULL
 );
 
--- Reservations persist after a fare or lost-item record is removed.
-CREATE TABLE IF NOT EXISTS issued_codes (
-  code TEXT PRIMARY KEY
+CREATE TABLE IF NOT EXISTS code_leases (
+  code TEXT PRIMARY KEY,
+  record_id TEXT NOT NULL,
+  reusable_at BIGINT
 );
+CREATE INDEX IF NOT EXISTS idx_rides_code ON rides (code);
+CREATE INDEX IF NOT EXISTS idx_lost_items_pickup_code ON lost_items (pickup_code);
+ALTER TABLE rides DROP CONSTRAINT IF EXISTS rides_code_key;
+ALTER TABLE lost_items DROP CONSTRAINT IF EXISTS lost_items_pickup_code_key;
 
 CREATE TABLE IF NOT EXISTS payouts (
   id TEXT PRIMARY KEY,

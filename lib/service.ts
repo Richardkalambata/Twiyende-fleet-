@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { getDb, isInTransaction, resetDatabase, withTransaction } from './db';
-import { PICKUP_PLACE, TIP_AMOUNTS_NGWEE } from './constants';
+import { CODE_ALPHABET, PICKUP_PLACE, TIP_AMOUNTS_NGWEE } from './constants';
 import { confusingCodeMessage, normalizeFleetNumber, randomCode } from './codes';
 import { isCategory } from './categories';
 import { formatBalance, formatCompact, parseFare, parseMoney } from './money';
@@ -405,13 +405,14 @@ export async function payFare(passengerId: string, fleetRaw: string, fareRaw: st
   try {
     return await withTransaction(async () => {
       const db = await getDb();
-      const code = await reserveUniqueCode();
       const rideId = nid('ride');
       const now = Date.now();
+      const expiresAt = now + 3 * 60 * 60 * 1000;
+      const code = await reserveUniqueCode(rideId, expiresAt + DAY_MS);
       await db.run(`INSERT INTO rides
         (id, passenger_id, passenger_label, bus_id, conductor_id, amount_ngwee, code, status, created_at, verified_at, route_snapshot, expires_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, NULL, ?, ?)`,
-        rideId, passengerId, passenger.short_name, bus.id, bus.conductor_id, amount, code, now, bus.route, now + 3 * 60 * 60 * 1000);
+        rideId, passengerId, passenger.short_name, bus.id, bus.conductor_id, amount, code, now, bus.route, expiresAt);
       const balanceNgwee = await writeWallet(passengerId, -amount, 'fare', `Fare for Bus ${bus.fleet_number}`, { rideId });
       return { ok: true as const, rideId, code, amountNgwee: amount, balanceNgwee, fleetNumber: bus.fleet_number, route: bus.route };
     });
@@ -429,6 +430,7 @@ export async function cancelFare(passengerId: string, rideId: string) {
       if (ride.status === 'void') throw new UserError('This fare is already cancelled.');
       const updated = await (await getDb()).run(`UPDATE rides SET status = 'void' WHERE id = ? AND status = 'pending'`, rideId);
       if (Number(updated.changes) !== 1) throw new UserError('This fare can no longer be cancelled.');
+      await coolDownCode(ride.id, ride.code);
       const balanceNgwee = await writeWallet(passengerId, ride.amount_ngwee, 'refund', `Refund for Bus ${ride.fleet_number}`, {
         rideId,
       });
@@ -449,7 +451,8 @@ export async function verifyCode(conductorId: string, rawCode: string) {
   }
   try {
     return await withTransaction(async () => {
-      const ride = await (await getDb()).get('SELECT * FROM rides WHERE code = ?', code) as
+      const ride = await (await getDb()).get(`SELECT r.* FROM rides r LEFT JOIN code_leases c ON c.code = r.code
+        WHERE r.code = ? AND (c.code IS NULL OR c.record_id = r.id)`, code) as
         | (RideJoin & { fleet_number?: string })
         | undefined;
       if (!ride) throw new UserError('Code not found. Ask the passenger to read it again.');
@@ -466,8 +469,9 @@ export async function verifyCode(conductorId: string, rawCode: string) {
         throw new UserError(`Already used at ${formatHour24(ride.verified_at ?? ride.created_at)}. A code works once.`);
       }
       const verifiedAt = Date.now();
-      const updated = await (await getDb()).run(`UPDATE rides SET status = 'verified', verified_at = ?, conductor_id = ? WHERE id = ? AND status = 'pending'`, verifiedAt, conductorId, ride.id);
-      if (Number(updated.changes) !== 1) throw new UserError('This code was just used.');
+      const updated = await (await getDb()).run(`UPDATE rides SET status = 'verified', verified_at = ?, conductor_id = ? WHERE id = ? AND status = 'pending' AND (expires_at IS NULL OR expires_at > ?)`, verifiedAt, conductorId, ride.id, verifiedAt);
+      if (Number(updated.changes) !== 1) throw new UserError('This code expired or was already used.');
+      await coolDownCode(ride.id, code);
       const stats = await conductorToday(conductorId);
       return {
         ok: true as const,
@@ -634,19 +638,53 @@ export function networkDisplay(network: string): string {
 }
 
 // Called inside the transaction that creates the fare or pickup record.
-async function reserveUniqueCode() {
+async function reserveUniqueCode(recordId: string, reusableAt: number | null = null) {
   const db = await getDb();
-  for (const length of [6, 7, 8]) {
-    for (let attempt = 0; attempt < 8; attempt += 1) {
-      const code = randomCode(length);
-      const reserved = await db.run(`INSERT INTO issued_codes (code)
-        SELECT ? WHERE NOT EXISTS (SELECT 1 FROM rides WHERE code = ?)
-          AND NOT EXISTS (SELECT 1 FROM lost_items WHERE pickup_code = ?)
-        ON CONFLICT (code) DO NOTHING`, code, code, code);
-      if (reserved.changes === 1) return code;
-    }
+  const eligible = `(lease.reusable_at <= ? OR (lease.code IS NULL
+    AND NOT EXISTS (SELECT 1 FROM rides WHERE rides.code = candidate.code)
+    AND NOT EXISTS (SELECT 1 FROM lost_items WHERE pickup_code = candidate.code)))`;
+  async function claim(code: string) {
+    const now = Date.now();
+    const reserved = await db.run(`INSERT INTO code_leases (code, record_id, reusable_at)
+      SELECT candidate.code, ?::text, ?::bigint FROM (SELECT ?::text AS code) candidate
+      LEFT JOIN code_leases lease ON lease.code = candidate.code WHERE ${eligible}
+      ON CONFLICT (code) DO UPDATE SET record_id = EXCLUDED.record_id, reusable_at = EXCLUDED.reusable_at
+      WHERE code_leases.reusable_at <= ?`, recordId, reusableAt, code, now, now);
+    return reserved.changes === 1;
   }
-  throw new UserError('Could not create a unique code. Please try again.');
+  for (let attempt = 0; attempt < 32; attempt += 1) {
+    const code = randomCode(4);
+    if (await claim(code)) return code;
+  }
+
+  // When the pool is crowded, look for a free code instead of relying on chance.
+  const size = CODE_ALPHABET.length;
+  const base = size ** 4;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const offset = crypto.getRandomValues(new Uint32Array(1))[0] % base;
+    const free = await db.get<{ code: string }>(`WITH digits AS (
+        SELECT ?::text AS alphabet, ?::int AS radix, ?::int AS total, ?::int AS start_at
+      )
+      SELECT candidate.code FROM digits d CROSS JOIN generate_series(0, d.total - 1) i
+      CROSS JOIN LATERAL (SELECT (i + d.start_at) % d.total AS n) x
+      CROSS JOIN LATERAL (SELECT
+        substr(d.alphabet, x.n / (d.radix * d.radix * d.radix) + 1, 1) ||
+        substr(d.alphabet, x.n / (d.radix * d.radix) % d.radix + 1, 1) ||
+        substr(d.alphabet, x.n / d.radix % d.radix + 1, 1) ||
+        substr(d.alphabet, x.n % d.radix + 1, 1) AS code
+      ) candidate
+      LEFT JOIN code_leases lease ON lease.code = candidate.code WHERE ${eligible} LIMIT 1`,
+      CODE_ALPHABET, size, base, offset, Date.now());
+    if (!free) break;
+    if (await claim(free.code)) return free.code;
+  }
+  throw new UserError('No code could be reserved. Please try again shortly.');
+}
+
+async function coolDownCode(recordId: string, code: string | null) {
+  if (!code) return;
+  await (await getDb()).run('UPDATE code_leases SET reusable_at = ? WHERE code = ? AND record_id = ?',
+    Date.now() + DAY_MS, code, recordId);
 }
 
 async function issuePickup(itemId: string, foundBy: string) {
@@ -657,7 +695,7 @@ async function issuePickup(itemId: string, foundBy: string) {
   const bus = await busById(item.bus_id);
   if (!bus) throw new UserError('That bus is no longer registered.');
   const existing = await (await getDb()).get<{ pickup_code: string | null }>('SELECT pickup_code FROM lost_items WHERE id = ?', itemId);
-  const code = existing?.pickup_code ?? await reserveUniqueCode();
+  const code = existing?.pickup_code ?? await reserveUniqueCode(itemId);
   const updated = await (await getDb()).run(`UPDATE lost_items
       SET status = 'pickup_pending', pickup_code = ?, pickup_place = ?, pickup_until = ?, found_by = ?, found_at = ?, conductor_id = ?
       WHERE id = ? AND status IN ('reported', 'waiting')`, code, PICKUP_PLACE, nextPickupDeadline(), foundBy, Date.now(), foundBy, itemId);
@@ -722,7 +760,7 @@ export async function reportLost(
           description,
           photoData,
           notifySms,
-          await reserveUniqueCode(),
+          await reserveUniqueCode(itemId),
           Date.now(),);
       return { itemId, matched: false, issued: null };
     });
@@ -757,8 +795,9 @@ export async function markNotFound(conductorId: string, itemId: string) {
   if (!bus) return { ok: false as const, message: 'You are not assigned to a bus.' };
   try {
     await withTransaction(async () => {
-      const updated = await (await getDb()).run(`UPDATE lost_items SET status = 'not_found' WHERE id = ? AND bus_id = ? AND status = 'reported'`, itemId, bus.id);
-      if (Number(updated.changes) !== 1) throw new UserError('That report is no longer open.');
+      const item = await (await getDb()).get<{ pickup_code: string | null }>(`UPDATE lost_items SET status = 'not_found' WHERE id = ? AND bus_id = ? AND status = 'reported' RETURNING pickup_code`, itemId, bus.id);
+      if (!item) throw new UserError('That report is no longer open.');
+      await coolDownCode(itemId, item.pickup_code);
     });
     return { ok: true as const, message: 'Marked as not found. The passenger can see that.' };
   } catch (error) {
@@ -787,7 +826,7 @@ export async function logFoundItem(conductorId: string, category: string, descri
       await (await getDb()).run(`INSERT INTO lost_items (
           id, ride_id, passenger_id, bus_id, conductor_id, owner_id, category, description, photo_data,
           notify_sms, status, pickup_code, pickup_place, pickup_until, source, found_by, found_at, closed_at, created_at, tip_ngwee
-        ) VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, FALSE, 'waiting', ?, NULL, NULL, 'conductor', ?, ?, NULL, ?, 0)`, itemId, bus.id, conductorId, ownerId, category, description || categoryLabelSafe(category), photoData, await reserveUniqueCode(), conductorId, Date.now(), Date.now());
+        ) VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, FALSE, 'waiting', ?, NULL, NULL, 'conductor', ?, ?, NULL, ?, 0)`, itemId, bus.id, conductorId, ownerId, category, description || categoryLabelSafe(category), photoData, await reserveUniqueCode(itemId), conductorId, Date.now(), Date.now());
       return { matched: false, itemId, issued: null };
     });
     if (outcome.issued) await notifyPickup({ ...outcome.issued, itemId: outcome.itemId });
@@ -817,7 +856,8 @@ export async function verifyPickup(actorId: string, rawCode: string) {
   }
   try {
     return await withTransaction(async () => {
-      const item = await (await getDb()).get('SELECT * FROM lost_items WHERE pickup_code = ?', code) as
+      const item = await (await getDb()).get(`SELECT li.* FROM lost_items li LEFT JOIN code_leases c ON c.code = li.pickup_code
+        WHERE li.pickup_code = ? AND (c.code IS NULL OR c.record_id = li.id)`, code) as
         | { id: string; bus_id: string; status: LostStatus; category: string }
         | undefined;
       if (!item) throw new UserError('Pickup code not found. Ask the passenger to read it again.');
@@ -835,6 +875,7 @@ export async function verifyPickup(actorId: string, rawCode: string) {
       if (item.status !== 'pickup_pending' && item.status !== 'waiting') throw new UserError('Mark the item found before returning it.');
       const updated = await (await getDb()).run(`UPDATE lost_items SET status = 'closed', closed_at = ? WHERE id = ? AND status IN ('pickup_pending', 'waiting')`, Date.now(), item.id);
       if (Number(updated.changes) !== 1) throw new UserError('This pickup was just closed.');
+      await coolDownCode(item.id, code);
       return { ok: true as const, message: `${categoryLabelSafe(item.category)} handed over. The report is closed.` };
     });
   } catch (error) {
