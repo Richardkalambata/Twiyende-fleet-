@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { LiveBus } from '@/lib/tracking';
 import { LUSAKA_STREETS, describePlace } from '@/lib/lusaka-places';
 import { demoRoutePath, routeGeometry, type GeoPoint } from '@/lib/lusaka-routes';
 import { DEMO_RIDER, LUSAKA_BOUNDS, OPEN_FRAME_M, accuracyRing, alongError, approachFromDistances, demoSpeed, formatDistance, formatUpdated, glideDistance, glideSpeed, haversineMetres, lerpAngle, pointAtDistance, projectOnto, reachMinutes, riderCounts, routeLength, showsAccuracyHalo, snapToRoad, trailSamples, trimTrail, type Approach } from '@/lib/tracking-math';
+import { busHotspots } from './hotspots';
 import { createBusPin } from './bus-pin';
 import type { PaidRide } from './map-screen';
 import { MAP_STYLE, tuneMapStyle } from './map-style';
@@ -70,6 +71,7 @@ export function LiveMap({ mode, paidRide }: { mode: 'rider' | 'operator'; paidRi
   const holder = useRef<HTMLDivElement>(null);
   const mapRef = useRef<TrackingMap | RasterTrackingMap | null>(null);
   const markers = useRef(new Map<string, Pin>());
+  const hotspotMarkers = useRef(new Map<string, MapMarker>());
   const youMarker = useRef<MapMarker | null>(null);
   const youRef = useRef<YouFix | null>(null);
   const distanceHistory = useRef(new Map<string, DistanceSample[]>());
@@ -80,6 +82,7 @@ export function LiveMap({ mode, paidRide }: { mode: 'rider' | 'operator'; paidRi
   const [mapError, setMapError] = useState(false);
   const [data, setData] = useState<Payload>({ buses: [], stops: [], landmarks: [], now: Date.now() });
   const [route, setRoute] = useState('all');
+  const [openHotspot, setOpenHotspot] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [follow, setFollow] = useState(false);
   const [tick, setTick] = useState(() => Date.now());
@@ -486,14 +489,42 @@ export function LiveMap({ mode, paidRide }: { mode: 'rider' | 'operator'; paidRi
     }
   }, [follow]);
 
+  const shown = useMemo(() => data.buses.filter((bus) => bus.recordedAt && (
+    bus.id === aboard || route === 'all' || bus.route === route
+  )), [aboard, data.buses, route]);
+  const hotspots = useMemo(() => busHotspots(shown), [shown]);
+  const activeHotspot = hotspots.find((spot) => spot.id === openHotspot);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
-    const shown = data.buses.filter((bus) => bus.recordedAt && (
-      bus.id === aboard || (route === 'all' || bus.route === route)
-    ));
+    const hidden = new Set(hotspots.flatMap((spot) => spot.buses.map((bus) => bus.id)));
+    const active = new Set(hotspots.map((spot) => spot.id));
+    for (const spot of hotspots) {
+      const position: [number, number] = [spot.lng, spot.lat];
+      let marker = hotspotMarkers.current.get(spot.id);
+      if (!marker) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'rounded-full border-2 border-white bg-[#184BDE] px-4 py-2 text-sm font-extrabold text-white shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#184BDE]';
+        button.addEventListener('click', () => setOpenHotspot((current) => current === spot.id ? null : spot.id));
+        marker = map.marker(button, 'center', position);
+        hotspotMarkers.current.set(spot.id, marker);
+      }
+      marker.setLngLat(position);
+      const button = marker.getElement();
+      button.textContent = `${spot.buses.length} buses`;
+      button.setAttribute('aria-label', `Bus hotspot: ${spot.buses.length} buses. Show bus list.`);
+      button.setAttribute('aria-expanded', String(openHotspot === spot.id));
+    }
+    for (const [id, marker] of hotspotMarkers.current) {
+      if (active.has(id)) continue;
+      marker.remove();
+      hotspotMarkers.current.delete(id);
+    }
     const seen = new Set<string>();
     for (const bus of shown) {
+      if (hidden.has(bus.id) && bus.id !== selected && bus.id !== aboard) continue;
       seen.add(bus.id);
       const geometry = routeGeometry(bus.route)?.points ?? [];
       const snapped = snapToRoad(bus, geometry, bus.accuracy);
@@ -558,7 +589,7 @@ export function LiveMap({ mode, paidRide }: { mode: 'rider' | 'operator'; paidRi
         markers.current.delete(id);
       }
     }
-  }, [data.buses, route, selected, mode, mapReady, aboard]);
+  }, [shown, hotspots, openHotspot, selected, mode, mapReady, aboard]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -737,6 +768,23 @@ export function LiveMap({ mode, paidRide }: { mode: 'rider' | 'operator'; paidRi
   return (
     <div className="relative h-full">
       <div ref={holder} className={mode === 'rider' ? 'h-full w-full' : 'h-[62vh] w-full md:h-dvh'} />
+      {activeHotspot ? (
+        <section aria-label="Bus hotspot" className="absolute inset-x-4 top-28 z-30 max-h-[45vh] overflow-auto rounded-2xl bg-white p-4 text-[#0B1B3B] shadow-lg sm:right-auto sm:w-72">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-extrabold">Hotspot · {activeHotspot.buses.length} buses</h2>
+            <button type="button" onClick={() => setOpenHotspot(null)} className="min-h-10 text-sm font-semibold text-[#184BDE]">Close</button>
+          </div>
+          <ul className="divide-y divide-[#E4E8F0]">
+            {[...activeHotspot.buses].sort((a, b) => a.fleet.localeCompare(b.fleet, undefined, { numeric: true })).map((item) => (
+              <li key={item.id}>
+                <button type="button" className="min-h-11 w-full text-left text-sm font-semibold hover:text-[#184BDE]" onClick={() => { setSelected(item.id); setOpenHotspot(null); }}>
+                  Bus {item.fleet}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {mapError ? <p role="alert" className="absolute inset-x-4 top-20 z-10 rounded-xl bg-white p-4 text-sm font-semibold">The street map could not load. Reload to try again.</p> : null}
       {mode === 'rider' ? (
         <div className="absolute left-4 top-4 z-10 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-[#0B1B3B] shadow-md">
