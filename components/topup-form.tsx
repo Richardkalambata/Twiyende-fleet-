@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { topUpAction } from '@/lib/actions';
 import { Plus } from 'lucide-react';
+import { toast } from './toast';
 import { formatBalance, parseMoney } from '@/lib/money';
 import { formatPhone, normalizePhone } from '@/lib/phone';
 
@@ -53,6 +54,7 @@ export function TopUpForm({ phone, balanceNgwee }: { phone: string; balanceNgwee
       const result = await topUpAction(review.network, review.phone, (review.amount / 100).toFixed(2));
       if (!result.ok) {
         setError(result.message);
+        toast(result.message);
         return;
       }
       setDone(result.balanceNgwee);
@@ -62,7 +64,9 @@ export function TopUpForm({ phone, balanceNgwee }: { phone: string; balanceNgwee
     } catch {
       setReview(null);
       setReentered('');
-      setError('The top-up result could not be confirmed. Check your wallet before trying again.');
+      const message = 'Connection interrupted. Check your wallet balance before trying again.';
+      setError(message);
+      toast(message);
       router.refresh();
     } finally {
       submitting.current = false;

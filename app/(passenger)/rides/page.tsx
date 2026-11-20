@@ -47,7 +47,7 @@ export default async function RidesPage({ searchParams }: { searchParams: Promis
               title={<>Bus {ride.fleetNumber}</>}
               meta={`${ride.route} · ${ride.whenLabel}`}
               amount={formatCompact(ride.amountNgwee)}
-              trailing={ride.status === 'verified' ? <Badge>Verified</Badge> : ride.status === 'pending' ? <Badge tone="copper">Pending</Badge> : <Badge tone="muted">Cancelled</Badge>}
+              trailing={ride.status === 'verified' ? <Badge>Completed</Badge> : ride.status === 'pending' ? <Badge tone="copper">Pending</Badge> : <Badge tone="muted">Cancelled</Badge>}
             />
           </Link>
         ))}

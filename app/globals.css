@@ -627,7 +627,7 @@ html[data-motion='rich'] .nav-pill {
 .bus-pin:focus-visible { outline: 2px solid #184bde; outline-offset: 4px; }
 .heading-arrow {
   position: absolute;
-  display: grid;
+  display: none;
   place-items: center;
   right: 1px;
   bottom: 6px;

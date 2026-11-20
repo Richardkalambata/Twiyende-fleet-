@@ -45,7 +45,10 @@ export function HomeApp({
       <div className="tilt-host mt-3 grid grid-cols-2 gap-2 lg:gap-4">
         <section data-tilt className="mesh elevate relative col-span-2 overflow-hidden rounded-[20px] p-4 text-white">
           <span className="sheen" aria-hidden />
-          <p className="text-[13px] font-semibold text-[#D5DCEC]">Available balance</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[13px] font-semibold text-[#D5DCEC]">Available balance</p>
+            <Link href="/topup" className="relative z-10 flex min-h-11 items-center gap-1 rounded-xl bg-white px-3 text-sm font-bold text-[#0B1B3B]"><Plus className="size-4" aria-hidden /> Add funds</Link>
+          </div>
           <p className="num mt-1 text-[36px] font-extrabold leading-none tracking-[-0.04em] text-white"><CountUp ngwee={balanceNgwee} /></p>
           <p className="mt-1 text-[12px] font-semibold text-[#D5DCEC]">Twende wallet · ZMW</p>
         </section>
@@ -96,7 +99,7 @@ export function HomeApp({
                     <span className="block truncate text-[14px] font-bold">{ride.route}</span>
                     <span className="mt-0.5 flex items-center gap-2 text-[12px] font-semibold text-[#3E4A63]">
                       {ride.whenLabel}
-                      {ride.status === 'verified' ? <span className="rounded-full bg-[#E8F8EF] px-2 py-0.5 text-[11px] font-bold text-[#0E7A45]">Verified</span> : ride.status === 'pending' ? <span className="rounded-full bg-[#FFF6E8] px-2 py-0.5 text-[11px] font-bold text-[#9A5B00]">Pending</span> : <span className="rounded-full bg-[#F4F6FB] px-2 py-0.5 text-[11px] font-bold text-[#3E4A63]">Cancelled</span>}
+                      {ride.status === 'verified' ? <span className="rounded-full bg-[#E8F8EF] px-2 py-0.5 text-[11px] font-bold text-[#0E7A45]">Completed</span> : ride.status === 'pending' ? <span className="rounded-full bg-[#FFF6E8] px-2 py-0.5 text-[11px] font-bold text-[#9A5B00]">Pending</span> : <span className="rounded-full bg-[#F4F6FB] px-2 py-0.5 text-[11px] font-bold text-[#3E4A63]">Cancelled</span>}
                     </span>
                   </span>
                   <span className="num text-[15px] font-extrabold">{formatBalance(ride.amountNgwee)}</span>

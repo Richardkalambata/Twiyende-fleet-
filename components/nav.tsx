@@ -9,7 +9,7 @@ import { Map } from 'lucide-react';
 
 function Item({ href, label, active, children }: { href: string; label: string; active: boolean; dark?: boolean; children: ReactNode }) {
   return (
-    <Link href={href} aria-current={active ? 'page' : undefined} className={`nav-item flex h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[12px] font-semibold lg:flex-none lg:flex-row lg:justify-start lg:gap-3 lg:rounded-xl lg:px-4 lg:text-sm ${active ? 'text-[#0B1B3B] lg:!bg-white' : 'text-[#D5DCEC]'}`}>
+    <Link href={href} aria-current={active ? 'page' : undefined} className={`nav-item flex h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[12px] font-semibold lg:h-14 lg:flex-none lg:flex-row lg:justify-start lg:gap-3 lg:rounded-xl lg:px-4 lg:text-sm ${active ? 'text-[#0B1B3B] lg:!bg-white' : 'text-[#D5DCEC]'}`}>
       {children}
       <span>{label}</span>
     </Link>
@@ -18,12 +18,17 @@ function Item({ href, label, active, children }: { href: string; label: string; 
 
 function Bar({ label, index, cols, children }: { label: string; index: number; cols: number; children: ReactNode }) {
   return (
-    <nav className="px-4 pb-[max(12px,env(safe-area-inset-bottom))] lg:pt-8" aria-label={label}>
+    <nav className="px-4 pb-[max(12px,env(safe-area-inset-bottom))] lg:flex lg:h-full lg:flex-col lg:pt-8" aria-label={label}>
       <div className="mb-8 hidden px-3 lg:block"><Logo tone="light" business={label === 'Conductor'} /></div>
       <div className={`nav-bar glass grid rounded-full p-1.5 lg:flex lg:flex-col lg:gap-2 lg:rounded-none lg:!bg-transparent lg:!shadow-none ${cols === 5 ? 'grid-cols-5' : 'grid-cols-4'}`} style={{ ['--i' as string]: index, ['--cols' as string]: cols }}>
         <span className="nav-pill lg:hidden" aria-hidden />
         {children}
       </div>
+      {label === 'Passenger' ? (
+        <Link href="/topup" className="mt-auto mb-4 hidden min-h-12 items-center justify-center rounded-xl bg-[#1F5BFF] px-4 font-bold text-white lg:flex">
+          <span aria-hidden className="mr-2 text-xl">+</span> Add funds
+        </Link>
+      ) : null}
     </nav>
   );
 }

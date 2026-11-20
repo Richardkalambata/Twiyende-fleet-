@@ -11,7 +11,7 @@ import { toast } from './toast';
 export function PayForm({ buses, balanceNgwee, onClose, initialFleet = '' }: { buses: BusOption[]; balanceNgwee: number; onClose?: () => void; initialFleet?: string }) {
   const router = useRouter();
   const [fleet, setFleet] = useState(initialFleet);
-  const [fare, setFare] = useState('5');
+  const [fare, setFare] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const active = buses.filter((bus) => bus.status === 'active');
@@ -48,8 +48,8 @@ export function PayForm({ buses, balanceNgwee, onClose, initialFleet = '' }: { b
           <span><span className="block font-bold">Bus {match.fleetNumber}</span><span className="text-[13px] text-[#5C6578]">{match.route || 'Route not set'}</span></span>
         </div>
       ) : null}
-      <label className="mt-6 block text-[13px] font-semibold">Fare amount (K)
-        <input value={fare} onChange={(event) => setFare(event.target.value)} inputMode="decimal" aria-label="Custom fare" className="mt-2 w-full rounded-xl border border-[#D5DCE8] bg-white px-3 py-2 text-xl font-bold" />
+      <label className="mt-6 block text-[13px] font-semibold">Custom fare (K)
+        <input value={fare} onChange={(event) => setFare(event.target.value)} inputMode="decimal" placeholder="Enter the fare agreed with your conductor" aria-label="Custom fare" className="mt-2 w-full rounded-xl border border-[#D5DCE8] bg-white px-3 py-2 text-xl font-bold" />
       </label>
       <div className="mt-2 flex flex-wrap gap-2">
         {chips.map((value) => (
@@ -71,7 +71,7 @@ export function PayForm({ buses, balanceNgwee, onClose, initialFleet = '' }: { b
       {short > 0 ? (
         <a href="/topup" className="mt-4 flex h-12 items-center justify-center rounded-xl bg-[#1F5BFF] font-bold text-white">Top up wallet</a>
       ) : (
-        <button type="button" disabled={pending} onClick={submit} className="glow-pay press mt-4 flex h-12 items-center justify-center rounded-xl bg-[#1F5BFF] text-[15px] font-bold text-white disabled:opacity-50">{pending ? 'Paying…' : `Pay ${formatBalance(amount)}`}</button>
+        <button type="button" disabled={pending || amount === 0} onClick={submit} className="glow-pay press mt-4 flex h-12 items-center justify-center rounded-xl bg-[#1F5BFF] text-[15px] font-bold text-white disabled:opacity-50">{pending ? 'Paying…' : `Pay ${formatBalance(amount)}`}</button>
       )}
       <p className="mt-2 text-center text-[12px] text-[#8A93A6]">Paid from your Twende wallet.</p>
     </div>
