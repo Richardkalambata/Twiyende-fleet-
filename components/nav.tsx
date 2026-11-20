@@ -10,7 +10,7 @@ import { signOutAction } from '@/lib/actions';
 
 function Item({ href, label, active, children }: { href: string; label: string; active: boolean; dark?: boolean; children: ReactNode }) {
   return (
-    <Link href={href} aria-current={active ? 'page' : undefined} className={`nav-item flex h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[12px] font-semibold lg:h-14 lg:flex-none lg:flex-row lg:justify-start lg:gap-3 lg:rounded-xl lg:px-4 lg:text-sm ${active ? 'text-[#0B1B3B] lg:!bg-white' : 'text-[#D5DCEC]'}`}>
+    <Link href={href} aria-current={active ? 'page' : undefined} className={`nav-item flex h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[12px] font-semibold lg:h-14 lg:flex-none lg:flex-row lg:justify-start lg:gap-3 lg:rounded-xl lg:px-4 lg:text-sm ${active ? 'text-[#0B1B3B] lg:!bg-white' : 'text-[#D5DCEC] lg:text-white/70 lg:hover:bg-white/10'}`}>
       {children}
       <span>{label}</span>
     </Link>

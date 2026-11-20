@@ -28,8 +28,8 @@ export function OwnerFrame({ children, openLost, operator, company }: { children
   const [navOpen, setNavOpen] = useState(false);
   return (
     <div className="min-h-dvh bg-[#F4F6FB] text-[#0B1B3B] lg:flex">
-      <aside className="relative flex shrink-0 flex-col bg-[#0B1B3B] text-white lg:sticky lg:top-0 lg:h-dvh lg:w-[232px]">
-        <div className="flex items-center justify-between px-4 py-4 lg:py-5">
+      <aside className="relative flex shrink-0 flex-col bg-[#0B1B3B] text-white lg:sticky lg:top-0 lg:h-dvh lg:w-56">
+        <div className="flex items-center justify-between px-4 py-4 lg:px-7 lg:pt-8 lg:pb-6">
           <Logo tone="light" business />
           <div className="flex items-center gap-2 lg:hidden">
             <button
@@ -58,12 +58,12 @@ export function OwnerFrame({ children, openLost, operator, company }: { children
           <span className="grid h-6 w-6 place-items-center rounded-md bg-white/15"><BusIcon className="h-3.5 w-3.5" /></span>
           <span className="truncate">{company}</span>
         </div>
-        <nav className="hidden gap-1 px-2 pb-3 md:flex md:overflow-x-auto lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-y-auto" aria-label="Fleet">
+        <nav className="hidden gap-1 px-2 pb-3 md:flex md:overflow-x-auto lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-2 lg:overflow-y-auto lg:px-4" aria-label="Fleet">
           {LINKS.map((link) => {
             const active = link.href === '/business/desk' ? path === '/business/desk' : path.startsWith(link.href);
             const Icon = link.icon;
             return (
-              <Link key={link.href} href={link.href} aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)} className={`relative flex h-10 shrink-0 items-center gap-3 rounded-xl px-3 text-[14px] font-semibold ${active ? 'bg-[#1F5BFF] text-white' : 'text-white/70'}`}>
+              <Link key={link.href} href={link.href} aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)} className={`relative flex h-10 shrink-0 items-center gap-3 rounded-xl px-3 text-[14px] font-semibold lg:h-14 lg:px-4 ${active ? 'bg-[#1F5BFF] text-white lg:bg-white lg:text-[#0B1B3B]' : 'text-white/70 hover:bg-white/10'}`}>
                 <Icon className="h-5 w-5" />
                 {link.label}
                 {link.href === '/business/desk/lost' && openLost > 0 ? <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-[#1F5BFF] px-1 text-[11px] text-white">{openLost}</span> : null}
