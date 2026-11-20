@@ -7,12 +7,13 @@ import { LUSAKA_STREETS, describePlace } from '@/lib/lusaka-places';
 import { demoRoutePath, routeGeometry, type GeoPoint } from '@/lib/lusaka-routes';
 import { DEMO_RIDER, LUSAKA_BOUNDS, OPEN_FRAME_M, accuracyRing, alongError, approachFromDistances, demoSpeed, formatDistance, formatUpdated, glideDistance, glideSpeed, haversineMetres, lerpAngle, pointAtDistance, projectOnto, reachMinutes, riderCounts, routeLength, showsAccuracyHalo, snapToRoad, trailSamples, trimTrail, type Approach } from '@/lib/tracking-math';
 import { createBusPin } from './bus-pin';
+import type { PaidRide } from './map-screen';
 import { MAP_STYLE, tuneMapStyle } from './map-style';
 import { vectorTrackingMap, type MapMarker, type RasterTrackingMap, type TrackingMap } from './map-renderer';
 
 type Stop = { id: string; name: string; lat: number; lng: number; seq: number };
 type Payload = { buses: LiveBus[]; stops: { route: string; stops: Stop[] }[]; landmarks?: Stop[]; demo?: boolean; now: number };
-type YouFix = { lat: number; lng: number; accuracy: number; demo?: boolean };
+type YouFix = { lat: number; lng: number; accuracy: number; recordedAt?: number; demo?: boolean };
 type DistanceSample = { at: number; metres: number };
 const POLL_MS = 1_000;
 const TRAIL_MS = 45_000;
@@ -65,7 +66,7 @@ function usualRoute(route: string | null) {
   return route ? route.replaceAll(' to ', ' ↔ ') : '';
 }
 
-export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
+export function LiveMap({ mode, paidRide }: { mode: 'rider' | 'operator'; paidRide?: PaidRide | null }) {
   const holder = useRef<HTMLDivElement>(null);
   const mapRef = useRef<TrackingMap | RasterTrackingMap | null>(null);
   const markers = useRef(new Map<string, Pin>());
@@ -86,22 +87,41 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
   const [locationState, setLocationState] = useState<'pending' | 'granted' | 'denied'>('pending');
   const [historyTick, setHistoryTick] = useState(0);
   const [showRoute, setShowRoute] = useState(false);
-  const [aboard, setAboard] = useState<string | null>(null);
+  const [disembarked, setDisembarked] = useState(false);
+  const separatedAt = useRef<number | null>(null);
+  const rideKey = paidRide ? `twende-left-${paidRide.id}` : null;
+  const aboard = paidRide && !disembarked && tick < paidRide.endsAt ? paidRide.busId : null;
 
   useEffect(() => {
-    if (mode === 'rider') setAboard(sessionStorage.getItem('twende-aboard'));
-  }, [mode]);
-
-  function confirmAboard(busId: string | null) {
-    setAboard(busId);
-    if (busId) {
-      sessionStorage.setItem('twende-aboard', busId);
-      setFollow(true);
-    } else {
-      sessionStorage.removeItem('twende-aboard');
-      setFollow(false);
+    if (!rideKey || !paidRide) return;
+    if (sessionStorage.getItem(rideKey)) {
+      setDisembarked(true);
+      return;
     }
-  }
+    setSelected(paidRide.busId);
+    setFollow(true);
+  }, [paidRide, rideKey]);
+
+  useEffect(() => {
+    const bus = data.buses.find((item) => item.id === aboard);
+    if (!bus || bus.simulated || bus.stale || !bus.recordedAt || tick - bus.recordedAt > 15_000
+      || !you?.recordedAt || tick - you.recordedAt > 10_000 || you.accuracy > 25 || bus.accuracy == null || bus.accuracy > 30) {
+      separatedAt.current = null;
+      return;
+    }
+    // Require separation beyond both GPS error margins on two fresh fixes.
+    if (haversineMetres(you, bus) <= 35 + you.accuracy + bus.accuracy) {
+      separatedAt.current = null;
+      return;
+    }
+    separatedAt.current ??= you.recordedAt;
+    if (you.recordedAt - separatedAt.current < 4_000) return;
+    if (rideKey) sessionStorage.setItem(rideKey, '1');
+    setDisembarked(true);
+    setFollow(false);
+    setSelected(null);
+  }, [aboard, data.buses, rideKey, tick, you]);
+
   const movingBuses = data.buses.filter((item) => item.recordedAt);
   const nearestBus = movingBuses.reduce<LiveBus | null>((best, bus) => {
     if (!best) return bus;
@@ -134,6 +154,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
           accuracy: position.coords.accuracy,
+          recordedAt: position.timestamp,
         });
       },
       () => setLocationState('denied'),
@@ -639,7 +660,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setLocationState('granted');
-        setYou({ lat: position.coords.latitude, lng: position.coords.longitude, accuracy: position.coords.accuracy });
+        setYou({ lat: position.coords.latitude, lng: position.coords.longitude, accuracy: position.coords.accuracy, recordedAt: position.timestamp });
       },
       () => setLocationState('denied'),
       { enableHighAccuracy: true, timeout: 12_000 },
@@ -763,13 +784,14 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
         </aside>
       ) : null}
       {mode === 'rider' && aboard ? (
-        <div className="absolute left-4 right-4 top-[72px] z-10 flex items-center justify-between gap-2 rounded-2xl bg-[#087653] px-4 py-2.5 text-sm font-bold text-white">
+        <div className="absolute left-4 right-4 top-[72px] z-10 flex items-center justify-between gap-2 rounded-2xl bg-[#184BDE] px-4 py-2.5 text-sm font-bold text-white">
           <button type="button" className="text-white" onClick={() => { if (boardedBus) { setSelected(boardedBus.id); setFollow(true); } }}>
-            {boardedBus ? `You're on Bus ${boardedBus.fleet}` : 'On board · Location unavailable'}
+            {boardedBus ? `You're on Bus ${boardedBus.fleet}` : `On board · Waiting for bus location`}
           </button>
-          <button type="button" className="shrink-0 rounded-lg border border-white/70 px-2 py-1 text-white" onClick={() => confirmAboard(null)}>I got off</button>
+
         </div>
       ) : null}
+      {mode === 'rider' && disembarked ? <p role="status" className="absolute left-4 top-[72px] z-10 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#184BDE] shadow-md">You got off the bus</p> : null}
       {mode === 'rider' && bus ? (
         <div
           data-testid="bus-card"
@@ -793,7 +815,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
           </div>
           <p data-testid="heading-line" className="mt-3 text-[16px] font-extrabold leading-snug tracking-[-0.03em]">
             {aboard === bus.id ? (
-              <span className="text-[#087653]">{bus.stale ? 'On board · Last known position' : 'On board'}</span>
+              <span className="text-[#184BDE]">{bus.stale ? 'On board · Last known position' : 'On board'}</span>
             ) : aboard ? (
               'Viewing another bus'
             ) : riderGap ? (
@@ -807,11 +829,6 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
             ) : data.demo ? 'Finding your location…' : 'Outside the Lusaka service area'}
           </p>
           <p className="mt-1 truncate text-[13px] font-medium text-[#8A93A6]">{streetLine(bus)}</p>
-          {!aboard && bus.recordedAt && !bus.stale ? (
-            <button type="button" className="mt-3 w-full rounded-xl bg-[#E7F5EE] px-3 py-2 text-sm font-bold text-[#075A40]" onClick={() => confirmAboard(bus.id)}>
-              I’m on Bus {bus.fleet}
-            </button>
-          ) : null}
           {mode === 'rider' && bus.route ? (
             <div className="mt-3 rounded-xl bg-[#F4F6FB] px-3 py-2">
               <button type="button" aria-expanded={showRoute} aria-label={showRoute ? 'Hide route information' : 'Show route information'} className="text-sm font-semibold text-[#184bde]" onClick={() => setShowRoute((value) => !value)}>

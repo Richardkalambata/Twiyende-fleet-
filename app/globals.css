@@ -620,7 +620,7 @@ html[data-motion='rich'] .nav-pill {
 .bus-mark { width: 32px; height: 22px; flex-shrink: 0; }
 .bus-num { min-width: 27px; margin-top: -1px; border-radius: 6px; background: #1f5bff; padding: 2px 5px; color: #fff; font-size: 11px; font-weight: 800; line-height: 1; text-align: center; }
 .bus-pin[data-on='true'] .bus-face { box-shadow: 0 0 0 3px #1f5bff44, 0 4px 12px #0b1b3b66; transform: scale(1.08); }
-.bus-pin[data-aboard='true'] .bus-num { background: #087653; }
+.bus-pin[data-aboard='true'] .bus-num { background: #184bde; }
 .bus-pin[data-dim='true'] { opacity: 0.4; }
 .bus-pin[data-stale='true'] { opacity: 0.45; }
 .bus-pin[data-idle='true'] { opacity: 0.72; }
@@ -649,7 +649,7 @@ html[data-motion='rich'] .nav-pill {
   border-radius: 999px;
   padding: 3px 6px;
   white-space: nowrap;
-  background: #087653;
+  background: #184bde;
   color: #fff;
   font-size: 8px;
   font-weight: 800;

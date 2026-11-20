@@ -44,6 +44,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
         </div>
       </section>
       {pending ? <CancelFare rideId={receipt.id} /> : null}
+      {receipt.status !== 'void' ? <Link href="/map" className="mt-4 block text-center text-sm font-bold text-[#184BDE]">Track your bus</Link> : null}
       <PrintButton />
       <Link href="/wallet" className="mt-3 block text-center text-sm font-semibold text-[#184BDE]">View transaction history</Link>
       {pending ? <ShareReceipt text={share} /> : null}
