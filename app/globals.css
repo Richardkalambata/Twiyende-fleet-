@@ -768,3 +768,42 @@ html[data-motion='rich'] .land-in { animation-name: land-depth; }
 .twende-raster-marker:has(.you-pin) { pointer-events: none; }
 .twende-raster-marker .bus-pin { pointer-events: auto; }
 .leaflet-container { z-index: 0; }
+
+@media (min-width: 768px) {
+  .twende-shell[data-workspace] {
+    max-width: 920px;
+  }
+  .twende-workspace-nav {
+    order: -1;
+    padding-top: 12px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .twende-shell[data-workspace] {
+    display: grid;
+    grid-template-columns: 176px minmax(0, 1fr);
+    max-width: 1440px;
+  }
+  .twende-workspace-nav {
+    background: #0b1b3b;
+    padding-top: 24px;
+  }
+  .twende-workspace-nav .nav-bar {
+    grid-template-columns: minmax(0, 1fr) !important;
+    border-radius: 16px;
+  }
+  .twende-workspace-nav .nav-pill {
+    display: none;
+  }
+  .twende-workspace-nav .nav-item {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 10px;
+    border-radius: 10px;
+    padding-inline: 12px;
+  }
+  .twende-workspace-nav .nav-item[aria-current="page"] {
+    background: white;
+  }
+}

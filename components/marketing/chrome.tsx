@@ -13,7 +13,19 @@ export function SiteHeader({ business = false }: { business?: boolean }) {
         </nav>
         <div className="flex items-center gap-2">
           <Link href={business ? '/business/login' : '/login'} className="hidden h-10 items-center rounded-xl px-3 text-[14px] font-bold text-white sm:inline-flex">Sign in</Link>
-          <Link href={business ? '/business/signup' : '/signup'} className="inline-flex h-12 items-center rounded-xl bg-[#1F5BFF] px-5 text-[14px] font-bold text-white">{business ? 'Create a company' : 'Create account'}</Link>
+          <Link href={business ? '/business/signup' : '/signup'} className="inline-flex h-12 items-center rounded-xl bg-[#1F5BFF] px-3 text-[13px] font-bold text-white sm:px-5 sm:text-[14px]">{business ? 'Create a company' : 'Create account'}</Link>
+          <details className="relative md:hidden">
+            <summary className="grid h-11 w-11 cursor-pointer list-none place-items-center rounded-xl bg-[#0B1B3B] text-white" aria-label="Open site menu">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14" /></svg>
+            </summary>
+            <nav aria-label="Mobile site" className="absolute right-0 top-full mt-2 grid w-48 gap-1 rounded-xl bg-white p-2 text-sm font-semibold text-[#0B1B3B] shadow-xl [&>a]:rounded-lg [&>a]:p-2">
+              <Link href="/">Riders</Link>
+              <Link href="/business">Business</Link>
+              <Link href={business ? '/business#faq' : '/#faq'}>Help</Link>
+              <Link href={business ? '/business/login' : '/login'}>Sign in</Link>
+              {business && <Link href="/business/conductor/login">Conductor sign in</Link>}
+            </nav>
+          </details>
         </div>
       </div>
     </header>

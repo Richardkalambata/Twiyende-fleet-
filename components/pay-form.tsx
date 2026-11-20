@@ -16,14 +16,17 @@ export function PayForm({ buses, balanceNgwee, onClose, initialFleet = '' }: { b
   const [pending, setPending] = useState(false);
   const active = buses.filter((bus) => bus.status === 'active');
   const match = useMemo(() => active.find((bus) => bus.fleetNumber === fleet.trim().replace(/^bus\s*/i, '')), [active, fleet]);
-  const amount = parseFare(fare) ?? 0;
-  const chips = useMemo(() => (match?.fareNgwee && match.fareNgwee.length > 0 ? match.fareNgwee : [match?.defaultFareNgwee ?? 500, 1000, 1500, 2000].filter((value, index, all) => all.indexOf(value) === index)).map((value) => String(value / 100)), [match]);
+  const configuredFares = match?.fareNgwee ?? [];
+  const chips = (configuredFares.length ? configuredFares : [...new Set([match?.defaultFareNgwee ?? 500, 1000, 1500, 2000])])
+    .map((value) => String(value / 100));
+  const selectedFare = configuredFares.length && !chips.includes(fare) ? chips[0] : fare;
+  const amount = parseFare(selectedFare) ?? 0;
   const short = Math.max(0, amount - balanceNgwee);
 
   async function submit() {
     setPending(true);
     setError(null);
-    const result = await payAction(fleet, fare);
+    const result = await payAction(fleet, selectedFare);
     if (!result.ok) {
       setError(result.message);
       toast(result.message);
@@ -48,12 +51,12 @@ export function PayForm({ buses, balanceNgwee, onClose, initialFleet = '' }: { b
           <span><span className="block font-bold">Bus {match.fleetNumber}</span><span className="text-[13px] text-[#5C6578]">{match.route || 'Route not set'}</span></span>
         </div>
       ) : null}
-      <label className="mt-6 block text-[13px] font-semibold">Fare amount (K)
+      {configuredFares.length ? <p className="mt-6 text-[13px] font-semibold">Route fares (K)</p> : <label className="mt-6 block text-[13px] font-semibold">Fare amount (K)
         <input value={fare} onChange={(event) => setFare(event.target.value)} inputMode="decimal" aria-label="Custom fare" className="mt-2 w-full rounded-xl border border-[#D5DCE8] bg-white px-3 py-2 text-xl font-bold" />
-      </label>
+      </label>}
       <div className="mt-2 flex flex-wrap gap-2">
         {chips.map((value) => (
-          <button key={value} type="button" data-on={fare === value} onClick={() => setFare(value)} className={`chip press h-11 min-w-16 flex-1 rounded-xl text-[15px] font-bold ${fare === value ? 'bg-[#1F5BFF] text-white' : 'border border-[#E4E8F0] bg-white text-[#0B1B3B]'}`}>K{value}</button>
+          <button key={value} type="button" data-on={selectedFare === value} onClick={() => setFare(value)} className={`chip press h-11 min-w-16 flex-1 rounded-xl text-[15px] font-bold ${selectedFare === value ? 'bg-[#1F5BFF] text-white' : 'border border-[#E4E8F0] bg-white text-[#0B1B3B]'}`}>K{value}</button>
         ))}
       </div>
       <div className="mt-6 space-y-2 text-[14px]">
@@ -71,7 +74,7 @@ export function PayForm({ buses, balanceNgwee, onClose, initialFleet = '' }: { b
       {short > 0 ? (
         <a href="/topup" className="mt-4 flex h-12 items-center justify-center rounded-xl bg-[#1F5BFF] font-bold text-white">Top up wallet</a>
       ) : (
-        <button type="button" disabled={pending} onClick={submit} className="glow-pay press mt-4 flex h-12 items-center justify-center rounded-xl bg-[#1F5BFF] text-[15px] font-bold text-white disabled:opacity-50">{pending ? 'Paying…' : `Pay ${formatBalance(amount)}`}</button>
+        <button type="button" disabled={pending || !match || amount === 0} onClick={submit} className="glow-pay press mt-4 flex h-12 items-center justify-center rounded-xl bg-[#1F5BFF] text-[15px] font-bold text-white disabled:opacity-50">{pending ? 'Paying…' : `Pay ${formatBalance(amount)}`}</button>
       )}
       <p className="mt-2 text-center text-[12px] text-[#8A93A6]">Paid from your Twende wallet.</p>
     </div>

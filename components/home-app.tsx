@@ -34,24 +34,25 @@ export function HomeApp({
   const letters = name.split(/\s+/).filter(Boolean).map((part) => part[0]).slice(0, 2).join('').toUpperCase() || initials;
   if (paying) return <PayForm buses={buses} balanceNgwee={balanceNgwee} initialFleet={preset} onClose={() => setPaying(false)} />;
   return (
-    <div className="px-5 pb-4 text-[#0B1B3B]">
+    <div className="px-5 pb-4 md:px-8 lg:px-10 text-[#0B1B3B]">
       <header className="safe-top flex items-center justify-between">
         <Logo />
         <Avatar initials={letters} size={36} />
       </header>
       <p className="mt-3 text-[15px] text-[#5C6578]">{greeting},</p>
       <h1 className="text-[32px] font-extrabold leading-none tracking-[-0.04em]">{name.split(' ')[0]}</h1>
-      <div className="tilt-host mt-3 grid grid-cols-2 gap-2">
+      <div className="lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-6">
+      <div className="tilt-host mt-3 grid grid-cols-2 gap-2 md:gap-3">
         <section data-tilt className="mesh elevate relative col-span-2 overflow-hidden rounded-[20px] p-4 text-white">
           <span className="sheen" aria-hidden />
           <p className="text-[13px] font-semibold text-[#D5DCEC]">Available balance</p>
           <p className="num mt-1 text-[36px] font-extrabold leading-none tracking-[-0.04em] text-white"><CountUp ngwee={balanceNgwee} /></p>
           <p className="mt-1 text-[12px] font-semibold text-[#D5DCEC]">Twende wallet · ZMW</p>
         </section>
-        <button type="button" onClick={() => { setPreset(''); setPaying(true); }} className="glow-pay press col-span-2 flex h-14 items-center justify-center gap-2 rounded-[20px] bg-[#1F5BFF] text-[18px] font-extrabold text-white">
+        <button type="button" onClick={() => { setPreset(''); setPaying(true); }} className="glow-pay press col-span-2 flex h-14 items-center justify-center gap-2 md:col-span-1 rounded-[20px] bg-[#1F5BFF] text-[18px] font-extrabold text-white">
           Pay a fare →
         </button>
-        <Link href="/map" className="press col-span-2 flex h-14 items-center gap-3 rounded-[20px] bg-[#0B1B3B] px-3 text-white">
+        <Link href="/map" className="press col-span-2 flex h-14 items-center gap-3 md:col-span-1 rounded-[20px] bg-[#0B1B3B] px-3 text-white">
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#1F5BFF]"><Map className="h-5 w-5" /></span>
           <span>
             <span className="block text-[15px] font-extrabold">Live buses</span>
@@ -105,6 +106,7 @@ export function HomeApp({
           </ul>
         )}
       </section>
+      </div>
     </div>
   );
 }

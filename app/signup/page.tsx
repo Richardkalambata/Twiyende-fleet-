@@ -16,8 +16,8 @@ export default function SignupPage() {
       <form action={action} className="mt-6 space-y-4">
         <Field name="name" label="Name" placeholder="Richard Banda" />
         <Field name="phone" label="Phone" placeholder="0971 000 001" inputMode="tel" />
-        <Field name="pin" label="4-digit PIN" placeholder="••••" inputMode="numeric" maxLength={4} />
-        <Field name="confirm" label="Confirm PIN" placeholder="••••" inputMode="numeric" maxLength={4} />
+        <Field name="pin" label="6-digit PIN" placeholder="••••••" inputMode="numeric" maxLength={6} />
+        <Field name="confirm" label="Confirm PIN" placeholder="••••••" inputMode="numeric" maxLength={6} />
         <label className="flex items-start gap-3 text-[14px] leading-5">
           <input type="checkbox" name="terms" required className="mt-1 h-4 w-4 accent-[#1F5BFF]" />
           <span>I agree to the terms</span>
@@ -42,7 +42,7 @@ function Field(props: { name: string; label: string; placeholder: string; inputM
   return (
     <label className="block text-sm font-medium">
       {props.label}
-      <input name={props.name} placeholder={props.placeholder} inputMode={props.inputMode} maxLength={props.maxLength} className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[18px] font-semibold text-[#0B1B3B] outline-none placeholder:text-[#5C6578] focus:border-[#1F5BFF]" />
+      <input name={props.name} type={props.maxLength ? "password" : props.inputMode === "tel" ? "tel" : "text"} autoComplete={props.maxLength ? "new-password" : undefined} pattern={props.maxLength ? "[0-9]{6}" : undefined} required placeholder={props.placeholder} inputMode={props.inputMode} maxLength={props.maxLength} className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[18px] font-semibold text-[#0B1B3B] outline-none placeholder:text-[#5C6578] focus:border-[#1F5BFF]" />
     </label>
   );
 }

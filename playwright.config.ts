@@ -17,6 +17,7 @@ export default defineConfig({
       DATABASE_URL: E2E_DATABASE_URL,
       DATABASE_URL_UNPOOLED: E2E_DATABASE_URL,
       PAYMENT_PROVIDER: 'simulated',
+      DEMO_ROLE_SWITCHER: '1',
     },
   },
 });

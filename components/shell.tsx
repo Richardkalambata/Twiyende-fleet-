@@ -12,9 +12,9 @@ export function PhoneShell({
   const navy = tone === 'navy';
   return (
     <div className={navy ? 'min-h-dvh bg-[#071433] text-white' : 'min-h-dvh bg-[#E8EDF5] text-[#0B1B3B]'}>
-      <div className={`mx-auto flex h-dvh w-full max-w-[430px] flex-col ${navy ? 'bg-[#071433] text-white' : 'bg-[#F4F6FB] text-[#0B1B3B]'} md:my-4 md:h-[calc(100dvh-2rem)] md:overflow-hidden md:rounded-[28px] md:shadow-[0_24px_60px_rgba(11,27,59,0.12)]`}>
+      <div data-workspace={nav ? "true" : undefined} className={`twende-shell mx-auto flex h-dvh w-full max-w-[520px] flex-col ${navy ? 'bg-[#071433] text-white' : 'bg-[#F4F6FB] text-[#0B1B3B]'} md:my-4 md:h-[calc(100dvh-2rem)] md:overflow-hidden md:rounded-[28px] md:shadow-[0_24px_60px_rgba(11,27,59,0.12)]`}>
         <div id="main" className="min-h-0 flex-1 overflow-y-auto">{children}</div>
-        {nav}
+        {nav && <div className="twende-workspace-nav">{nav}</div>}
       </div>
     </div>
   );

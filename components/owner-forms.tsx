@@ -48,7 +48,7 @@ export function RegisterConductorForm({ buses }: { buses: BusPerformance[] }) {
     <form action={action} className="grid gap-3 rounded-2xl bg-white p-4 shadow-[0_8px_24px_rgba(11,27,59,0.06)] md:grid-cols-2">
       <input name="name" required placeholder="Name" aria-label="Conductor name" className="h-14 rounded-2xl bg-white px-4 text-[#0B1B3B] placeholder:text-[#5C6578]" />
       <input name="phone" required placeholder="Phone" aria-label="Phone" className="h-14 rounded-2xl bg-white px-4 text-[#0B1B3B] placeholder:text-[#5C6578]" />
-      <input name="pin" required inputMode="numeric" maxLength={4} placeholder="4-digit PIN" aria-label="PIN" className="h-14 rounded-2xl bg-white px-4 text-[#0B1B3B] placeholder:text-[#5C6578]" />
+      <input name="pin" required inputMode="numeric" maxLength={6} pattern="[0-9]{6}" type="password" placeholder="6-digit PIN" aria-label="PIN" className="h-14 rounded-2xl bg-white px-4 text-[#0B1B3B] placeholder:text-[#5C6578]" />
       <select name="busId" aria-label="Assign bus" className="h-14 rounded-2xl bg-white px-4 text-[#0B1B3B]" defaultValue="">
         <option value="">Assign later</option>
         {buses.map((bus) => <option key={bus.id} value={bus.id}>Bus {bus.fleetNumber}</option>)}
@@ -61,6 +61,7 @@ export function RegisterConductorForm({ buses }: { buses: BusPerformance[] }) {
 }
 
 export function BusControls({ bus, conductors }: { bus: BusPerformance; conductors: ConductorOption[] }) {
+  const [routeResult, saveRoute, savingRoute] = useActionState(setBusRouteAction, null);
   return (
     <div className="flex flex-wrap items-center gap-2">
       <form action={setBusStatusAction}>
@@ -68,16 +69,17 @@ export function BusControls({ bus, conductors }: { bus: BusPerformance; conducto
         <input type="hidden" name="status" value={bus.status === 'active' ? 'offline' : 'active'} />
         <button className="h-10 rounded-full border border-[#E4E8F0] bg-[#F1F4FA] px-3 text-sm text-[#0B1B3B]">{bus.status === 'active' ? 'Take offline' : 'Mark active'}</button>
       </form>
-      <form action={setBusRouteAction} className="flex items-center gap-2">
+      <form action={saveRoute} className="flex items-center gap-2">
         <input type="hidden" name="busId" value={bus.id} />
-        <select name="route" defaultValue={bus.route ?? ''} aria-label={`Route for bus ${bus.fleetNumber}`} className="h-10 max-w-[180px] rounded-full bg-white px-3 text-sm text-[#0B1B3B]">
+        <select name="route" defaultValue={bus.route ?? ''} aria-label={`Route for bus ${bus.fleetNumber}`} className="h-10 min-w-0 max-w-[180px] rounded-full bg-white px-3 text-sm text-[#0B1B3B]">
           <option value="">No route</option>
           {[...new Set([bus.route, ...LUSAKA_ROUTES.map((item) => item.route)].filter((item): item is string => Boolean(item)))].map((name) => (
             <option key={name} value={name}>{name.replaceAll(' to ', ' ↔ ')}</option>
           ))}
         </select>
-        <button className="h-10 rounded-xl bg-[#1F5BFF] px-3 text-sm font-bold text-white">Save route</button>
+        <button disabled={savingRoute} className="h-10 shrink-0 rounded-xl bg-[#1F5BFF] px-3 text-sm font-bold text-white">{savingRoute ? "Saving…" : "Save route"}</button>
       </form>
+      {routeResult && <p className="basis-full text-sm" role={routeResult.ok ? "status" : "alert"}>{routeResult.message}</p>}
       <form action={assignConductorAction} className="flex items-center gap-2">
         <input type="hidden" name="busId" value={bus.id} />
         <select name="conductorId" defaultValue={bus.conductorId ?? ''} aria-label={`Conductor for bus ${bus.fleetNumber}`} className="h-10 rounded-full bg-white px-3 text-sm text-[#0B1B3B]">

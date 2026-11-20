@@ -15,7 +15,7 @@ const FAQ = [
 ];
 
 const STEPS = [
-  { src: '/images/brand/device-hand-home.jpg', blur: blur['device-hand-home'], alt: 'A hand holding a phone on a Lusaka street, showing the Twende wallet', title: 'Top up', body: 'Add money to your Twende wallet and choose MTN, Airtel, or Zamtel.' },
+  { src: '/images/brand/device-hand-home.jpg', blur: blur['device-hand-home'], alt: 'A hand holding a phone on a Lusaka street, showing the Twende wallet', title: 'Top up', body: 'Try a simulated wallet top-up with MTN, Airtel, or Zamtel.' },
   { src: '/images/brand/device-hand-pay.jpg', blur: blur['device-hand-pay'], alt: 'A hand holding a phone on a Lusaka street, paying the fare for bus 12', title: 'Enter the bus number', body: 'Type the number on the bus and pick the fare for that route.' },
   { src: '/images/brand/device-hand-ticket.jpg', blur: blur['device-hand-ticket'], alt: 'A hand holding a phone on a Lusaka street, showing the ride code', title: 'Show the code', body: 'One code. The conductor verifies it once, on that bus.' },
 ];
@@ -130,7 +130,7 @@ export function Onboarding() {
         <div className="absolute inset-0 bg-[#071230]/78" />
         <div className="relative mx-auto flex max-w-[1200px] flex-col items-start gap-6 px-5 py-20 md:px-8 md:py-32">
           <h2 className="max-w-xl text-[32px] md:text-[52px]">Your next ride starts here.</h2>
-          <p className="lead text-[#E7ECF8]">Create a passenger account with your phone number and a 4-digit PIN.</p>
+          <p className="lead text-[#E7ECF8]">Create a passenger account with your phone number and a 6-digit PIN.</p>
           <Link href="/signup" className="inline-flex h-[52px] items-center rounded-xl bg-[#1F5BFF] px-6 text-[15px] font-bold text-white">Create account</Link>
         </div>
       </section>

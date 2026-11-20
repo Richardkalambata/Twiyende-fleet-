@@ -215,12 +215,12 @@ test('passenger pay, conductor verify, lost and found, owner totals', async () =
   assert.equal(createdBus.ok, true);
   const duplicate = (await service.registerBus(IDS.owner, '44', 'BLZ 44 ZA', 'Town to Mtendere'));
   assert.equal(duplicate.ok, false);
-  const createdConductor = (await service.registerConductor(IDS.owner, 'Tembo Phiri', '0975550199', '2468', null));
+  const createdConductor = (await service.registerConductor(IDS.owner, 'Tembo Phiri', '0975550199', '246810', null));
   assert.equal(createdConductor.ok, true);
   if (createdConductor.ok && createdBus.ok) {
     const assigned = (await service.assignConductor(IDS.owner, createdBus.id, createdConductor.id));
     assert.equal(assigned.ok, true);
-    const login = (await service.authenticate('0975550199', '2468'));
+    const login = (await service.authenticate('0975550199', '246810'));
     assert.equal(login.ok, true);
     if (login.ok) assert.equal((await service.getConductorHome(login.user.id)).bus?.fleet_number, '44');
   }
@@ -253,7 +253,7 @@ test('passenger pay, conductor verify, lost and found, owner totals', async () =
   assert.ok(afterPayouts.availableNgwee < 100);
 
   assert.equal((await service.authenticate('0971000001', '0000')).ok, false);
-  assert.equal((await service.authenticate('0971 000 001', '1234')).ok, true);
+  assert.equal((await service.authenticate('0971 000 001', '123456')).ok, true);
   assert.equal((await service.authenticateDemo(IDS.owner)).ok, true);
   process.env.DEMO_ROLE_SWITCHER = '0';
   assert.equal((await service.authenticateDemo(IDS.owner)).ok, false);
@@ -266,12 +266,12 @@ test('signup, pin, support, fare options, and code expiry', async () => {
   const { resetDatabase } = await import('../lib/db.ts');
   const { IDS } = await import('../lib/constants.ts');
   await resetDatabase();
-  const created = await service.signupPassenger({ name: 'Amina Banda', phone: '0973333444', pin: '4321', network: 'mtn' });
+  const created = await service.signupPassenger({ name: 'Amina Banda', phone: '0973333444', pin: '432109', network: 'mtn' });
   assert.equal(created.ok, true);
   if (!created.ok) return;
-  assert.equal((await service.changePin(created.id, '0000', '1111')).ok, false);
-  assert.equal((await service.changePin(created.id, '4321', '1111')).ok, true);
-  assert.equal((await service.authenticate('0973333444', '1111')).ok, true);
+  assert.equal((await service.changePin(created.id, '0000', '111109')).ok, false);
+  assert.equal((await service.changePin(created.id, '432109', '111109')).ok, true);
+  assert.equal((await service.authenticate('0973333444', '111109')).ok, true);
   const topped = await service.topUp(created.id, 'mtn', '0973333444', '20');
   assert.equal(topped.ok, true);
   const paid = await service.payFare(created.id, '12', '5');
@@ -283,6 +283,9 @@ test('signup, pin, support, fare options, and code expiry', async () => {
   assert.equal(ticket.ok, true);
   const fare = await service.addRouteFare(IDS.owner, 'Town to Matero', '7');
   assert.equal(fare.ok, true);
+  const wrongFare = await service.payFare(created.id, '12', '5');
+  assert.equal(wrongFare.ok, false);
+  assert.equal((await service.payFare(created.id, '12', '7')).ok, true);
   const settled = await service.settleDay(IDS.owner, '12', '10');
   assert.equal(settled.ok, true);
 });

@@ -84,6 +84,8 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
   const [follow, setFollow] = useState(false);
   const [tick, setTick] = useState(() => Date.now());
   const [you, setYou] = useState<YouFix | null>(null);
+  const [reconnecting, setReconnecting] = useState(false);
+  const [busListOpen, setBusListOpen] = useState(false);
   const [locationState, setLocationState] = useState<'pending' | 'granted' | 'denied'>('pending');
   const [historyTick, setHistoryTick] = useState(0);
   const [showRoute, setShowRoute] = useState(false);
@@ -146,15 +148,23 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
   useEffect(() => {
     let dead = false;
     let timer = 0;
+    let loading = false;
     const load = async () => {
-      if (document.hidden) return;
+      if (document.hidden || loading) return;
+      loading = true;
       try {
-        const response = await fetch('/api/buses/live');
-        if (!response.ok || dead) return;
+        const response = await fetch('/api/buses/live', { signal: AbortSignal.timeout(6000) });
+        if (!response.ok) throw new Error('Live data unavailable');
+        if (dead) return;
         const body = await response.json() as Payload;
-        if (!dead) setData((previous) => body.now >= previous.now ? body : previous);
+        if (!dead) {
+          setData((previous) => body.now >= previous.now ? body : previous);
+          setReconnecting(false);
+        }
       } catch {
-        // Keep the last received fixes when a request drops. The next poll retries.
+        if (!dead) setReconnecting(true);
+      } finally {
+        loading = false;
       }
     };
     const loop = () => {
@@ -451,7 +461,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
           center: followAt,
           padding: mode === 'rider'
             ? { top: 88, bottom: 150, left: 28, right: 28 }
-            : { top: 80, bottom: 40, left: 24, right: 380 },
+            : { top: 80, bottom: 40, left: 24, right: window.matchMedia("(min-width: 1280px)").matches ? 380 : 24 },
         });
       }
       frame = requestAnimationFrame(paint);
@@ -618,7 +628,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
   };
 
   const riderGap = bus ? gapFor(bus) : null;
-  const reach = bus && riderGap ? reachMinutes(riderGap.metres, bus.speed, riderGap.approach) : null;
+  const reach = !reconnecting && bus && !bus.stale && riderGap ? reachMinutes(riderGap.metres, bus.speed, riderGap.approach) : null;
 
   function metresAway(metres: number) {
     return formatDistance(metres).replace(' from you', ' away');
@@ -722,7 +732,8 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
 
   return (
     <div className="relative h-full">
-      <div ref={holder} className={mode === 'rider' ? 'h-[calc(100dvh-88px)] w-full' : 'h-[62vh] w-full md:h-dvh'} />
+      <div ref={holder} className={mode === 'rider' ? 'h-full min-h-[260px] w-full' : 'h-[62vh] w-full xl:h-dvh'} />
+      {reconnecting && <p role="status" className="absolute bottom-2 left-3 z-10 max-w-[75%] rounded-lg bg-white px-3 py-2 text-sm font-semibold shadow">Reconnecting · {data.now ? formatUpdated(data.now, tick) : 'waiting for live positions'}</p>}
       {mapError ? <p role="alert" className="absolute inset-x-4 top-20 z-10 rounded-xl bg-white p-4 text-sm font-semibold">The street map could not load. Reload to try again.</p> : null}
       {mode === 'rider' ? (
         <div className="absolute left-4 right-4 top-4 z-10 flex items-center gap-2">
@@ -748,7 +759,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
           <span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-[#E8A317]" /> Stale <span className="text-[#5C6578]">{stale}</span></span>
         </div>
       )}
-      {mode === 'operator' ? <div className="absolute left-3 right-3 top-[60px] z-10 flex gap-2 overflow-x-auto md:right-[360px]">
+      {mode === 'operator' ? <div className="absolute left-3 right-3 top-[60px] z-10 flex gap-2 overflow-x-auto xl:right-[360px]">
         <button type="button" data-on={route === 'all'} className="chip shrink-0 rounded-full bg-white px-3.5 py-2 text-[13px] font-bold text-[#0B1B3B] shadow-[0_6px_16px_rgba(11,27,59,0.1)]" onClick={() => setRoute('all')}>All</button>
         {routes.map((name) => (
           <button key={name} type="button" data-on={route === name} className="chip shrink-0 rounded-full bg-white px-3.5 py-2 text-[13px] font-bold text-[#0B1B3B] shadow-[0_6px_16px_rgba(11,27,59,0.1)]" onClick={() => { setRoute(name); const match = data.buses.find((item) => item.route === name); if (match) setSelected(match.id); }}>{chipLabel(name)}</button>
@@ -756,7 +767,9 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
         <button type="button" data-on={follow ? 'true' : 'false'} aria-pressed={follow} disabled={!bus} className="chip shrink-0 rounded-full bg-white px-3.5 py-2 text-[13px] font-bold text-[#0B1B3B] shadow-[0_6px_16px_rgba(11,27,59,0.1)] disabled:opacity-50" onClick={() => setFollow((value) => !value)}>Follow bus</button>
       </div> : null}
       {mode === 'operator' ? (
-        <aside className="relative z-10 bg-[#F4F6FB] p-3 md:absolute md:inset-y-3 md:right-3 md:w-[340px] md:overflow-y-auto md:rounded-[24px] md:bg-white md:p-4 md:shadow-[0_16px_40px_rgba(11,27,59,0.12)]">
+        <aside className="relative z-10 bg-[#F4F6FB] p-3 xl:absolute xl:inset-y-3 xl:right-3 xl:w-[340px] xl:overflow-y-auto xl:rounded-[24px] xl:bg-white xl:p-4 xl:shadow-[0_16px_40px_rgba(11,27,59,0.12)]">
+          <button type="button" className="min-h-11 font-bold md:block xl:hidden" aria-expanded={busListOpen} aria-controls="fleet-map-list" onClick={() => setBusListOpen(!busListOpen)}>{busListOpen ? "Hide bus list" : "Show bus list"}</button>
+          <div id="fleet-map-list" className={busListOpen ? "" : "hidden xl:block"}>
           <h2 className="text-[18px] font-extrabold">Nearby buses</h2>
           <p className="text-[12px] text-[#5C6578]">Sorted by last update</p>
           <ul className="mt-3 space-y-2">
@@ -777,6 +790,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
               </li>
             ))}
           </ul>
+          </div>
         </aside>
       ) : null}
       {mode === 'rider' && aboard ? (
@@ -790,7 +804,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
       {mode === 'rider' && bus ? (
         <div
           data-testid="bus-card"
-          className="absolute inset-x-4 bottom-4 z-20 rounded-[28px] bg-white px-4 pb-4 pt-2 text-[#0B1B3B] shadow-[0_16px_40px_rgba(11,27,59,0.14)]"
+          className="absolute inset-x-4 bottom-4 z-20 max-h-[65%] overflow-y-auto rounded-[28px] md:left-auto md:w-[350px] lg:bottom-auto lg:top-20 bg-white px-4 pb-4 pt-2 text-[#0B1B3B] shadow-[0_16px_40px_rgba(11,27,59,0.14)]"
           onPointerDown={(event) => { event.currentTarget.dataset.y = String(event.clientY); }}
           onPointerUp={(event) => {
             const start = Number(event.currentTarget.dataset.y ?? event.clientY);
@@ -801,18 +815,20 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
           <div className="flex items-center gap-3">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#1F5BFF] text-[18px] font-extrabold text-white">{bus.fleet}</span>
             <p className="min-w-0 flex-1 truncate text-[17px] font-semibold text-[#3E4A63]">Bus {bus.fleet}</p>
-            <button type="button" aria-label="Follow bus" aria-pressed={follow} className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${follow ? 'bg-[#1F5BFF] text-white' : 'bg-[#F4F6FB] text-[#0B1B3B]'}`} onClick={() => setFollow((value) => !value)}>
+            <button type="button" aria-label="Follow bus" aria-pressed={follow} className={`grid h-11 w-11 shrink-0 place-items-center rounded-full ${follow ? 'bg-[#1F5BFF] text-white' : 'bg-[#F4F6FB] text-[#0B1B3B]'}`} onClick={() => setFollow((value) => !value)}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></svg>
             </button>
-            <button type="button" aria-label="Close" className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[#8A93A6]" onClick={closeCard}>
+            <button type="button" aria-label="Close" className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[#8A93A6]" onClick={closeCard}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden><path d="M6 6l12 12M18 6L6 18" /></svg>
             </button>
           </div>
           <p data-testid="heading-line" className="mt-3 text-[16px] font-extrabold leading-snug tracking-[-0.03em]">
             {aboard === bus.id ? (
-              <span className="text-[#087653]">{bus.stale ? 'On board · Last known position' : 'On board'}</span>
+              <span className="text-[#087653]">{reconnecting || bus.stale ? 'On board · Last known position' : 'On board'}</span>
             ) : aboard ? (
               'Viewing another bus'
+            ) : reconnecting || bus.stale ? (
+              'Last known position'
             ) : riderGap ? (
               <>
                 <span className="text-[#0B1B3B]">{metresAway(riderGap.metres)}</span>
@@ -821,10 +837,10 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
               </>
             ) : locationState === 'denied' && !data.demo ? (
               <button type="button" className="font-semibold text-[#1F5BFF]" onClick={askLocation}>Turn on location to see the distance</button>
-            ) : data.demo ? 'Finding your location…' : 'Outside the Lusaka service area'}
+            ) : locationState === 'pending' || data.demo ? 'Finding your location…' : 'Outside the Lusaka service area'}
           </p>
-          <p className="mt-1 truncate text-[13px] font-medium text-[#8A93A6]">{streetLine(bus)}</p>
-          {!aboard && bus.recordedAt && !bus.stale ? (
+          <p className="mt-1 break-words text-[13px] font-medium text-[#5C6578]">{streetLine(bus)}</p>
+          {!aboard && !reconnecting && bus.recordedAt && !bus.stale ? (
             <button type="button" className="mt-3 w-full rounded-xl bg-[#E7F5EE] px-3 py-2 text-sm font-bold text-[#075A40]" onClick={() => confirmAboard(bus.id)}>
               I’m on Bus {bus.fleet}
             </button>

@@ -61,7 +61,7 @@ const LOST_SQL = `INSERT INTO lost_items (
 
 export async function seed(db: Db, now = new Date()) {
   const pin = hashPin(DEMO_PIN);
-  const poolPin = hashPin('9088');
+  const poolPin = hashPin('908800');
   const created = now.getTime();
 
   const people: Array<[string, string, string, string, string, string, boolean, number, string | null, string | null]> = [

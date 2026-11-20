@@ -103,7 +103,7 @@ export function ReportForm({ trips }: { trips: RideCard[] }) {
         <input type="file" accept="image/*" className="sr-only" onChange={(event) => onPhoto(event.target.files?.[0])} />
       </label>
       <button type="button" className="flex min-h-14 w-full items-center justify-between rounded-2xl bg-white px-4" onClick={() => setNotify((value) => !value)}>
-        <span className="font-medium">Notify me by SMS</span>
+        <span className="font-medium">Log a simulated SMS notification</span>
         <span className="toggle" data-on={notify}><i /></span>
       </button>
       <p className="flex items-start gap-2 text-sm text-[#3E5348]">

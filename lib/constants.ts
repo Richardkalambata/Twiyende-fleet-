@@ -1,4 +1,4 @@
-export const DEMO_PIN = '1234';
+export const DEMO_PIN = '123456';
 
 export const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 

@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { cache } from 'react';
 import { getDb } from './db';
+import { requiresOperatorSms } from './operator-sms-policy';
 import { getPublicUser, homeFor } from './service';
 import type { PublicUser, Role } from './types';
 
@@ -13,11 +14,11 @@ function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
-export async function createSession(userId: string) {
+export async function createSession(userId: string, operatorVerified = false) {
   const token = randomBytes(32).toString('hex');
   const expiresAt = Date.now() + MAX_AGE * 1000;
   const db = await getDb();
-  await db.run('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)', hashToken(token), userId, expiresAt);
+  await db.run('INSERT INTO sessions (id, user_id, expires_at, operator_verified) VALUES (?, ?, ?, ?)', hashToken(token), userId, expiresAt, operatorVerified);
   const jar = await cookies();
   jar.set(COOKIE, token, {
     httpOnly: true,
@@ -43,9 +44,11 @@ export const getCurrentUser = cache(async (): Promise<PublicUser | null> => {
   const token = jar.get(COOKIE)?.value;
   if (!token) return null;
   const db = await getDb();
-  const row = await db.get<{ user_id: string }>('SELECT user_id FROM sessions WHERE id = ? AND expires_at > ?', hashToken(token), Date.now());
+  const row = await db.get<{ user_id: string; operator_verified: boolean }>('SELECT user_id, operator_verified FROM sessions WHERE id = ? AND expires_at > ?', hashToken(token), Date.now());
   if (!row) return null;
-  return await getPublicUser(row.user_id);
+  const user = await getPublicUser(row.user_id);
+  if (requiresOperatorSms() && user?.role === 'operator' && !row.operator_verified && !(user.demo && process.env.DEMO_ROLE_SWITCHER === '1')) return null;
+  return user;
 });
 
 export async function requireUser(roles?: Role[]): Promise<PublicUser> {

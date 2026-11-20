@@ -8,7 +8,7 @@ import { Map } from 'lucide-react';
 
 function Item({ href, label, active, children }: { href: string; label: string; active: boolean; dark?: boolean; children: ReactNode }) {
   return (
-    <Link href={href} className={`nav-item flex h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[12px] font-semibold ${active ? 'text-[#0B1B3B]' : 'text-[#D5DCEC]'}`}>
+    <Link href={href} aria-current={active ? 'page' : undefined} className={`nav-item flex h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[12px] font-semibold ${active ? 'text-[#0B1B3B]' : 'text-[#D5DCEC]'}`}>
       {children}
       <span>{label}</span>
     </Link>
