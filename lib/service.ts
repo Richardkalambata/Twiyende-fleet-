@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 17547)
-Total output lines: 1532
-
 import { getDb, isInTransaction, resetDatabase, withTransaction } from './db';
 import { PICKUP_PLACE, TIP_AMOUNTS_NGWEE } from './constants';
 import { confusingCodeMessage, normalizeFleetNumber, randomCode } from './codes';
@@ -727,7 +724,213 @@ export async function logFoundItem(conductorId: string, category: string, descri
       const ownerId = bus.owner_id;
       await (await getDb()).run(`INSERT INTO lost_items (
           id, ride_id, passenger_id, bus_id, conductor_id, owner_id, category, description, photo_data,
-          notify_sms, status, pickup_code, pickup…2547 tokens truncated…ound_at ?? row.created_at)}`
+          notify_sms, status, pickup_code, pickup_place, pickup_until, source, found_by, found_at, closed_at, created_at, tip_ngwee
+        ) VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, FALSE, 'waiting', NULL, NULL, NULL, 'conductor', ?, ?, NULL, ?, 0)`, itemId, bus.id, conductorId, ownerId, category, description || categoryLabelSafe(category), photoData, conductorId, Date.now(), Date.now());
+      return { matched: false, itemId, issued: null };
+    });
+    if (outcome.issued) await notifyPickup({ ...outcome.issued, itemId: outcome.itemId });
+    return {
+      ok: true as const,
+      matched: outcome.matched,
+      message: outcome.matched
+        ? 'Matched to a passenger report. They have a pickup code.'
+        : 'Saved on this bus. It will match if a passenger reports the same kind of item.',
+    };
+  } catch (error) {
+    return asFail(error);
+  }
+}
+
+function categoryLabelSafe(category: string): string {
+  return category.slice(0, 1).toUpperCase() + category.slice(1);
+}
+
+export async function verifyPickup(actorId: string, rawCode: string) {
+  const code = rawCode.toUpperCase().replace(/\s+/g, '');
+  const confusing = confusingCodeMessage(code);
+  if (confusing) return { ok: false as const, message: confusing };
+  const actor = await userById(actorId);
+  if (!actor || (actor.role !== 'conductor' && actor.role !== 'operator' && actor.role !== 'owner')) {
+    return { ok: false as const, message: 'Only the conductor or operator can close a pickup.' };
+  }
+  try {
+    return await withTransaction(async () => {
+      const item = await (await getDb()).get('SELECT * FROM lost_items WHERE pickup_code = ?', code) as
+        | { id: string; bus_id: string; status: LostStatus; category: string }
+        | undefined;
+      if (!item) throw new UserError('Pickup code not found. Ask the passenger to read it again.');
+      const bus = await busById(item.bus_id);
+      if (!bus) throw new UserError('That bus is no longer registered.');
+      if (actor.role === 'conductor') {
+        const mine = await conductorBus(actorId);
+        if (!mine || mine.id !== bus.id) {
+          throw new UserError(`This pickup is for Bus ${bus.fleet_number}, not your bus.`);
+        }
+      } else if (bus.owner_id !== actorId) {
+        throw new UserError('That pickup is for another fleet.');
+      }
+      if (item.status === 'closed') throw new UserError('This item was already handed over.');
+      if (item.status !== 'pickup_pending') throw new UserError('This pickup is not ready yet.');
+      const updated = await (await getDb()).run(`UPDATE lost_items SET status = 'closed', closed_at = ? WHERE id = ? AND status = 'pickup_pending'`, Date.now(), item.id);
+      if (Number(updated.changes) !== 1) throw new UserError('This pickup was just closed.');
+      return { ok: true as const, message: `${categoryLabelSafe(item.category)} handed over. The report is closed.` };
+    });
+  } catch (error) {
+    return asFail(error);
+  }
+}
+
+export async function sendTip(passengerId: string, itemId: string, amountRaw: number) {
+  if (!TIP_AMOUNTS_NGWEE.includes(amountRaw as (typeof TIP_AMOUNTS_NGWEE)[number])) {
+    return { ok: false as const, message: 'Choose K5, K10, or K20.' };
+  }
+  try {
+    return await withTransaction(async () => {
+      const item = await (await getDb()).get('SELECT * FROM lost_items WHERE id = ? AND passenger_id = ?', itemId, passengerId) as
+        | { id: string; status: LostStatus; tip_ngwee: number; found_by: string | null; conductor_id: string | null; category: string }
+        | undefined;
+      if (!item) throw new UserError('That item is not on your account.');
+      if (item.status !== 'pickup_pending' && item.status !== 'closed') {
+        throw new UserError('You can thank the conductor once the item is found.');
+      }
+      if (item.tip_ngwee > 0) throw new UserError('You already sent thanks for this item.');
+      const conductorId = item.found_by ?? item.conductor_id;
+      if (!conductorId) throw new UserError('No conductor is attached to this item yet.');
+      const balanceNgwee = await writeWallet(passengerId, -amountRaw, 'tip', `Tip for finding your ${item.category}`, { lostId: item.id });
+      await writeWallet(conductorId, amountRaw, 'tip', `Tip from a passenger`, { lostId: item.id });
+      const updated = await (await getDb()).run('UPDATE lost_items SET tip_ngwee = ? WHERE id = ? AND tip_ngwee = 0', amountRaw, item.id);
+      if (Number(updated.changes) !== 1) throw new UserError('You already sent thanks for this item.');
+      return { ok: true as const, balanceNgwee, message: `Sent ${formatCompact(amountRaw)} to the conductor.` };
+    });
+  } catch (error) {
+    return asFail(error);
+  }
+}
+
+async function passengerNotices(userId: string): Promise<Notice[]> {
+  const rows = await (await getDb()).all(`SELECT li.id, li.category, li.status, b.fleet_number FROM lost_items li
+      JOIN buses b ON b.id = li.bus_id
+      WHERE li.passenger_id = ? AND li.status IN ('reported', 'pickup_pending', 'not_found')
+      ORDER BY li.created_at DESC LIMIT 6`, userId) as Array<{ id: string; category: string; status: LostStatus; fleet_number: string }>;
+  const stored = await listNotifications(userId);
+  return [...stored, ...rows.map((row) => {
+    if (row.status === 'pickup_pending') {
+      return { id: row.id, href: `/lost/${row.id}`, title: `Your ${row.category} was found`, body: `Bus ${row.fleet_number} · open for the pickup code` };
+    }
+    if (row.status === 'not_found') {
+      return { id: row.id, href: `/lost`, title: `${categoryLabelSafe(row.category)} not found yet`, body: `Bus ${row.fleet_number} is still looking` };
+    }
+    return { id: row.id, href: `/lost`, title: `Conductor alerted`, body: `Your ${row.category} report is with Bus ${row.fleet_number}` };
+  })];
+}
+
+export async function listPassengerLost(userId: string): Promise<LostSummary[]> {
+  const rows = await (await getDb()).all(`SELECT li.*, b.fleet_number, b.route FROM lost_items li JOIN buses b ON b.id = li.bus_id
+      WHERE li.passenger_id = ? ORDER BY li.created_at DESC LIMIT 30`, userId) as Array<{
+    id: string;
+    category: string;
+    description: string;
+    status: LostStatus;
+    fleet_number: string;
+    route: string;
+    created_at: number;
+  }>;
+  return rows.map((row) => ({
+    id: row.id,
+    category: row.category,
+    description: row.description,
+    status: row.status,
+    fleetNumber: row.fleet_number,
+    route: row.route,
+    createdAt: row.created_at,
+    whenLabel: formatRideWhen(row.created_at),
+  }));
+}
+
+export async function getPassengerLostItem(userId: string, itemId: string): Promise<PassengerLostDetail | null> {
+  const row = await (await getDb()).get(`SELECT li.*, b.fleet_number, b.route, u.short_name AS conductor_name, u.phone AS conductor_phone
+      FROM lost_items li
+      JOIN buses b ON b.id = li.bus_id
+      LEFT JOIN users u ON u.id = COALESCE(li.found_by, li.conductor_id)
+      WHERE li.id = ? AND li.passenger_id = ?`, itemId, userId) as
+    | {
+        id: string;
+        category: string;
+        description: string;
+        status: LostStatus;
+        fleet_number: string;
+        route: string;
+        conductor_name: string | null;
+        conductor_phone: string | null;
+        pickup_code: string | null;
+        pickup_place: string | null;
+        pickup_until: number | null;
+        photo_data: string | null;
+        tip_ngwee: number;
+      }
+    | undefined;
+  if (!row) return null;
+  const sms = await (await getDb()).get('SELECT id FROM sms_messages WHERE lost_item_id = ? LIMIT 1', itemId) as { id: string } | undefined;
+  return {
+    id: row.id,
+    category: row.category,
+    description: row.description,
+    status: row.status,
+    fleetNumber: row.fleet_number,
+    route: row.route,
+    conductorName: row.conductor_name,
+    conductorPhone: row.conductor_phone,
+    pickupCode: row.pickup_code,
+    pickupPlace: row.pickup_place,
+    pickupUntil: row.pickup_until,
+    pickupUntilLabel: row.pickup_until ? formatPickupUntil(row.pickup_until) : null,
+    photoData: row.photo_data,
+    tipNgwee: row.tip_ngwee,
+    balanceNgwee: await getBalance(userId),
+    smsSent: Boolean(sms),
+  };
+}
+
+export async function listReportableTrips(userId: string): Promise<RideCard[]> {
+  const rows = await (await getDb()).all(`SELECT r.*, b.fleet_number FROM rides r JOIN buses b ON b.id = r.bus_id
+      WHERE r.passenger_id = ? AND r.status = 'verified' ORDER BY r.created_at DESC LIMIT 20`, userId) as RideJoin[];
+  return rows.map((row) => ({
+    id: row.id,
+    fleetNumber: row.fleet_number,
+    route: row.route_snapshot,
+    amountNgwee: row.amount_ngwee,
+    status: row.status,
+    createdAt: row.created_at,
+    whenLabel: formatRideWhen(row.created_at),
+    code: row.code,
+  }));
+}
+
+export async function getConductorLost(userId: string) {
+  const bus = await conductorBus(userId);
+  if (!bus) return { bus: null, alerts: [] as ConductorAlert[], items: [] as ConductorItem[] };
+  const alerts = await (await getDb()).all(`SELECT li.id, li.category, li.description, li.created_at, r.created_at AS ride_at
+      FROM lost_items li LEFT JOIN rides r ON r.id = li.ride_id
+      WHERE li.bus_id = ? AND li.status = 'reported' ORDER BY li.created_at DESC`, bus.id) as Array<{ id: string; category: string; description: string; created_at: number; ride_at: number | null }>;
+  const items = await (await getDb()).all(`SELECT id, category, description, status, created_at, found_at FROM lost_items
+      WHERE bus_id = ? AND status IN ('waiting', 'pickup_pending', 'closed')
+      ORDER BY CASE status WHEN 'pickup_pending' THEN 0 WHEN 'waiting' THEN 1 ELSE 2 END, created_at DESC LIMIT 20`, bus.id) as Array<{ id: string; category: string; description: string; status: LostStatus; created_at: number; found_at: number | null }>;
+  return {
+    bus,
+    alerts: alerts.map((row) => ({
+      id: row.id,
+      category: row.category,
+      description: row.description,
+      tripLabel: formatHour24(row.ride_at ?? row.created_at),
+    })),
+    items: items.map((row) => ({
+      id: row.id,
+      category: row.category,
+      description: row.description,
+      status: row.status,
+      meta:
+        row.status === 'waiting'
+          ? `found ${formatHour24(row.found_at ?? row.created_at)}`
           : row.status === 'pickup_pending'
             ? 'matched'
             : 'picked up',
