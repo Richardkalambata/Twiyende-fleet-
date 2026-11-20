@@ -9,8 +9,6 @@ import { formatHour24 } from '@/lib/time';
 import { Logo } from './shell';
 import { toast } from './toast';
 
-const LETTERS = 'ABCDEFGHJKMNPQRSTUVWXYZ'.split('');
-
 export function VerifyPad({
   fleetNumber,
   route,
@@ -26,34 +24,33 @@ export function VerifyPad({
 }) {
   const router = useRouter();
   const [code, setCode] = useState('');
-  const [letters, setLetters] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paid, setPaid] = useState<{ amountNgwee: number; verifiedAt: number; passenger?: string } | null>(null);
   const [rides, setRides] = useState(initialRides);
   const [amount, setAmount] = useState(initialAmount);
 
-  function push(char: string) {
-    setError(null);
-    setCode((current) => (current + char).slice(0, 8));
-  }
-
   async function verify() {
     setPending(true);
     setError(null);
-    const result = await verifyAction(code);
-    setPending(false);
-    if (!result.ok) {
-      setPaid(null);
-      setError(result.message);
-      const dedicated = result.message.includes('This code is for Bus') || /already used|just used/i.test(result.message);
-      if (!dedicated) toast(result.message);
-      return;
+    try {
+      const result = await verifyAction(code);
+      if (!result.ok) {
+        setPaid(null);
+        setError(result.message);
+        const dedicated = result.message.includes('This code is for Bus') || /already used|just used/i.test(result.message);
+        if (!dedicated) toast(result.message);
+        return;
+      }
+      setPaid({ amountNgwee: result.amountNgwee, verifiedAt: result.verifiedAt, passenger: result.passenger });
+      setRides(result.todayRides);
+      setAmount(result.todayNgwee);
+      router.refresh();
+    } catch {
+      setError('Could not check the code. Check your connection and try again.');
+    } finally {
+      setPending(false);
     }
-    setPaid({ amountNgwee: result.amountNgwee, verifiedAt: result.verifiedAt, passenger: result.passenger });
-    setRides(result.todayRides);
-    setAmount(result.todayNgwee);
-    router.refresh();
   }
 
   const wrongBus = error?.includes('This code is for Bus');
@@ -140,29 +137,31 @@ export function VerifyPad({
       </div>
       <h2 className="mt-5 text-[20px] font-extrabold">Verify ride code</h2>
       <p className="text-[13px] font-semibold text-[#D5DCEC]">Enter the code shown by the passenger.</p>
-      <div className="mt-3 grid gap-1" style={{ gridTemplateColumns: `repeat(${Math.max(4, code.length)}, minmax(0, 1fr))` }}>
-        {Array.from({ length: Math.max(4, code.length) }, (_, index) => (
-          <div key={index} className="grid h-16 place-items-center rounded-2xl bg-[#0B1B3B] text-[28px] font-extrabold text-white ring-1 ring-[#8FB0FF]">{code[index] ?? ''}</div>
-        ))}
-      </div>
-      {error && !wrongBus && !used ? <p className="mt-3 text-sm font-semibold text-[#FFD0D0]" role="alert">{error}</p> : null}
-      {letters ? (
-        <div className="glow-code mt-3 grid grid-cols-6 gap-1 rounded-2xl bg-[#0B1B3B] p-2">
-          {LETTERS.map((letter) => (
-            <button key={letter} type="button" className="press h-11 rounded-lg bg-[#16305C] text-sm font-bold text-white" onClick={() => push(letter)}>{letter}</button>
-          ))}
-        </div>
-      ) : (
-        <div className="glow-code mt-3 grid grid-cols-3 gap-2 rounded-2xl bg-[#0B1B3B] p-2">
-          {['2','3','4','5','6','7','8','9'].map((digit) => (
-            <button key={digit} type="button" className="press h-14 rounded-xl bg-[#16305C] text-[20px] font-extrabold text-white" onClick={() => push(digit)}>{digit}</button>
-          ))}
-          <button type="button" className="press h-14 rounded-xl bg-[#16305C] text-xs font-bold text-white" onClick={() => setLetters(true)}>ABC</button>
-          <button type="button" className="press h-14 rounded-xl bg-[#16305C] text-[20px] font-bold text-white" aria-label="Delete" onClick={() => setCode((value) => value.slice(0, -1))}>⌫</button>
-        </div>
-      )}
-      {letters ? <button type="button" className="press mt-2 h-11 rounded-xl bg-[#16305C] text-sm font-bold text-white" onClick={() => setLetters(false)}>123</button> : null}
-      <button type="button" disabled={pending || code.length < 4} onClick={verify} className="press mt-3 h-12 rounded-xl bg-[#1F5BFF] font-bold text-white disabled:opacity-50">{pending ? 'Checking…' : 'Verify code'}</button>
+      <form className="mt-3 space-y-3" onSubmit={(event) => {
+        event.preventDefault();
+        if (!pending && code.length >= 4) void verify();
+      }}>
+        <label htmlFor="fare-code" className="sr-only">Fare code</label>
+        <input
+          id="fare-code"
+          type="text"
+          inputMode="text"
+          autoCapitalize="characters"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint="go"
+          maxLength={8}
+          value={code}
+          disabled={pending}
+          onChange={(event) => {
+            setError(null);
+            setCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8));
+          }}
+          className="h-14 w-full rounded-xl bg-[#0B1B3B] px-4 text-center text-2xl font-bold tracking-[0.2em] text-white ring-1 ring-[#8FB0FF]"
+        />
+        {error && !wrongBus && !used ? <p className="text-sm font-semibold text-[#FFD0D0]" role="alert">{error}</p> : null}
+        <button type="submit" disabled={pending || code.length < 4} className="press h-12 w-full rounded-xl bg-[#1F5BFF] font-bold text-white disabled:opacity-50">{pending ? 'Checking…' : 'Verify code'}</button>
+      </form>
       <p className="mt-2 text-center text-[12px] font-semibold text-[#D5DCEC]">Codes are valid once, on your assigned bus only.</p>
     </div>
   );
