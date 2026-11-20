@@ -107,7 +107,6 @@ export function VerifyPad({
       <div className="flex h-full min-h-full flex-col bg-[#F4F6FB] px-5 pb-6 pt-4 text-[#0B1B3B]">
         <div className="flex items-center justify-between">
           <h1 className="text-[22px] font-extrabold">Hello, {name}</h1>
-          <span className="rounded-full bg-[#E8F8EF] px-2 py-1 text-[12px] font-bold text-[#128A4E]">On shift</span>
         </div>
         <div className={`mt-8 rounded-2xl px-4 py-4 ${used ? 'bg-[#FFF6E8] text-[#9A5B00]' : 'bg-[#FDECEC] text-[#C53434]'}`}>
           <p className="text-[18px] font-extrabold">{used ? 'Code already used' : 'Wrong bus'}</p>
@@ -124,7 +123,6 @@ export function VerifyPad({
       <div className="flex items-center justify-between gap-3">
         <Logo tone="light" business />
         <div className="flex items-center gap-2">
-          <span className="rounded-full bg-[#0E7A45] px-2 py-1 text-[12px] font-bold text-white">On shift</span>
           <form action={signOutAction}>
             <button type="submit" aria-label="Log out" className="press grid h-10 w-10 place-items-center rounded-full bg-white/10 text-white">
               <LogOut className="h-5 w-5" />

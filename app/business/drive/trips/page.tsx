@@ -2,6 +2,7 @@ import { requireUser } from '@/lib/auth';
 import { EmptyState } from '@/components/ui';
 import { formatBalance, formatGrouped } from '@/lib/money';
 import { listConductorTrips } from '@/lib/service';
+import { ConductorRefresh } from '@/components/conductor-refresh';
 import { Check } from 'lucide-react';
 
 export const metadata = { title: 'Trips' };
@@ -11,10 +12,19 @@ export default async function TripsPage() {
   const data = await listConductorTrips(user.id);
   return (
     <div className="safe-top space-y-4 px-5 pb-6">
+      <ConductorRefresh />
       <header>
         <h1 className="text-[28px] font-extrabold tracking-[-0.04em]">Today&apos;s trips</h1>
-        <p className="text-[14px] text-[#5C6578]">Bus {data.bus?.fleet_number ?? '—'} · {data.bus?.route ?? 'No route yet'}</p>
+        <p className="text-[14px] text-[#5C6578]">Bus {data.bus?.fleet_number ?? '—'} · {data.bus?.route ?? 'No route yet'} · Zambia time</p>
       </header>
+      <section className="rounded-2xl bg-white p-4">
+        <h2 className="font-bold">Today’s assignments</h2>
+        {data.assignments.length ? (
+          <ul className="mt-2 space-y-2 text-sm">
+            {data.assignments.map((assignment) => <li key={assignment.fleet_number}><strong>Bus {assignment.fleet_number}</strong> · {assignment.route || 'Route to be confirmed'}</li>)}
+          </ul>
+        ) : <p className="mt-2 text-sm text-[#5C6578]">No assignment scheduled for today.</p>}
+      </section>
       <section className="rounded-2xl bg-[#0B1B3B] p-4 text-white">
         <p className="text-[12px] text-white/70">Verified fares</p>
         <div className="mt-1 flex items-end justify-between">
@@ -22,7 +32,21 @@ export default async function TripsPage() {
           <p className="text-[14px] text-white/80">{data.todayRides} rides</p>
         </div>
       </section>
-      {data.trips.length === 0 ? <EmptyState title="No fares yet" body="Verified tickets from this shift will list here." /> : null}
+      <section>
+        <h2 className="text-lg font-extrabold">Shift earnings summary</h2>
+        <p className="text-sm text-[#5C6578]">Fares collected for the fleet and personal tips are shown separately.</p>
+        <div className="mt-2 grid gap-2 sm:grid-cols-3">
+          {data.earnings.map((period) => (
+            <article key={period.label} className="rounded-2xl bg-white p-4">
+              <h3 className="font-bold">{period.label}</h3>
+              <p className="mt-1 text-lg font-extrabold">{formatBalance(period.fares)}</p>
+              <p className="text-sm text-[#5C6578]">Fares collected · {period.rides} rides</p>
+              <p className="mt-2 text-sm font-semibold">Your tips {formatBalance(period.tips)}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+      {data.trips.length === 0 ? <EmptyState title="No fares yet" body="Fares verified today will appear here." /> : null}
       <ul className="overflow-hidden rounded-2xl bg-white shadow-[0_8px_24px_rgba(11,27,59,0.06)]">
         {data.trips.map((trip) => (
           <li key={`${trip.code}-${trip.timeLabel}`} className="flex items-center gap-3 border-b border-[#F0F2F7] px-4 py-3 last:border-0">

@@ -103,6 +103,7 @@ export type PassengerLostDetail = {
 };
 
 export type ConductorAlert = {
+  pickupCode?: string | null;
   id: string;
   category: string;
   description: string;
@@ -110,6 +111,7 @@ export type ConductorAlert = {
 };
 
 export type ConductorItem = {
+  pickupCode?: string | null;
   id: string;
   category: string;
   description: string;

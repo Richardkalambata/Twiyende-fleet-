@@ -500,7 +500,7 @@ export async function verifyCode(conductorId: string, rawCode: string) {
 async function conductorToday(conductorId: string, now = new Date()) {
   const start = startOfLusakaDay(now);
   const row = await (await getDb()).get(`SELECT COUNT(*) AS rides, COALESCE(SUM(amount_ngwee), 0) AS amount
-      FROM rides WHERE conductor_id = ? AND status = 'verified' AND created_at >= ? AND created_at < ?`, conductorId, start, start + DAY_MS) as { rides: number; amount: number };
+      FROM rides WHERE conductor_id = ? AND status = 'verified' AND COALESCE(verified_at, created_at) >= ? AND COALESCE(verified_at, created_at) < ?`, conductorId, start, start + DAY_MS) as { rides: number; amount: number };
   return { rides: row.rides, amountNgwee: row.amount };
 }
 
@@ -514,19 +514,43 @@ export async function getConductorHome(userId: string) {
 
 export async function listConductorTrips(userId: string) {
   const bus = await conductorBus(userId);
-  const start = startOfLusakaDay();
+  const now = new Date();
+  const start = startOfLusakaDay(now);
+  const db = await getDb();
+  const date = lusakaDateKey(now);
+  const monday = start - ((new Date(start + 2 * 3600000).getUTCDay() + 6) % 7) * DAY_MS;
+  const year = startOfLusakaDay(new Date(`${date.slice(0, 4)}-01-01T12:00:00Z`));
+  const periods = [
+    ['This week', monday],
+    ['This month', startOfLusakaMonth(now)],
+    ['Year to date', year],
+  ] as const;
+  const [assignments, earnings] = await Promise.all([
+    db.all<{ fleet_number: string; route: string }>(`SELECT b.fleet_number, b.route FROM assignments a
+      JOIN buses b ON b.id = a.bus_id WHERE a.conductor_id = ? AND a.shift_date = ? ORDER BY a.created_at`, userId, date),
+    Promise.all(periods.map(async ([label, from]) => {
+      const [fares, tips] = await Promise.all([
+        db.get<{ rides: number; amount: number }>(`SELECT COUNT(*) AS rides, COALESCE(SUM(amount_ngwee), 0) AS amount
+          FROM rides WHERE conductor_id = ? AND status = 'verified'
+          AND COALESCE(verified_at, created_at) BETWEEN ? AND ?`, userId, from, now.getTime()),
+        db.get<{ amount: number }>(`SELECT COALESCE(SUM(amount_ngwee), 0) AS amount FROM wallet_transactions
+          WHERE user_id = ? AND type = 'tip' AND amount_ngwee > 0 AND created_at BETWEEN ? AND ?`, userId, from, now.getTime()),
+      ]);
+      return { label, rides: fares?.rides ?? 0, fares: fares?.amount ?? 0, tips: tips?.amount ?? 0 };
+    })),
+  ]);
   const rows = await (await getDb()).all(`SELECT passenger_label, code, amount_ngwee, created_at, verified_at FROM rides
-      WHERE conductor_id = ? AND status = 'verified' AND created_at >= ?
-      ORDER BY verified_at DESC LIMIT 80`, userId, start) as Array<{
+      WHERE conductor_id = ? AND status = 'verified' AND COALESCE(verified_at, created_at) >= ?
+      AND COALESCE(verified_at, created_at) < ? ORDER BY verified_at DESC LIMIT 80`, userId, start, start + DAY_MS) as Array<{
     passenger_label: string;
     code: string;
     amount_ngwee: number;
     created_at: number;
     verified_at: number | null;
   }>;
-  const stats = await conductorToday(userId);
+  const stats = await conductorToday(userId, now);
   return {
-    bus,
+    bus, assignments, earnings,
     todayRides: stats.rides,
     todayNgwee: stats.amountNgwee,
     trips: rows.map((row) => ({
@@ -592,6 +616,16 @@ export function networkDisplay(network: string): string {
   return networkLabel(network);
 }
 
+async function newPickupCode() {
+  const db = await getDb();
+  await db.run('SELECT pg_advisory_xact_lock(?)', 872342);
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const code = randomCode(4);
+    if (!await db.get('SELECT id FROM lost_items WHERE pickup_code = ?', code)) return code;
+  }
+  throw new UserError('Could not create a pickup code. Try again.');
+}
+
 async function issuePickup(itemId: string, foundBy: string) {
   const item = await (await getDb()).get('SELECT * FROM lost_items WHERE id = ?', itemId) as
     | { id: string; bus_id: string; passenger_id: string | null; notify_sms: boolean; category: string; status: string }
@@ -599,21 +633,13 @@ async function issuePickup(itemId: string, foundBy: string) {
   if (!item) throw new UserError('That report is no longer here.');
   const bus = await busById(item.bus_id);
   if (!bus) throw new UserError('That bus is no longer registered.');
-  let code = '';
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    code = randomCode(4);
-    try {
-      const updated = await (await getDb()).run(`UPDATE lost_items
-          SET status = 'pickup_pending', pickup_code = ?, pickup_place = ?, pickup_until = ?, found_by = ?, found_at = ?, conductor_id = ?
-          WHERE id = ? AND status IN ('reported', 'waiting')`, code, PICKUP_PLACE, nextPickupDeadline(), foundBy, Date.now(), foundBy, itemId);
-      if (Number(updated.changes) !== 1) throw new UserError('That report was already updated.');
-      return { code, bus, notify: item.notify_sms === true, passengerId: item.passenger_id, category: item.category };
-    } catch (error) {
-      if (error instanceof UserError) throw error;
-      if (!isUnique(error) || attempt === 7) throw error;
-    }
-  }
-  throw new UserError('Could not create a pickup code. Try again.');
+  const existing = await (await getDb()).get<{ pickup_code: string | null }>('SELECT pickup_code FROM lost_items WHERE id = ?', itemId);
+  const code = existing?.pickup_code ?? await newPickupCode();
+  const updated = await (await getDb()).run(`UPDATE lost_items
+      SET status = 'pickup_pending', pickup_code = ?, pickup_place = ?, pickup_until = ?, found_by = ?, found_at = ?, conductor_id = ?
+      WHERE id = ? AND status IN ('reported', 'waiting')`, code, PICKUP_PLACE, nextPickupDeadline(), foundBy, Date.now(), foundBy, itemId);
+  if (Number(updated.changes) !== 1) throw new UserError('That report was already updated.');
+  return { code, bus, notify: item.notify_sms === true, passengerId: item.passenger_id, category: item.category };
 }
 
 async function notifyPickup(info: { code: string; bus: BusRow; notify: boolean; passengerId: string | null; category: string; itemId: string }) {
@@ -663,7 +689,7 @@ export async function reportLost(
       await (await getDb()).run(`INSERT INTO lost_items (
           id, ride_id, passenger_id, bus_id, conductor_id, owner_id, category, description, photo_data,
           notify_sms, status, pickup_code, pickup_place, pickup_until, source, found_by, found_at, closed_at, created_at, tip_ngwee
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'reported', NULL, NULL, NULL, 'passenger', NULL, NULL, NULL, ?, 0)`, itemId,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'reported', ?, NULL, NULL, 'passenger', NULL, NULL, NULL, ?, 0)`, itemId,
           ride.id,
           passengerId,
           ride.bus_id,
@@ -673,6 +699,7 @@ export async function reportLost(
           description,
           photoData,
           notifySms,
+          await newPickupCode(),
           Date.now(),);
       return { itemId, matched: false, issued: null };
     });
@@ -737,7 +764,7 @@ export async function logFoundItem(conductorId: string, category: string, descri
       await (await getDb()).run(`INSERT INTO lost_items (
           id, ride_id, passenger_id, bus_id, conductor_id, owner_id, category, description, photo_data,
           notify_sms, status, pickup_code, pickup_place, pickup_until, source, found_by, found_at, closed_at, created_at, tip_ngwee
-        ) VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, FALSE, 'waiting', NULL, NULL, NULL, 'conductor', ?, ?, NULL, ?, 0)`, itemId, bus.id, conductorId, ownerId, category, description || categoryLabelSafe(category), photoData, conductorId, Date.now(), Date.now());
+        ) VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, FALSE, 'waiting', ?, NULL, NULL, 'conductor', ?, ?, NULL, ?, 0)`, itemId, bus.id, conductorId, ownerId, category, description || categoryLabelSafe(category), photoData, await newPickupCode(), conductorId, Date.now(), Date.now());
       return { matched: false, itemId, issued: null };
     });
     if (outcome.issued) await notifyPickup({ ...outcome.issued, itemId: outcome.itemId });
@@ -782,8 +809,8 @@ export async function verifyPickup(actorId: string, rawCode: string) {
         throw new UserError('That pickup is for another fleet.');
       }
       if (item.status === 'closed') throw new UserError('This item was already handed over.');
-      if (item.status !== 'pickup_pending') throw new UserError('This pickup is not ready yet.');
-      const updated = await (await getDb()).run(`UPDATE lost_items SET status = 'closed', closed_at = ? WHERE id = ? AND status = 'pickup_pending'`, Date.now(), item.id);
+      if (item.status !== 'pickup_pending' && item.status !== 'waiting') throw new UserError('Mark the item found before returning it.');
+      const updated = await (await getDb()).run(`UPDATE lost_items SET status = 'closed', closed_at = ? WHERE id = ? AND status IN ('pickup_pending', 'waiting')`, Date.now(), item.id);
       if (Number(updated.changes) !== 1) throw new UserError('This pickup was just closed.');
       return { ok: true as const, message: `${categoryLabelSafe(item.category)} handed over. The report is closed.` };
     });
@@ -921,18 +948,19 @@ export async function listReportableTrips(userId: string): Promise<RideCard[]> {
 export async function getConductorLost(userId: string) {
   const bus = await conductorBus(userId);
   if (!bus) return { bus: null, alerts: [] as ConductorAlert[], items: [] as ConductorItem[] };
-  const alerts = await (await getDb()).all(`SELECT li.id, li.category, li.description, li.created_at, r.created_at AS ride_at
+  const alerts = await (await getDb()).all(`SELECT li.id, li.category, li.description, li.pickup_code, li.created_at, r.created_at AS ride_at
       FROM lost_items li LEFT JOIN rides r ON r.id = li.ride_id
-      WHERE li.bus_id = ? AND li.status = 'reported' ORDER BY li.created_at DESC`, bus.id) as Array<{ id: string; category: string; description: string; created_at: number; ride_at: number | null }>;
-  const items = await (await getDb()).all(`SELECT id, category, description, status, created_at, found_at FROM lost_items
-      WHERE bus_id = ? AND status IN ('waiting', 'pickup_pending', 'closed')
-      ORDER BY CASE status WHEN 'pickup_pending' THEN 0 WHEN 'waiting' THEN 1 ELSE 2 END, created_at DESC LIMIT 20`, bus.id) as Array<{ id: string; category: string; description: string; status: LostStatus; created_at: number; found_at: number | null }>;
+      WHERE li.bus_id = ? AND li.status = 'reported' ORDER BY li.created_at DESC`, bus.id) as Array<{ id: string; category: string; description: string; pickup_code: string | null; created_at: number; ride_at: number | null }>;
+  const items = await (await getDb()).all(`SELECT id, category, description, status, pickup_code, created_at, found_at FROM lost_items
+      WHERE bus_id = ? AND (status IN ('waiting', 'pickup_pending') OR (status = 'closed' AND closed_at > ?))
+      ORDER BY CASE status WHEN 'pickup_pending' THEN 0 WHEN 'waiting' THEN 1 ELSE 2 END, created_at DESC`, bus.id, Date.now() - DAY_MS) as Array<{ id: string; category: string; description: string; status: LostStatus; pickup_code: string | null; created_at: number; found_at: number | null }>;
   return {
     bus,
     alerts: alerts.map((row) => ({
       id: row.id,
       category: row.category,
       description: row.description,
+      pickupCode: row.pickup_code,
       tripLabel: formatHour24(row.ride_at ?? row.created_at),
     })),
     items: items.map((row) => ({
@@ -940,6 +968,7 @@ export async function getConductorLost(userId: string) {
       category: row.category,
       description: row.description,
       status: row.status,
+      pickupCode: row.pickup_code,
       meta:
         row.status === 'waiting'
           ? `found ${formatHour24(row.found_at ?? row.created_at)}`
