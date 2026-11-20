@@ -39,7 +39,7 @@ export function PassengerNav() {
   const tabs = [
     path === '/home',
     path.startsWith('/map'),
-    path.startsWith('/rides'),
+    path.startsWith('/rides') || path.startsWith('/receipt/'),
     path.startsWith('/help') || path.startsWith('/lost'),
     path.startsWith('/profile'),
   ];

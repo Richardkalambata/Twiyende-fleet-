@@ -21,34 +21,36 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
   const pending = receipt.status === 'pending';
   const share = `Twende ${receipt.code} Bus ${receipt.fleetNumber} ${formatBalance(receipt.amountNgwee)}`;
   return (
-    <div className="safe-top px-5 pb-8 text-[#0B1B3B]">
-      <Link href="/home" className="text-2xl" aria-label="Back">←</Link>
+    <div className="safe-top mx-auto max-w-6xl px-4 pb-8 text-[#0B1B3B] sm:px-8 lg:px-10 lg:pt-8">
+      <Link href={pending ? "/home" : "/rides"} className="inline-flex min-h-10 items-center text-sm font-bold text-[#184BDE] print:hidden">← {pending ? "Home" : "My rides"}</Link>
       <div className="mt-2 flex items-center justify-between"><Logo /><span className="text-[12px] text-[#8A93A6]">{formatHour24(receipt.createdAt)}</span></div>
-      <h1 className="mt-4 text-[28px] font-extrabold tracking-[-0.04em]">{pending ? 'Your ride ticket' : 'Ride receipt'}</h1>
-      <section className="flip-card elevate mt-4 overflow-hidden rounded-2xl bg-white">
-        <div className="bg-[#0B1B3B] px-4 py-3 text-white">
+      <h1 className="mt-4 text-[28px] sm:text-4xl font-extrabold tracking-[-0.04em]">{pending ? 'Your ride ticket' : 'Ride receipt'}</h1>
+      <section className="flip-card elevate mt-4 overflow-hidden rounded-2xl bg-white sm:grid sm:grid-cols-2">
+        <div className="bg-[#0B1B3B] px-4 py-3 text-white sm:col-span-2 sm:px-6">
           <div className="flex items-center justify-between">
             <span className="text-[18px] font-extrabold">BUS {receipt.fleetNumber}</span>
             <span className="text-[18px] font-extrabold">{formatBalance(receipt.amountNgwee)}</span>
           </div>
           <div className="mt-2 h-1 rounded-full bg-[#E8833A]" />
         </div>
-        <div className="px-4 py-5">
+        <div className="grid min-w-0 place-items-center px-4 py-5 sm:p-6">
           <TicketWatch id={receipt.id} initial={receipt.status} code={receipt.code} />
         </div>
-        <div className="space-y-3 border-t border-dashed border-[#E4E8F0] px-4 py-4 text-[14px]">
-          <div className="flex justify-between"><span className="text-[#5C6578]">Departure</span><span className="font-semibold">{from}</span></div>
-          <div className="flex justify-between"><span className="text-[#5C6578]">Destination</span><span className="font-semibold">{to}</span></div>
-          <div className="flex justify-between"><span className="text-[#5C6578]">Fare paid</span><span className="font-semibold">{formatBalance(receipt.amountNgwee)}</span></div>
-          <div className="flex justify-between"><span className="text-[#5C6578]">Wallet balance</span><span className="font-semibold">{formatBalance(receipt.balanceNgwee)}</span></div>
+        <div className="min-w-0 space-y-3 border-t border-dashed border-[#E4E8F0] px-4 py-4 text-sm sm:border-l sm:border-t-0 sm:p-6">
+          <div className="flex justify-between gap-3"><span className="text-[#5C6578]">Departure</span><span className="min-w-0 break-words text-right font-semibold">{from}</span></div>
+          <div className="flex justify-between gap-3"><span className="text-[#5C6578]">Destination</span><span className="min-w-0 break-words text-right font-semibold">{to}</span></div>
+          <div className="flex justify-between gap-3"><span className="text-[#5C6578]">Fare paid</span><span className="min-w-0 break-words text-right font-semibold">{formatBalance(receipt.amountNgwee)}</span></div>
+          <div className="flex justify-between gap-3"><span className="text-[#5C6578]">Wallet balance</span><span className="min-w-0 break-words text-right font-semibold">{formatBalance(receipt.balanceNgwee)}</span></div>
         </div>
       </section>
+      <div className="mx-auto mt-4 max-w-lg print:hidden">
       {pending ? <CancelFare rideId={receipt.id} /> : null}
       {receipt.status !== 'void' ? <Link href="/map" className="mt-4 block text-center text-sm font-bold text-[#184BDE]">Track your bus</Link> : null}
       <PrintButton />
       <Link href="/wallet" className="mt-3 block text-center text-sm font-semibold text-[#184BDE]">View transaction history</Link>
       {pending ? <ShareReceipt text={share} /> : null}
       <Link href="/lost/new" className="mt-3 block text-center text-[14px] font-semibold text-[#1F5BFF]">Report a lost item</Link>
+      </div>
     </div>
   );
 }
