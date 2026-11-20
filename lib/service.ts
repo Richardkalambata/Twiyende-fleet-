@@ -1028,10 +1028,10 @@ export async function listReportableTrips(userId: string): Promise<RideCard[]> {
 export async function getConductorLost(userId: string) {
   const bus = await conductorBus(userId);
   if (!bus) return { bus: null, alerts: [] as ConductorAlert[], items: [] as ConductorItem[] };
-  const alerts = await (await getDb()).all(`SELECT li.id, li.category, li.description, li.pickup_code, li.created_at, r.created_at AS ride_at
+  const alerts = await (await getDb()).all(`SELECT li.id, li.category, li.description, li.created_at, r.created_at AS ride_at
       FROM lost_items li LEFT JOIN rides r ON r.id = li.ride_id
-      WHERE li.bus_id = ? AND li.status = 'reported' ORDER BY li.created_at DESC`, bus.id) as Array<{ id: string; category: string; description: string; pickup_code: string | null; created_at: number; ride_at: number | null }>;
-  const items = await (await getDb()).all(`SELECT id, category, description, status, pickup_code, created_at, found_at FROM lost_items
+      WHERE li.bus_id = ? AND li.status = 'reported' ORDER BY li.created_at DESC`, bus.id) as Array<{ id: string; category: string; description: string; created_at: number; ride_at: number | null }>;
+  const items = await (await getDb()).all(`SELECT id, category, description, status, CASE WHEN status = 'waiting' AND passenger_id IS NULL THEN pickup_code END AS pickup_code, created_at, found_at FROM lost_items
       WHERE bus_id = ? AND (status IN ('waiting', 'pickup_pending') OR (status = 'closed' AND closed_at > ?))
       ORDER BY CASE status WHEN 'pickup_pending' THEN 0 WHEN 'waiting' THEN 1 ELSE 2 END, created_at DESC`, bus.id, Date.now() - DAY_MS) as Array<{ id: string; category: string; description: string; status: LostStatus; pickup_code: string | null; created_at: number; found_at: number | null }>;
   return {
@@ -1040,7 +1040,7 @@ export async function getConductorLost(userId: string) {
       id: row.id,
       category: row.category,
       description: row.description,
-      pickupCode: row.pickup_code,
+      pickupCode: null,
       tripLabel: formatHour24(row.ride_at ?? row.created_at),
     })),
     items: items.map((row) => ({
