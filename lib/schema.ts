@@ -7,6 +7,7 @@ TRUNCATE TABLE
   shifts,
   stops,
   sms_messages,
+  conductor_payouts,
   payouts,
   lost_items,
   wallet_transactions,
@@ -132,6 +133,17 @@ CREATE TABLE IF NOT EXISTS payouts (
   provider_ref TEXT,
   created_at BIGINT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS conductor_payouts (
+  id TEXT PRIMARY KEY,
+  operator_id TEXT NOT NULL REFERENCES users (id),
+  conductor_id TEXT NOT NULL REFERENCES users (id),
+  amount_ngwee INTEGER NOT NULL CHECK (amount_ngwee > 0),
+  paid_on TEXT NOT NULL,
+  created_at BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_conductor_payout_history
+  ON conductor_payouts (conductor_id, paid_on DESC, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS meta (
   key TEXT PRIMARY KEY,

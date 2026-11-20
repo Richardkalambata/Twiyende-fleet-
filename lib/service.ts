@@ -525,16 +525,40 @@ export async function getConductorEarnings(userId: string) {
     ['Year to date', year],
   ] as const;
   return Promise.all(periods.map(async ([label, from]) => {
-    const [fares, tips] = await Promise.all([
-      db.get<{ rides: number; amount: number }>(`SELECT COUNT(*) AS rides, COALESCE(SUM(amount_ngwee), 0) AS amount
-        FROM rides WHERE conductor_id = ? AND status = 'verified'
-        AND COALESCE(verified_at, created_at) BETWEEN ? AND ?`, userId, from, now.getTime()),
-      db.get<{ amount: number }>(`SELECT COALESCE(SUM(amount_ngwee), 0) AS amount FROM wallet_transactions
-        WHERE user_id = ? AND type = 'tip' AND amount_ngwee > 0 AND created_at BETWEEN ? AND ?`, userId, from, now.getTime()),
-    ]);
-    return { label, rides: fares?.rides ?? 0, fares: fares?.amount ?? 0, tips: tips?.amount ?? 0 };
+    const fares = await db.get<{ rides: number; amount: number }>(`SELECT COUNT(*) AS rides, COALESCE(SUM(amount_ngwee), 0) AS amount
+      FROM rides WHERE conductor_id = ? AND status = 'verified'
+      AND COALESCE(verified_at, created_at) BETWEEN ? AND ?`, userId, from, now.getTime());
+    return { label, rides: fares?.rides ?? 0, fares: fares?.amount ?? 0 };
   }));
 }
+
+export async function listConductorPayouts(conductorId: string) {
+  return (await getDb()).all<{ id: string; operator_name: string; paid_on: string; amount_ngwee: number }>(
+    `SELECT p.id, u.name AS operator_name, p.paid_on, p.amount_ngwee
+     FROM conductor_payouts p JOIN users u ON u.id = p.operator_id
+     WHERE p.conductor_id = ? ORDER BY p.paid_on DESC, p.created_at DESC, p.id DESC`, conductorId,
+  );
+}
+
+export async function recordConductorPayout(operatorId: string, conductorId: string, amountRaw: string, paidOn: string, requestId: string) {
+  const amount = parseMoney(amountRaw, 100_000_000);
+  if (amount === null) return { ok: false as const, message: 'Enter a payout from K1 to K1,000,000.' };
+  const day = new Date(`${paidOn}T12:00:00Z`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(paidOn) || !Number.isFinite(day.getTime()) || lusakaDateKey(day) !== paidOn || paidOn > lusakaDateKey()) {
+    return { ok: false as const, message: 'Enter the date the conductor was paid, up to today.' };
+  }
+  if (!/^[a-f0-9-]{36}$/i.test(requestId)) return { ok: false as const, message: 'Reload the page and try again.' };
+  const id = `${operatorId}:${requestId}`;
+  const db = await getDb();
+  const inserted = await db.run(`INSERT INTO conductor_payouts (id, operator_id, conductor_id, amount_ngwee, paid_on, created_at)
+    SELECT ?, ?, id, ?, ?, ? FROM users WHERE id = ? AND operator_id = ? AND role = 'conductor'
+    ON CONFLICT (id) DO NOTHING`, id, operatorId, amount, paidOn, Date.now(), conductorId, operatorId);
+  if (!inserted.changes && !await db.get(`SELECT id FROM conductor_payouts WHERE id = ? AND conductor_id = ? AND amount_ngwee = ? AND paid_on = ?`, id, conductorId, amount, paidOn)) {
+    return { ok: false as const, message: 'Choose a conductor in your fleet or start a new payout record.' };
+  }
+  return { ok: true as const, message: 'Payout recorded.' };
+}
+
 
 export async function listConductorTrips(userId: string) {
   const bus = await conductorBus(userId);

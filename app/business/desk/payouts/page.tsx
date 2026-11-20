@@ -1,18 +1,19 @@
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
+import { ConductorPayoutForm } from '@/components/conductor-payout-form';
 import { PayoutForms } from '@/components/owner-forms';
 import { settleAction } from '@/lib/actions';
 import { EmptyState } from '@/components/ui';
 import { formatBalance, formatGrouped } from '@/lib/money';
 import { formatPhone } from '@/lib/phone';
-import { formatRideWhen } from '@/lib/time';
-import { getPayoutSummary, listOwnerBuses, networkDisplay } from '@/lib/service';
+import { formatRideWhen, lusakaDateKey } from '@/lib/time';
+import { getPayoutSummary, listConductors, listOwnerBuses, networkDisplay } from '@/lib/service';
 
 export const metadata = { title: 'Payouts' };
 
 export default async function PayoutsPage() {
   const user = await requireUser(['operator']);
-  const summary = await getPayoutSummary(user.id);
+  const [summary, conductors] = await Promise.all([getPayoutSummary(user.id), listConductors(user.id)]);
   return (
     <div className="space-y-4 px-4 py-5 md:px-6">
       <h1 className="text-[28px] font-semibold">Payouts</h1>
@@ -33,6 +34,7 @@ export default async function PayoutsPage() {
         <input name="amount" required placeholder="Amount in K" aria-label="Amount" className="h-11 w-40 rounded-xl bg-white px-3 text-[#0B1B3B] placeholder:text-[#5C6578]" />
         <button className="h-11 rounded-xl bg-[#1F5BFF] px-4 font-bold text-white">Mark settled</button>
       </form>
+      <ConductorPayoutForm conductors={conductors} today={lusakaDateKey()} />
       <PayoutForms phone={summary.payoutPhone ?? user.phone} network={summary.payoutNetwork ?? 'mtn'} today={formatGrouped(summary.todayNgwee)} />
       <section className="rounded-3xl bg-white p-4 shadow-sm">
         <h2 className="font-semibold">History</h2>
