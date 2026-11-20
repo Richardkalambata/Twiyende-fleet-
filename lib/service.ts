@@ -512,12 +512,11 @@ export async function getConductorHome(userId: string) {
   return { user: mapUser(user), bus, todayRides: stats.rides, todayNgwee: stats.amountNgwee };
 }
 
-export async function listConductorTrips(userId: string) {
-  const bus = await conductorBus(userId);
+export async function getConductorEarnings(userId: string) {
   const now = new Date();
   const start = startOfLusakaDay(now);
-  const db = await getDb();
   const date = lusakaDateKey(now);
+  const db = await getDb();
   const monday = start - ((new Date(start + 2 * 3600000).getUTCDay() + 6) % 7) * DAY_MS;
   const year = startOfLusakaDay(new Date(`${date.slice(0, 4)}-01-01T12:00:00Z`));
   const periods = [
@@ -525,20 +524,26 @@ export async function listConductorTrips(userId: string) {
     ['This month', startOfLusakaMonth(now)],
     ['Year to date', year],
   ] as const;
-  const [assignments, earnings] = await Promise.all([
-    db.all<{ fleet_number: string; route: string }>(`SELECT b.fleet_number, b.route FROM assignments a
-      JOIN buses b ON b.id = a.bus_id WHERE a.conductor_id = ? AND a.shift_date = ? ORDER BY a.created_at`, userId, date),
-    Promise.all(periods.map(async ([label, from]) => {
-      const [fares, tips] = await Promise.all([
-        db.get<{ rides: number; amount: number }>(`SELECT COUNT(*) AS rides, COALESCE(SUM(amount_ngwee), 0) AS amount
-          FROM rides WHERE conductor_id = ? AND status = 'verified'
-          AND COALESCE(verified_at, created_at) BETWEEN ? AND ?`, userId, from, now.getTime()),
-        db.get<{ amount: number }>(`SELECT COALESCE(SUM(amount_ngwee), 0) AS amount FROM wallet_transactions
-          WHERE user_id = ? AND type = 'tip' AND amount_ngwee > 0 AND created_at BETWEEN ? AND ?`, userId, from, now.getTime()),
-      ]);
-      return { label, rides: fares?.rides ?? 0, fares: fares?.amount ?? 0, tips: tips?.amount ?? 0 };
-    })),
-  ]);
+  return Promise.all(periods.map(async ([label, from]) => {
+    const [fares, tips] = await Promise.all([
+      db.get<{ rides: number; amount: number }>(`SELECT COUNT(*) AS rides, COALESCE(SUM(amount_ngwee), 0) AS amount
+        FROM rides WHERE conductor_id = ? AND status = 'verified'
+        AND COALESCE(verified_at, created_at) BETWEEN ? AND ?`, userId, from, now.getTime()),
+      db.get<{ amount: number }>(`SELECT COALESCE(SUM(amount_ngwee), 0) AS amount FROM wallet_transactions
+        WHERE user_id = ? AND type = 'tip' AND amount_ngwee > 0 AND created_at BETWEEN ? AND ?`, userId, from, now.getTime()),
+    ]);
+    return { label, rides: fares?.rides ?? 0, fares: fares?.amount ?? 0, tips: tips?.amount ?? 0 };
+  }));
+}
+
+export async function listConductorTrips(userId: string) {
+  const bus = await conductorBus(userId);
+  const now = new Date();
+  const start = startOfLusakaDay(now);
+  const db = await getDb();
+  const date = lusakaDateKey(now);
+  const assignments = await db.all<{ fleet_number: string; route: string }>(`SELECT b.fleet_number, b.route FROM assignments a
+      JOIN buses b ON b.id = a.bus_id WHERE a.conductor_id = ? AND a.shift_date = ? ORDER BY a.created_at`, userId, date);
   const rows = await (await getDb()).all(`SELECT passenger_label, code, amount_ngwee, created_at, verified_at FROM rides
       WHERE conductor_id = ? AND status = 'verified' AND COALESCE(verified_at, created_at) >= ?
       AND COALESCE(verified_at, created_at) < ? ORDER BY verified_at DESC LIMIT 80`, userId, start, start + DAY_MS) as Array<{
@@ -550,7 +555,7 @@ export async function listConductorTrips(userId: string) {
   }>;
   const stats = await conductorToday(userId, now);
   return {
-    bus, assignments, earnings,
+    bus, assignments,
     todayRides: stats.rides,
     todayNgwee: stats.amountNgwee,
     trips: rows.map((row) => ({

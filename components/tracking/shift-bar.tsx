@@ -183,7 +183,6 @@ export function ShiftBar() {
   if (!shift.sharing) {
     return (
       <div className="bg-[#F4F6FB] px-5 py-3 text-[#0B1B3B]">
-        <span className="mr-3 text-sm font-semibold text-[#5C6578]">Off shift</span>
         <button type="button" className="press h-11 rounded-xl bg-[#1F5BFF] px-4 text-[14px] font-bold text-white disabled:opacity-50" disabled={pending} onClick={() => void toggle()}>Start shift</button>
         {note ? <p className="mt-2 text-[13px] leading-5 text-[#5C6578]">{note}</p> : null}
       </div>

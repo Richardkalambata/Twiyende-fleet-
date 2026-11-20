@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { EmptyState } from '@/components/ui';
 import { formatBalance, formatGrouped } from '@/lib/money';
@@ -32,20 +33,9 @@ export default async function TripsPage() {
           <p className="text-[14px] text-white/80">{data.todayRides} rides</p>
         </div>
       </section>
-      <section>
-        <h2 className="text-lg font-extrabold">Shift earnings summary</h2>
-        <p className="text-sm text-[#5C6578]">Fares collected for the fleet and personal tips are shown separately.</p>
-        <div className="mt-2 grid gap-2 sm:grid-cols-3">
-          {data.earnings.map((period) => (
-            <article key={period.label} className="rounded-2xl bg-white p-4">
-              <h3 className="font-bold">{period.label}</h3>
-              <p className="mt-1 text-lg font-extrabold">{formatBalance(period.fares)}</p>
-              <p className="text-sm text-[#5C6578]">Fares collected · {period.rides} rides</p>
-              <p className="mt-2 text-sm font-semibold">Your tips {formatBalance(period.tips)}</p>
-            </article>
-          ))}
-        </div>
-      </section>
+      <Link href="/business/drive/earnings" className="inline-flex min-h-11 items-center rounded-xl bg-white px-4 text-sm font-bold text-[#184BDE]">
+        View earnings reports →
+      </Link>
       {data.trips.length === 0 ? <EmptyState title="No fares yet" body="Fares verified today will appear here." /> : null}
       <ul className="overflow-hidden rounded-2xl bg-white shadow-[0_8px_24px_rgba(11,27,59,0.06)]">
         {data.trips.map((trip) => (

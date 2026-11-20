@@ -59,7 +59,7 @@ export function ConductorNav() {
   const path = usePathname();
   const tabs = [
     path === '/business/drive',
-    path.startsWith('/business/drive/trips'),
+    path.startsWith('/business/drive/trips') || path.startsWith('/business/drive/earnings'),
     path.startsWith('/business/drive/lost'),
     path.startsWith('/business/drive/profile'),
   ];
