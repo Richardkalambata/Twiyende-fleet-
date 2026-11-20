@@ -142,23 +142,31 @@ export function VerifyPad({
         if (!pending && code.length >= 4) void verify();
       }}>
         <label htmlFor="fare-code" className="sr-only">Fare code</label>
-        <input
-          id="fare-code"
-          type="text"
-          inputMode="text"
-          autoCapitalize="characters"
-          autoCorrect="off"
-          spellCheck={false}
-          enterKeyHint="go"
-          maxLength={8}
-          value={code}
-          disabled={pending}
-          onChange={(event) => {
-            setError(null);
-            setCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8));
-          }}
-          className="h-14 w-full rounded-xl bg-[#0B1B3B] px-4 text-center text-2xl font-bold tracking-[0.2em] text-white ring-1 ring-[#8FB0FF]"
-        />
+        <div className="relative rounded-xl focus-within:ring-2 focus-within:ring-[#8FB0FF] focus-within:ring-offset-4 focus-within:ring-offset-[#071433]">
+          <div aria-hidden="true" className="grid gap-1.5 sm:gap-2" style={{ gridTemplateColumns: `repeat(${Math.max(4, code.length)}, minmax(0, 1fr))` }}>
+            {Array.from({ length: Math.max(4, code.length) }, (_, index) => (
+              <span key={index} className="grid h-14 place-items-center rounded-xl border border-[#8FB0FF]/70 bg-[#0B1B3B] text-xl font-bold text-white sm:text-2xl">
+                {code[index]}
+              </span>
+            ))}
+          </div>
+          <input
+            id="fare-code"
+            type="text"
+            inputMode="text"
+            autoCapitalize="characters"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="go"
+            value={code}
+            disabled={pending}
+            onChange={(event) => {
+              setError(null);
+              setCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8));
+            }}
+            className="absolute inset-0 z-10 h-full w-full cursor-text opacity-0"
+          />
+        </div>
         {error && !wrongBus && !used ? <p className="text-sm font-semibold text-[#FFD0D0]" role="alert">{error}</p> : null}
         <button type="submit" disabled={pending || code.length < 4} className="press h-12 w-full rounded-xl bg-[#1F5BFF] font-bold text-white disabled:opacity-50">{pending ? 'Checking…' : 'Verify code'}</button>
       </form>
