@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { BusIcon, HomeIcon, LostIcon, RidesIcon, ShieldIcon, UserIcon } from './icons';
 import { Logo } from './shell';
-import { LogOut, Map } from 'lucide-react';
+import { LogOut, Map, Wallet } from 'lucide-react';
 import { signOutAction } from '@/lib/actions';
 
 function Item({ href, label, active, children }: { href: string; label: string; active: boolean; dark?: boolean; children: ReactNode }) {
@@ -59,17 +59,19 @@ export function ConductorNav() {
   const path = usePathname();
   const tabs = [
     path === '/business/drive',
-    path.startsWith('/business/drive/trips') || path.startsWith('/business/drive/earnings'),
+    path.startsWith('/business/drive/trips'),
+    path.startsWith('/business/drive/earnings'),
     path.startsWith('/business/drive/lost'),
     path.startsWith('/business/drive/profile'),
   ];
   const index = Math.max(0, tabs.findIndex(Boolean));
   return (
-    <Bar label="Conductor" index={index} cols={4}>
+    <Bar label="Conductor" index={index} cols={5}>
       <Item href="/business/drive" label="Verify" active={tabs[0]}><ShieldIcon className="h-5 w-5" /></Item>
       <Item href="/business/drive/trips" label="Trips" active={tabs[1]}><BusIcon className="h-5 w-5" /></Item>
-      <Item href="/business/drive/lost" label="Lost" active={tabs[2]}><LostIcon className="h-5 w-5" /></Item>
-      <Item href="/business/drive/profile" label="Profile" active={tabs[3]}><UserIcon className="h-5 w-5" /></Item>
+      <Item href="/business/drive/earnings" label="Earnings" active={tabs[2]}><Wallet className="h-5 w-5" /></Item>
+      <Item href="/business/drive/lost" label="Lost" active={tabs[3]}><LostIcon className="h-5 w-5" /></Item>
+      <Item href="/business/drive/profile" label="Profile" active={tabs[4]}><UserIcon className="h-5 w-5" /></Item>
     </Bar>
   );
 }
