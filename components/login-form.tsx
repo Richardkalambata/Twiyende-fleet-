@@ -88,6 +88,9 @@ export function LoginForm({ accounts, error, gate = 'passenger', operatorSmsRequ
               </>
             ) : null}
           </div>}
+          <Link href={`${landing}#how-it-works`} className="mt-5 self-center text-sm font-semibold text-[#1F5BFF]">
+            {business ? 'How Fleet Business works' : 'How Twende works'}
+          </Link>
           {!state?.ok && accounts.length > 0 ? (
             <div className="mt-4 space-y-2">
               {accounts.slice(0, 3).map((account) => (

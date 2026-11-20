@@ -119,7 +119,7 @@ export default function BusinessHome() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-[1200px] px-5 py-20 md:px-8 md:py-32">
+      <section id="how-it-works" className="mx-auto max-w-[1200px] px-5 py-20 md:px-8 md:py-32">
         <Reveal><h2 className="text-[32px] md:text-[48px]">How it works for your fleet</h2></Reveal>
         <StepRail>
           <ol className="relative mt-10 grid gap-8 md:grid-cols-4">

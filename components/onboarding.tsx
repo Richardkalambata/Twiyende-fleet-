@@ -69,7 +69,7 @@ export function Onboarding() {
         </Reveal>
       </section>
 
-      <section className="bg-white">
+      <section id="how-it-works" className="bg-white">
         <div className="mx-auto max-w-[1200px] px-5 py-20 md:px-8 md:py-32">
           <Reveal><h2 className="text-[32px] md:text-[48px]">How it works</h2></Reveal>
           <ol className="mt-12 grid items-start gap-14 md:grid-cols-3 md:gap-8">
