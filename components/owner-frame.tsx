@@ -3,13 +3,14 @@
 import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CalendarDays, Map } from 'lucide-react';
+import { CalendarDays, Coins, Map } from 'lucide-react';
 import { signOutAction } from '@/lib/actions';
 import { Logo } from './shell';
 import { BusIcon, ChartIcon, CloseIcon, GearIcon, LogoutIcon, LostIcon, MenuIcon, UsersIcon, WalletIcon } from './icons';
 
 const LINKS = [
   { href: '/business/desk', label: 'Overview', icon: ChartIcon },
+  { href: '/business/desk/fares', label: 'Fares', icon: Coins },
   { href: '/business/desk/map', label: 'Map', icon: Map },
   { href: '/business/desk/buses', label: 'Buses', icon: BusIcon },
   { href: '/business/desk/conductors', label: 'Conductors', icon: UsersIcon },
@@ -21,7 +22,7 @@ const LINKS = [
   { href: '/business/desk/support', label: 'Support', icon: LostIcon },
 ];
 
-export function OwnerFrame({ children, openLost, operator }: { children: ReactNode; openLost: number; operator: { name: string; initials: string } }) {
+export function OwnerFrame({ children, openLost, operator, company }: { children: ReactNode; openLost: number; company: string; operator: { name: string; initials: string } }) {
   const path = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
@@ -40,6 +41,7 @@ export function OwnerFrame({ children, openLost, operator }: { children: ReactNo
               onClick={() => { setMenuOpen((open) => !open); setNavOpen(false); }}
             >
               <span className="grid h-9 w-9 place-items-center rounded-full bg-white text-[12px] font-bold text-[#0B1B3B]">{operator.initials}</span>
+              <span className="max-w-[39vw] truncate text-sm font-semibold" title={operator.name}>{operator.name}</span>
             </button>
             <button
               type="button"
@@ -54,7 +56,7 @@ export function OwnerFrame({ children, openLost, operator }: { children: ReactNo
         </div>
         <div className="mx-3 mb-3 hidden items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-[13px] font-semibold md:flex">
           <span className="grid h-6 w-6 place-items-center rounded-md bg-white/15"><BusIcon className="h-3.5 w-3.5" /></span>
-          <span className="truncate">Kalambata Transport</span>
+          <span className="truncate">{company}</span>
         </div>
         <nav className="hidden gap-1 px-2 pb-3 md:flex md:min-h-0 md:flex-1 md:flex-col md:overflow-y-auto" aria-label="Fleet">
           {LINKS.map((link) => {
@@ -92,7 +94,7 @@ export function OwnerFrame({ children, openLost, operator }: { children: ReactNo
                 <CloseIcon className="h-5 w-5" />
               </button>
             </div>
-            <p className="px-5 text-[13px] text-white/70">Kalambata Transport</p>
+            <p className="px-5 text-[13px] text-white/70">{company}</p>
             <nav className="mt-3 flex flex-1 flex-col gap-1 overflow-y-auto px-3" aria-label="Fleet menu">
               {LINKS.map((link) => {
                 const active = link.href === '/business/desk' ? path === '/business/desk' : path.startsWith(link.href);

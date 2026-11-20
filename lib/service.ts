@@ -1093,20 +1093,16 @@ export async function getOwnerDashboard(ownerId: string, range: RangeKey, routeF
     bag.earningsNgwee += row.amount_ngwee;
     byConductor.set(row.conductor_id, bag);
   }
-  const conductorRows = await (await getDb()).all(`SELECT id, short_name, initials FROM users WHERE role = 'conductor'`) as Array<{
-    id: string;
-    short_name: string;
-    initials: string;
-  }>;
-  let top: Dashboard['topConductor'] = null;
-  for (const person of conductorRows) {
+  const conductorRows = await (await getDb()).all<{ id: string; name: string; initials: string }>(
+    `SELECT id, name, initials FROM users WHERE id = ANY(?::text[])`, [...byConductor.keys()],
+  );
+  const topConductors = conductorRows.flatMap((person) => {
     const stats = byConductor.get(person.id);
-    if (!stats) continue;
-    if (!top || stats.earningsNgwee > top.earningsNgwee || (stats.earningsNgwee === top.earningsNgwee && stats.rides > top.rides)) {
-      top = { name: person.short_name, initials: person.initials, earningsNgwee: stats.earningsNgwee, rides: stats.rides };
-    }
-  }
-
+    return stats ? [{ id: person.id, name: person.name, initials: person.initials, ...stats }] : [];
+  }).sort((a, b) => b.earningsNgwee - a.earningsNgwee || b.rides - a.rides || a.name.localeCompare(b.name)).slice(0, 5);
+  const shifts = await (await getDb()).get<{ total: number }>(`SELECT COUNT(DISTINCT s.conductor_id) AS total
+    FROM shifts s JOIN buses b ON b.id = s.bus_id WHERE b.owner_id = ? AND b.status = 'active'
+      AND s.ended_at IS NULL AND s.expires_at > ?`, ownerId, now.getTime());
   const chartRows = routeFleet && routeFleet !== 'all' ? current.filter((row) => row.fleet_number === routeFleet) : current;
   const open = await (await getDb()).get(`SELECT COUNT(*) AS n FROM lost_items li JOIN buses b ON b.id = li.bus_id WHERE b.owner_id = ? AND li.status = 'reported'`, ownerId) as { n: number };
   const todayWindow = rangeWindow('today', now);
@@ -1124,7 +1120,8 @@ export async function getOwnerDashboard(ownerId: string, range: RangeKey, routeF
     nextPayoutNgwee: Math.max(0, sum(todayRows) - paidToday.amount),
     chart: buildChart(range, chartRows, now),
     buses: performance,
-    topConductor: top,
+    topConductor: topConductors[0] ?? null,
+    topConductors, onShift: shifts?.total ?? 0,
     openLost: open.n,
     routes: buses.flatMap((bus) => (bus.route ? [{ fleetNumber: bus.fleet_number, route: bus.route }] : [])),
   };
@@ -1231,22 +1228,34 @@ export async function countOpenLost(ownerId: string): Promise<number> {
   return row.n;
 }
 
-export async function registerBus(ownerId: string, fleetRaw: string, plateRaw: string, routeRaw: string) {
-  const fleet = normalizeFleetNumber(fleetRaw);
+export async function registerBus(ownerId: string, fleetRaw: string, plateRaw: string, routeRaw: string, conductorId: string | null = null) {
+  let fleet = normalizeFleetNumber(fleetRaw);
   const plate = cleanText(plateRaw, 20).toUpperCase();
   const routeText = cleanText(routeRaw, 60);
   const route = routeText.length === 0 ? null : routeText;
-  if (!/^\d{1,4}$/.test(fleet)) return { ok: false as const, message: 'Use the fleet number painted on the bus, such as 12.' };
+  if (fleet && !/^[1-9]\d{0,3}$/.test(fleet)) return { ok: false as const, message: 'Use the fleet number painted on the bus, such as 12.' };
   if (plate.length < 4) return { ok: false as const, message: 'Enter the number plate.' };
   if (routeText.length > 0 && routeText.length < 3) return { ok: false as const, message: 'Enter the route, such as Town to Matero.' };
   try {
     const id = nid('bus');
-    await (await getDb()).run(`INSERT INTO buses (id, fleet_number, plate, route, status, owner_id, conductor_id, created_at)
-        VALUES (?, ?, ?, ?, 'active', ?, NULL, ?)`, id, fleet, plate, route, ownerId, Date.now());
+    await withTransaction(async () => {
+      const db = await getDb();
+      await db.run('SELECT pg_advisory_xact_lock(?)', 872345);
+      if (!fleet) {
+        const next = await db.get<{ fleet: string }>(`SELECT n::text AS fleet FROM generate_series(1, 9999) n
+          WHERE NOT EXISTS (SELECT 1 FROM buses WHERE fleet_number = n::text) LIMIT 1`);
+        if (!next) throw new UserError('No fleet numbers are available.');
+        fleet = next.fleet;
+      }
+      await db.run(`INSERT INTO buses (id, fleet_number, plate, route, status, owner_id, conductor_id, created_at, company_id)
+        VALUES (?, ?, ?, ?, 'active', ?, NULL, ?, (SELECT id FROM companies WHERE operator_id = ? ORDER BY created_at LIMIT 1))`,
+        id, fleet, plate, route, ownerId, Date.now(), ownerId);
+      if (conductorId) await assignConductorInTransaction(ownerId, id, conductorId);
+    });
     return { ok: true as const, id, fleetNumber: fleet };
   } catch (error) {
     if (isUnique(error)) return { ok: false as const, message: `Bus ${fleet} is already registered.` };
-    throw error;
+    return asFail(error);
   }
 }
 
@@ -1658,3 +1667,15 @@ export async function conductorTipBalance(userId: string): Promise<number> {
 }
 
 export { formatPhone, lusakaDateKey };
+
+
+export async function operatorDailySummary(operatorId: string) {
+  const end = startOfLusakaDay();
+  const start = end - DAY_MS;
+  const db = await getDb();
+  const totals = await db.get<{ rides: number; amount: number }>(`SELECT COUNT(*) AS rides, COALESCE(SUM(r.amount_ngwee), 0) AS amount
+    FROM rides r JOIN buses b ON b.id = r.bus_id WHERE b.owner_id = ? AND r.status = 'verified'
+      AND COALESCE(r.verified_at, r.created_at) >= ? AND COALESCE(r.verified_at, r.created_at) < ?`, operatorId, start, end);
+  const date = lusakaDateKey(new Date(start));
+  return { date, rides: totals?.rides ?? 0, amount: totals?.amount ?? 0 };
+}

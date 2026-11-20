@@ -138,6 +138,8 @@ export type BusPerformance = {
 };
 
 export type Dashboard = {
+  topConductors: { id: string; name: string; initials: string; earningsNgwee: number; rides: number }[];
+  onShift: number;
   range: RangeKey;
   totalNgwee: number;
   previousNgwee: number;

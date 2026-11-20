@@ -30,6 +30,7 @@ export type LiveBus = {
   onShift: boolean;
   simulated?: boolean;
   conductor?: string | null;
+  ownFleet?: boolean;
 };
 
 type LatestRow = {
@@ -60,7 +61,7 @@ async function assignedBus(conductorId: string) {
   const today = lusakaDateKey();
   return (await getDb()).get<{ id: string; fleet_number: string; route: string }>(
     `SELECT b.id, b.fleet_number, b.route FROM assignments a JOIN buses b ON b.id = a.bus_id
-     WHERE a.conductor_id = ? AND a.shift_date = ? LIMIT 1`,
+     WHERE a.conductor_id = ? AND a.shift_date = ? AND b.status = 'active' LIMIT 1`,
     conductorId,
     today,
   );
@@ -238,19 +239,20 @@ export async function listLiveBuses(viewer: { id: string; role: string }, now = 
             l.lat, l.lng, l.heading, l.speed, l.accuracy, l.recorded_at, l.source,
             u.short_name AS conductor_name,
             EXISTS (
-              SELECT 1 FROM shifts s WHERE s.bus_id = b.id AND s.ended_at IS NULL AND s.expires_at > ?
+              SELECT 1 FROM shifts s WHERE s.bus_id = b.id AND s.conductor_id = b.conductor_id AND s.ended_at IS NULL AND s.expires_at > ? AND b.status = 'active'
             ) AS shift_open
      FROM buses b
      LEFT JOIN bus_latest l ON l.bus_id = b.id
      LEFT JOIN assignments a ON a.bus_id = b.id AND a.shift_date = ?
      LEFT JOIN users u ON u.id = a.conductor_id
-     ${operator ? 'WHERE b.owner_id = ?' : ''}
+     WHERE b.status = 'active' OR b.owner_id = ?
      ORDER BY b.fleet_number`,
-    ...(operator ? [now, lusakaDateKey(new Date(now)), viewer.id] : [now, lusakaDateKey(new Date(now))]),
+    now, lusakaDateKey(new Date(now)), operator ? viewer.id : '',
   );
   return rows.flatMap((row) => {
+    const ownFleet = operator && row.owner_id === viewer.id;
     if (row.lat == null || row.lng == null || row.recorded_at == null) {
-      if (!operator) return [];
+      if (!ownFleet) return [];
       return [{
         id: row.bus_id,
         fleet: row.fleet_number,
@@ -264,12 +266,13 @@ export async function listLiveBuses(viewer: { id: string; role: string }, now = 
         stale: true,
         onShift: false,
         conductor: row.conductor_name,
+        ownFleet: true,
       }];
     }
-    const stale = isStale(row.recorded_at, now);
+    const stale = isStale(row.recorded_at, now) || (row.source === 'conductor' && !row.shift_open);
     const simulated = row.source === 'simulated';
     const onShift = Boolean(row.shift_open) || simulated;
-    if (!operator && !onShift) return [];
+    if (!ownFleet && (!onShift || (operator && stale))) return [];
     const bus: LiveBus = {
       id: row.bus_id,
       fleet: row.fleet_number,
@@ -284,7 +287,10 @@ export async function listLiveBuses(viewer: { id: string; role: string }, now = 
       onShift,
       simulated,
     };
-    if (operator) bus.conductor = row.conductor_name;
+    if (ownFleet) {
+      bus.ownFleet = true;
+      bus.conductor = row.conductor_name;
+    }
     return [bus];
   });
 }

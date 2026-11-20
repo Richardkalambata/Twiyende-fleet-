@@ -23,18 +23,23 @@ function Sheet({ label, title, children }: { label: string; title: string; child
   );
 }
 
-export function RegisterBusForm() {
+export function RegisterBusForm({ conductors }: { conductors: ConductorOption[] }) {
   const [state, action, pending] = useActionState(registerBusAction, null as Fail | null);
   return (
     <Sheet label="Add bus" title="Add a bus">
     <form action={action} className="grid gap-3 rounded-2xl bg-white p-4 shadow-[0_8px_24px_rgba(11,27,59,0.06)] md:grid-cols-4">
-      <input name="fleet" required placeholder="Fleet number" aria-label="Fleet number" className="h-14 rounded-2xl bg-white px-4 text-[#0B1B3B] placeholder:text-[#5C6578]" />
+      <input name="fleet" inputMode="numeric" placeholder="Fleet number (optional)" aria-label="Fleet number" className="h-14 rounded-2xl bg-white px-4 text-[#0B1B3B] placeholder:text-[#5C6578]" />
       <input name="plate" required placeholder="Plate, BLZ 44 ZA" aria-label="Plate" className="h-14 rounded-2xl bg-white px-4 text-[#0B1B3B] placeholder:text-[#5C6578]" />
       <select name="route" aria-label="Route" defaultValue="" className="h-14 rounded-2xl bg-white px-4 text-[#0B1B3B]">
         <option value="">No route</option>
         {LUSAKA_ROUTES.map((item) => <option key={item.route} value={item.route}>{item.route.replaceAll(' to ', ' ↔ ')}</option>)}
       </select>
-      <button className={buttonClass('copper')} disabled={pending}>{pending ? 'Saving…' : 'Register bus'}</button>
+      <select name="conductorId" aria-label="Assign conductor" className="h-14 min-w-0 rounded-2xl bg-white px-4">
+        <option value="">Assign conductor later</option>
+        {conductors.map((person) => <option key={person.id} value={person.id}>{person.shortName}{person.busFleet ? ` · Bus ${person.busFleet}` : ''}</option>)}
+      </select>
+      <p className="text-xs text-[#5C6578] md:col-span-4">Leave the fleet number blank to get an available number automatically.</p>
+      <button className={`${buttonClass('copper')} md:col-span-4`} disabled={pending}>{pending ? 'Saving…' : 'Register bus'}</button>
       {state?.message ? <p className="text-sm text-[#9A3B1A] md:col-span-4">{state.message}</p> : null}
     </form>
     </Sheet>
@@ -78,15 +83,23 @@ export function BusControls({ bus, conductors }: { bus: BusPerformance; conducto
         </select>
         <button className="h-10 rounded-xl bg-[#1F5BFF] px-3 text-sm font-bold text-white">Save route</button>
       </form>
-      <form action={assignConductorAction} className="flex items-center gap-2">
-        <input type="hidden" name="busId" value={bus.id} />
-        <select name="conductorId" defaultValue={bus.conductorId ?? ''} aria-label={`Conductor for bus ${bus.fleetNumber}`} className="h-10 rounded-full bg-white px-3 text-sm text-[#0B1B3B]">
-          <option value="">Unassigned</option>
-          {conductors.map((conductor) => <option key={conductor.id} value={conductor.id}>{conductor.shortName}</option>)}
-        </select>
-        <button className="h-10 rounded-xl bg-[#1F5BFF] px-3 text-sm font-bold text-white">Assign</button>
-      </form>
+      <ConductorAssignmentForm bus={bus} conductors={conductors} />
     </div>
+  );
+}
+
+export function ConductorAssignmentForm({ bus, conductors }: { bus: BusPerformance; conductors: ConductorOption[] }) {
+  const [result, action, pending] = useActionState(assignConductorAction, null);
+  return (
+    <form action={action} className="flex flex-wrap items-center gap-2">
+      <input type="hidden" name="busId" value={bus.id} />
+      <select key={bus.conductorId ?? 'unassigned'} name="conductorId" defaultValue={bus.conductorId ?? ''} aria-label={`Conductor for bus ${bus.fleetNumber}`} className="h-10 min-w-0 rounded-xl border border-[#E4E8F0] bg-white px-3 text-sm">
+        <option value="">Unassigned</option>
+        {conductors.map((conductor) => <option key={conductor.id} value={conductor.id}>{conductor.shortName}{conductor.busFleet && conductor.busFleet !== bus.fleetNumber ? ` · Bus ${conductor.busFleet}` : ''}</option>)}
+      </select>
+      <button disabled={pending} className="h-10 rounded-xl bg-[#1F5BFF] px-3 text-sm font-bold text-white disabled:opacity-50">{pending ? 'Saving…' : 'Save assignment'}</button>
+      {result ? <p role={result.ok ? 'status' : 'alert'} className="w-full text-sm">{result.message}</p> : null}
+    </form>
   );
 }
 

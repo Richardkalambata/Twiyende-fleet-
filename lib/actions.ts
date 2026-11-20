@@ -184,7 +184,7 @@ export async function tipAction(itemId: string, amountNgwee: number) {
 
 export async function registerBusAction(_prev: Fail | null, formData: FormData): Promise<Fail | null> {
   const user = await requireUser(['operator']);
-  const result = await registerBus(user.id, String(formData.get('fleet') ?? ''), String(formData.get('plate') ?? ''), String(formData.get('route') ?? ''));
+  const result = await registerBus(user.id, String(formData.get('fleet') ?? ''), String(formData.get('plate') ?? ''), String(formData.get('route') ?? ''), String(formData.get('conductorId') ?? '') || null);
   if (!result.ok) return result;
   refresh();
   redirect('/business/desk/buses');
@@ -218,11 +218,13 @@ export async function setBusStatusAction(formData: FormData) {
   refresh();
 }
 
-export async function assignConductorAction(formData: FormData) {
+export async function assignConductorAction(_previous: { ok: boolean; message: string } | null, formData: FormData) {
   const user = await requireUser(['operator']);
   const conductor = String(formData.get('conductorId') ?? '');
-  await assignConductor(user.id, String(formData.get('busId') ?? ''), conductor || null);
+  const result = await assignConductor(user.id, String(formData.get('busId') ?? ''), conductor || null);
+  if (!result.ok) return result;
   refresh();
+  return { ok: true, message: 'Assignment saved.' };
 }
 
 export async function savePayoutAction(_prev: Fail | null, formData: FormData): Promise<Fail | null> {

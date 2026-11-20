@@ -524,7 +524,7 @@ export function LiveMap({ mode, paidRide }: { mode: 'rider' | 'operator'; paidRi
     }
     const seen = new Set<string>();
     for (const bus of shown) {
-      if (hidden.has(bus.id) && bus.id !== selected && bus.id !== aboard) continue;
+      if (hidden.has(bus.id) && !bus.ownFleet && bus.id !== selected && bus.id !== aboard) continue;
       seen.add(bus.id);
       const geometry = routeGeometry(bus.route)?.points ?? [];
       const snapped = snapToRoad(bus, geometry, bus.accuracy);
@@ -575,12 +575,13 @@ export function LiveMap({ mode, paidRide }: { mode: 'rider' | 'operator'; paidRi
       const element = markers.current.get(bus.id)?.marker.getElement();
       if (element) {
         element.dataset.stale = bus.stale ? 'true' : 'false';
+        element.dataset.ownFleet = String(Boolean(bus.ownFleet));
         element.dataset.idle = bus.onShift ? 'false' : 'true';
         element.dataset.on = selected === bus.id ? 'true' : 'false';
         element.dataset.aboard = String(bus.id === aboard);
         element.dataset.dim = selected && selected !== bus.id && bus.id !== aboard ? 'true' : 'false';
         element.setAttribute('aria-label', bus.id === aboard ? `You're on Bus ${bus.fleet}` : `Bus ${bus.fleet}`);
-        element.style.zIndex = bus.id === aboard ? '5' : selected === bus.id ? '3' : '1';
+        element.style.zIndex = bus.id === aboard ? '5' : selected === bus.id ? '4' : bus.ownFleet ? '3' : '1';
       }
     }
     for (const [id, item] of markers.current) {
@@ -621,7 +622,8 @@ export function LiveMap({ mode, paidRide }: { mode: 'rider' | 'operator'; paidRi
       if (selected) setSelected(null);
       return;
     }
-    const preferred = data.buses.find((item) => item.fleet === '12')
+    const preferred = data.buses.find((item) => item.ownFleet && item.onShift && !item.stale)
+      ?? data.buses.find((item) => item.ownFleet && item.recordedAt)
       ?? data.buses.find((item) => item.onShift && !item.stale)
       ?? data.buses[0];
     if (preferred) setSelected(preferred.id);
@@ -811,14 +813,14 @@ export function LiveMap({ mode, paidRide }: { mode: 'rider' | 'operator'; paidRi
       {mode === 'operator' ? (
         <aside className="relative z-10 bg-[#F4F6FB] p-3 md:absolute md:inset-y-3 md:right-3 md:w-[340px] md:overflow-y-auto md:rounded-[24px] md:bg-white md:p-4 md:shadow-[0_16px_40px_rgba(11,27,59,0.12)]">
           <h2 className="text-[18px] font-extrabold">Nearby buses</h2>
-          <p className="text-[12px] text-[#5C6578]">Sorted by last update</p>
+          <p className="text-[12px] text-[#5C6578]">Your fleet is marked with an amber outline.</p>
           <ul className="mt-3 space-y-2">
-            {[...visible].sort((a, b) => (b.recordedAt ?? 0) - (a.recordedAt ?? 0)).map((item) => (
+            {[...visible].sort((a, b) => Number(Boolean(b.ownFleet)) - Number(Boolean(a.ownFleet)) || (b.recordedAt ?? 0) - (a.recordedAt ?? 0)).map((item) => (
               <li key={item.id}>
                 <button type="button" className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left ${selected === item.id ? 'bg-[#E7EEFF]' : 'bg-white md:bg-[#F4F6FB]'}`} onClick={() => setSelected(item.id)}>
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#1F5BFF] text-[12px] font-extrabold text-white">{item.fleet}</span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[15px] font-extrabold">Bus {item.fleet}</span>
+                    <span className="block text-[15px] font-extrabold">Bus {item.fleet}{item.ownFleet ? ' · Your fleet' : ''}</span>
                     <span className={`text-[12px] font-bold ${item.stale ? 'text-[#C47B12]' : item.onShift ? 'text-[#0E7A45]' : 'text-[#5C6578]'}`}>{item.conductor ? `${item.conductor} · ` : ''}{item.stale ? 'Stale' : item.onShift ? 'On shift' : 'Idle'}</span>
                     <span className="mt-0.5 block truncate text-[12px] font-semibold text-[#3E4A63]">{placeFor(item)}</span>
                   </span>

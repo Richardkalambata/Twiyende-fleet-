@@ -768,3 +768,5 @@ html[data-motion='rich'] .land-in { animation-name: land-depth; }
 .twende-raster-marker:has(.you-pin) { pointer-events: none; }
 .twende-raster-marker .bus-pin { pointer-events: auto; }
 .leaflet-container { z-index: 0; }
+
+.bus-pin[data-own-fleet='true'] .bus-face { outline: 3px solid #d78300; outline-offset: 1px; }
