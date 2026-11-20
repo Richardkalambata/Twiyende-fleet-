@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { payAction } from '@/lib/actions';
 import { formatBalance, parseFare } from '@/lib/money';
@@ -18,9 +18,6 @@ export function PayForm({ buses, balanceNgwee, onClose, initialFleet = '' }: { b
   const match = useMemo(() => active.find((bus) => bus.fleetNumber === fleet.trim().replace(/^bus\s*/i, '')), [active, fleet]);
   const amount = parseFare(fare) ?? 0;
   const chips = useMemo(() => (match?.fareNgwee && match.fareNgwee.length > 0 ? match.fareNgwee : [match?.defaultFareNgwee ?? 500, 1000, 1500, 2000].filter((value, index, all) => all.indexOf(value) === index)).map((value) => String(value / 100)), [match]);
-  useEffect(() => {
-    if (chips[0] && !chips.includes(fare)) setFare(chips[0]);
-  }, [chips, fare]);
   const short = Math.max(0, amount - balanceNgwee);
 
   async function submit() {
@@ -48,13 +45,15 @@ export function PayForm({ buses, balanceNgwee, onClose, initialFleet = '' }: { b
       {match ? (
         <div className="mt-4 flex items-center gap-3 rounded-2xl bg-white px-3 py-3">
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#EEF2FF] text-[#1F5BFF]"><Bus className="h-5 w-5" /></span>
-          <span><span className="block font-bold">Bus {match.fleetNumber}</span><span className="text-[13px] text-[#5C6578]">{match.route}</span></span>
+          <span><span className="block font-bold">Bus {match.fleetNumber}</span><span className="text-[13px] text-[#5C6578]">{match.route || 'Route not set'}</span></span>
         </div>
       ) : null}
-      <p className="mt-6 text-[13px] font-semibold">Select fare</p>
-      <div className="mt-2 flex gap-2">
+      <label className="mt-6 block text-[13px] font-semibold">Fare amount (K)
+        <input value={fare} onChange={(event) => setFare(event.target.value)} inputMode="decimal" aria-label="Custom fare" className="mt-2 w-full rounded-xl border border-[#D5DCE8] bg-white px-3 py-2 text-xl font-bold" />
+      </label>
+      <div className="mt-2 flex flex-wrap gap-2">
         {chips.map((value) => (
-          <button key={value} type="button" data-on={fare === value} onClick={() => setFare(value)} className={`chip press h-11 flex-1 rounded-xl text-[15px] font-bold ${fare === value ? 'bg-[#1F5BFF] text-white' : 'border border-[#E4E8F0] bg-white text-[#0B1B3B]'}`}>K{value}</button>
+          <button key={value} type="button" data-on={fare === value} onClick={() => setFare(value)} className={`chip press h-11 min-w-16 flex-1 rounded-xl text-[15px] font-bold ${fare === value ? 'bg-[#1F5BFF] text-white' : 'border border-[#E4E8F0] bg-white text-[#0B1B3B]'}`}>K{value}</button>
         ))}
       </div>
       <div className="mt-6 space-y-2 text-[14px]">

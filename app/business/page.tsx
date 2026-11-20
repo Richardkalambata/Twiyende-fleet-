@@ -29,7 +29,7 @@ export default function BusinessHome() {
       <section data-hero className="relative h-[100svh] min-h-[640px] overflow-hidden text-white md:h-[88vh]">
         <div className="parallax-photo absolute inset-[-4%]">
           <Image
-            src="/brand/campaign-business.jpg"
+            src="/images/brand/campaign-business.jpg"
             alt="A fleet owner with a tablet in front of a row of minibuses"
             fill
             priority
@@ -71,7 +71,7 @@ export default function BusinessHome() {
         </div>
         <Reveal delay={80}>
           <PhotoMock
-            src="/brand/device-desk.jpg"
+            src="/images/brand/device-desk.jpg"
             blur={blur['device-desk']}
             alt="A laptop showing the Kalambata Transport desk beside a phone with a verified K5 fare"
             width={3200}
@@ -86,7 +86,7 @@ export default function BusinessHome() {
       <section className="mx-auto grid max-w-[1200px] gap-4 px-5 pb-20 md:grid-cols-2 md:px-8 md:pb-32">
         <Reveal>
           <Link href="/business/login" className="flex h-full gap-5 rounded-[24px] bg-white p-6 shadow-[0_16px_40px_rgba(11,27,59,0.06)] md:p-8">
-            <Image src="/brand/campaign-business.jpg" alt="" width={224} height={224} quality={90} sizes="112px" className="h-28 w-28 shrink-0 rounded-2xl object-cover object-[70%_center]" />
+            <Image src="/images/brand/campaign-business.jpg" alt="" width={224} height={224} quality={90} sizes="112px" className="h-28 w-28 shrink-0 rounded-2xl object-cover object-[70%_center]" />
             <span>
               <span className="text-[13px] font-bold uppercase tracking-[0.08em] text-[#1F5BFF]">Operators</span>
               <span className="mt-2 block text-[28px] font-extrabold tracking-[-0.03em]">I&apos;m an operator</span>
@@ -96,7 +96,7 @@ export default function BusinessHome() {
         </Reveal>
         <Reveal delay={80}>
           <Link href="/business/conductor/login" className="flex h-full gap-5 rounded-[24px] bg-[#0B1B3B] p-6 text-white md:p-8">
-            <Image src="/brand/moment-verify.jpg" alt="" width={224} height={224} quality={90} sizes="112px" className="h-28 w-28 shrink-0 rounded-2xl object-cover" />
+            <Image src="/images/brand/moment-verify.jpg" alt="" width={224} height={224} quality={90} sizes="112px" className="h-28 w-28 shrink-0 rounded-2xl object-cover" />
             <span>
               <span className="text-[13px] font-bold uppercase tracking-[0.14em] text-[#8FB0FF]">Sign in</span>
               <span className="mt-2 block text-[28px] font-extrabold tracking-[-0.03em]">I&apos;m a conductor</span>
@@ -137,7 +137,7 @@ export default function BusinessHome() {
       <section className="bg-white">
         <div className="mx-auto grid max-w-[1200px] items-center gap-8 px-5 py-20 md:grid-cols-12 md:px-8 md:py-32">
           <Reveal className="md:col-span-6">
-            <Still src="/brand/moment-verify.jpg" blur={blur['moment-verify']} alt="A passenger showing his phone to a smiling conductor" />
+            <Still src="/images/brand/moment-verify.jpg" blur={blur['moment-verify']} alt="A passenger showing his phone to a smiling conductor" />
           </Reveal>
           <Reveal delay={80} className="md:col-span-6">
             <p className="text-[13px] font-bold uppercase tracking-[0.14em] text-[#1F5BFF]">Conductors</p>
@@ -154,7 +154,7 @@ export default function BusinessHome() {
       </section>
 
       <section className="relative overflow-hidden text-white">
-        <Image src="/brand/campaign-business.jpg" alt="" fill quality={90} className="object-cover object-[72%_center]" sizes="100vw" />
+        <Image src="/images/brand/campaign-business.jpg" alt="" fill quality={90} className="object-cover object-[72%_center]" sizes="100vw" />
         <div className="absolute inset-0 bg-[#071230]/78" />
         <div className="relative mx-auto flex max-w-[1200px] flex-col items-start gap-6 px-5 py-20 md:px-8 md:py-32">
           <h2 className="max-w-xl text-[32px] md:text-[52px]">Open the desk for your company.</h2>

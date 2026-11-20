@@ -16,9 +16,6 @@ export function LoginForm({ accounts, error, gate = 'passenger' }: { accounts: D
   const message = state?.message ?? error;
   useEffect(() => { if (message) toast(message); }, [message]);
 
-  function push(digit: string) {
-    setPin((current) => (current + digit).slice(0, 4));
-  }
 
   const title = resolved === 'operator' ? 'Operator sign in' : resolved === 'conductor' ? 'Conductor sign in' : 'Welcome back.';
   const subtitle = resolved === 'operator'
@@ -37,28 +34,19 @@ export function LoginForm({ accounts, error, gate = 'passenger' }: { accounts: D
           Phone number
           <input name="phone" value={phone} onChange={(event) => setPhone(event.target.value)} inputMode="tel" className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[18px] font-semibold text-[#0B1B3B] outline-none placeholder:text-[#5C6578] focus:border-[#1F5BFF]" />
         </label>
-        <p className="mt-5 text-[13px] font-medium text-[#5C6578]">PIN</p>
-        <input type="hidden" name="pin" value={pin} />
+        <label className="mt-5 block text-[13px] font-medium text-[#5C6578]">
+          4-digit PIN
+          <input name="pin" type="password" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" autoComplete="current-password" maxLength={4} pattern="[0-9]{4}" required className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[20px] font-semibold tracking-[0.4em] text-[#0B1B3B] outline-none focus:border-[#1F5BFF]" />
+        </label>
         <input type="hidden" name="gate" value={resolved} />
-        <div className="mt-2 grid grid-cols-4 gap-2">
-          {Array.from({ length: 4 }, (_, index) => (
-            <span key={index} className="grid h-12 place-items-center rounded-xl bg-white text-2xl font-bold text-[#0B1B3B] shadow-sm">{pin[index] ? '•' : ''}</span>
-          ))}
-        </div>
         {message ? <p className="mt-3 text-sm text-[#E5484D]" role="alert">{message}</p> : null}
-        <button className="mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-[#1F5BFF] text-[15px] font-bold text-white disabled:opacity-50" disabled={pending || pin.length < 4}>
+        <button className="mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-[#1F5BFF] text-[15px] font-bold text-white disabled:opacity-50" disabled={pending || pin.length !== 4}>
           {pending ? 'Signing in…' : 'Log in'}
         </button>
       </form>
-      <div className="mt-3 grid grid-cols-3 gap-2">
-        {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
-          <button key={digit} type="button" className="h-11 rounded-xl bg-white text-lg font-bold text-[#0B1B3B]" onClick={() => push(digit)}>{digit}</button>
-        ))}
-        <span />
-        <button type="button" className="h-11 rounded-xl bg-white text-lg font-bold text-[#0B1B3B]" onClick={() => push('0')}>0</button>
-        <button type="button" className="h-11 rounded-xl bg-white text-sm font-semibold text-[#0B1B3B]" onClick={() => setPin((value) => value.slice(0, -1))}>Delete</button>
-      </div>
       <div className="mt-4 space-y-2 text-center text-[13px] font-semibold">
+        {resolved === 'passenger' ? <Link href="/business/login" className="block text-[#1F5BFF]">Operator sign in</Link> : null}
+        {resolved === 'passenger' ? <Link href="/business/conductor/login" className="block text-[#5C6578]">Conductor sign in</Link> : null}
         {resolved === 'operator' ? (
           <>
             <Link href="/business/signup" className="block text-[#1F5BFF]">Create a company</Link>

@@ -4,10 +4,11 @@ import { useEffect, useRef, useState } from 'react';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { LiveBus } from '@/lib/tracking';
 import { LUSAKA_STREETS, describePlace } from '@/lib/lusaka-places';
-import { routeGeometry, type GeoPoint } from '@/lib/lusaka-routes';
+import { demoRoutePath, routeGeometry, type GeoPoint } from '@/lib/lusaka-routes';
 import { DEMO_RIDER, LUSAKA_BOUNDS, OPEN_FRAME_M, accuracyRing, alongError, approachFromDistances, demoSpeed, formatDistance, formatUpdated, glideDistance, glideSpeed, haversineMetres, lerpAngle, pointAtDistance, projectOnto, reachMinutes, riderCounts, routeLength, showsAccuracyHalo, snapToRoad, trailSamples, trimTrail, type Approach } from '@/lib/tracking-math';
 import { createBusPin } from './bus-pin';
 import { MAP_STYLE, tuneMapStyle } from './map-style';
+import { vectorTrackingMap, type MapMarker, type RasterTrackingMap, type TrackingMap } from './map-renderer';
 
 type Stop = { id: string; name: string; lat: number; lng: number; seq: number };
 type Payload = { buses: LiveBus[]; stops: { route: string; stops: Stop[] }[]; landmarks?: Stop[]; demo?: boolean; now: number };
@@ -25,11 +26,12 @@ type Glide = {
   heading: number;
   route: GeoPoint[];
   length: number;
+  syncedAt: number;
   trail: { at: number; lng: number; lat: number }[];
 };
 
 type Pin = {
-  marker: import('maplibre-gl').Marker;
+  marker: MapMarker;
   arrow: HTMLElement;
   glide: Glide | null;
   accuracy: number | null;
@@ -65,15 +67,16 @@ function usualRoute(route: string | null) {
 
 export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
   const holder = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<import('maplibre-gl').Map | null>(null);
+  const mapRef = useRef<TrackingMap | RasterTrackingMap | null>(null);
   const markers = useRef(new Map<string, Pin>());
-  const youMarker = useRef<import('maplibre-gl').Marker | null>(null);
+  const youMarker = useRef<MapMarker | null>(null);
   const youRef = useRef<YouFix | null>(null);
   const distanceHistory = useRef(new Map<string, DistanceSample[]>());
   const fittedKey = useRef<string | null>(null);
   const followRef = useRef(false);
   const selectedRef = useRef<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [mapError, setMapError] = useState(false);
   const [data, setData] = useState<Payload>({ buses: [], stops: [], landmarks: [], now: Date.now() });
   const [route, setRoute] = useState('all');
   const [selected, setSelected] = useState<string | null>(null);
@@ -84,15 +87,33 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
   const [locationState, setLocationState] = useState<'pending' | 'granted' | 'denied'>('pending');
   const [historyTick, setHistoryTick] = useState(0);
   const [showRoute, setShowRoute] = useState(false);
+  const [aboard, setAboard] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (mode === 'rider') setAboard(sessionStorage.getItem('twende-aboard'));
+  }, [mode]);
+
+  function confirmAboard(busId: string | null) {
+    setAboard(busId);
+    if (busId) {
+      sessionStorage.setItem('twende-aboard', busId);
+      setFollow(true);
+    } else {
+      sessionStorage.removeItem('twende-aboard');
+      setFollow(false);
+    }
+  }
   const movingBuses = data.buses.filter((item) => item.recordedAt);
   const nearestBus = movingBuses.reduce<LiveBus | null>((best, bus) => {
     if (!best) return bus;
     const origin = you ?? DEMO_RIDER;
     return haversineMetres(origin, bus) < haversineMetres(origin, best) ? bus : best;
   }, null);
-  const viewer: YouFix | null = data.demo
-    ? DEMO_VIEW
-    : (you && nearestBus && riderCounts(you, nearestBus) ? you : null);
+  const viewer: YouFix | null = aboard
+    ? null
+    : you && riderCounts(you, nearestBus ?? DEMO_RIDER)
+      ? you
+      : data.demo ? DEMO_VIEW : null;
   followRef.current = follow;
   selectedRef.current = selected;
   youRef.current = viewer;
@@ -127,10 +148,14 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
     let timer = 0;
     const load = async () => {
       if (document.hidden) return;
-      const response = await fetch('/api/buses/live');
-      if (!response.ok || dead) return;
-      const body = await response.json() as Payload;
-      setData(body);
+      try {
+        const response = await fetch('/api/buses/live');
+        if (!response.ok || dead) return;
+        const body = await response.json() as Payload;
+        if (!dead) setData((previous) => body.now >= previous.now ? body : previous);
+      } catch {
+        // Keep the last received fixes when a request drops. The next poll retries.
+      }
     };
     const loop = () => {
       void load();
@@ -149,22 +174,52 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
   useEffect(() => {
     const node = holder.current;
     if (!node) return;
-    let map: import('maplibre-gl').Map | null = null;
+    let vector: import('maplibre-gl').Map | null = null;
+    let graphicsTimeout = 0;
     let dead = false;
+    let fallingBack = false;
+    const fallback = async () => {
+      if (dead || fallingBack) return;
+      fallingBack = true;
+      window.clearTimeout(graphicsTimeout);
+      vector?.remove();
+      vector = null;
+      mapRef.current = null;
+      try {
+        const { rasterTrackingMap } = await import('./raster-map');
+        if (dead) return;
+        mapRef.current = rasterTrackingMap(node, mode === 'rider', () => setFollow(false));
+        setMapReady(true);
+      } catch {
+        if (!dead) setMapError(true);
+      }
+    };
     void import('maplibre-gl').then((maplibre) => {
-      if (dead || !holder.current) return;
-      map = new maplibre.Map({
-        container: holder.current,
-        style: MAP_STYLE,
-        center: [28.29, -15.414],
-        zoom: 15.5,
-        maxBounds: mode === 'rider' ? [[LUSAKA_BOUNDS.west, LUSAKA_BOUNDS.south], [LUSAKA_BOUNDS.east, LUSAKA_BOUNDS.north]] : undefined,
-        attributionControl: { compact: true },
-      });
+      if (dead) return;
+      let map: import('maplibre-gl').Map;
+      try {
+        map = new maplibre.Map({
+          container: node,
+          style: MAP_STYLE,
+          center: [28.29, -15.414],
+          zoom: 15.5,
+          maxBounds: mode === 'rider' ? [[LUSAKA_BOUNDS.west, LUSAKA_BOUNDS.south], [LUSAKA_BOUNDS.east, LUSAKA_BOUNDS.north]] : undefined,
+          attributionControl: { compact: true, customAttribution: 'Road geometry: <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a> via OSRM' },
+        });
+        vector = map;
+      } catch {
+        // A failed constructor can leave its canvas attached to the container.
+        node.replaceChildren();
+        node.classList.remove('maplibregl-map');
+        void fallback();
+        return;
+      }
+      graphicsTimeout = window.setTimeout(() => void fallback(), 8_000);
       if (mode !== 'rider') map.addControl(new maplibre.NavigationControl({ showCompass: false }), 'bottom-left');
-      mapRef.current = map;
       map.on('load', () => {
-        if (dead || !map) return;
+        if (dead || fallingBack) return;
+        window.clearTimeout(graphicsTimeout);
+        mapRef.current = vectorTrackingMap(map, maplibre.Marker);
         tuneMapStyle(map);
         const arrow = arrowImage();
         if (arrow && !map.hasImage('ahead-arrow')) map.addImage('ahead-arrow', arrow, { pixelRatio: 1 });
@@ -241,12 +296,14 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
         map.on('dragstart', () => setFollow(false));
         setMapReady(true);
       });
-    });
+    }).catch(() => void fallback());
     const bag = markers.current;
     return () => {
       dead = true;
       setMapReady(false);
-      map?.remove();
+      window.clearTimeout(graphicsTimeout);
+      if (mapRef.current) mapRef.current.camera.remove();
+      else vector?.remove();
       mapRef.current = null;
       youMarker.current = null;
       bag.clear();
@@ -257,18 +314,10 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
     if (!mapReady || mode !== 'rider' || !viewer) return;
     const map = mapRef.current;
     if (!map || youMarker.current) return;
-    let dead = false;
-    void import('maplibre-gl').then((maplibre) => {
-      if (dead || !mapRef.current || !youRef.current || youMarker.current) return;
-      const el = document.createElement('div');
-      el.className = 'you-pin';
-      el.innerHTML = `<span class="you-dot"></span><span class="you-label">${youRef.current.demo ? 'You (demo)' : 'You'}</span>`;
-      el.setAttribute('aria-label', youRef.current.demo ? 'You (demo)' : 'You');
-      youMarker.current = new maplibre.Marker({ element: el, anchor: 'center' })
-        .setLngLat([youRef.current.lng, youRef.current.lat])
-        .addTo(mapRef.current);
-    });
-    return () => { dead = true; };
+    const el = document.createElement('div');
+    el.className = 'you-pin';
+    el.innerHTML = '<span class="you-dot"></span><span class="you-label"></span>';
+    youMarker.current = map.marker(el, 'center', [viewer.lng, viewer.lat]);
   }, [mapReady, mode, viewer]);
 
   useEffect(() => {
@@ -307,17 +356,26 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
   useEffect(() => {
     if (!mapReady) return;
     let frame = 0;
+    let lastLayerUpdate = 0;
     const paint = (now: number) => {
-      const map = mapRef.current;
+      const renderer = mapRef.current;
+      const map = renderer?.camera;
       const features: { type: 'Feature'; properties: Record<string, never>; geometry: { type: 'Polygon'; coordinates: [number, number][][] } }[] = [];
       let followAt: [number, number] | null = null;
       let selectedAt: [number, number] | null = null;
       markers.current.forEach((item, id) => {
         const glide = item.glide;
-        if (!glide || glide.route.length < 2) return;
+        if (!glide || glide.route.length < 2) {
+          const position = item.marker.getLngLat();
+          if (id === selectedRef.current) {
+            selectedAt = [position.lng, position.lat];
+            if (followRef.current) followAt = selectedAt;
+          }
+          return;
+        }
         const dt = Math.min(0.1, Math.max(0, (now - glide.at) / 1000));
         glide.at = now;
-        glide.along = glideDistance(glide.along, glide.speed, dt);
+        if (now - glide.syncedAt < 4_000) glide.along = glideDistance(glide.along, glide.speed, dt);
         const spot = pointAtDistance(glide.route, glide.along);
         const ease = 1 - Math.exp(-dt / 0.18);
         glide.heading = lerpAngle(glide.heading, spot.heading, ease);
@@ -343,46 +401,50 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
         if (id === selectedRef.current) selectedAt = [lng, lat];
         if (followRef.current && id === selectedRef.current) followAt = [lng, lat];
       });
-      const trails = map?.getSource('bus-trails') as import('maplibre-gl').GeoJSONSource | undefined;
-      trails?.setData({
-        type: 'FeatureCollection',
-        features: mode === 'rider' ? [...markers.current.values()].flatMap((item) => {
-          const points = trimTrail(item.glide?.trail ?? [], TRAIL_M);
-          if (points.length < 2) return [];
-          return [{
-            type: 'Feature' as const,
-            properties: {},
-            geometry: { type: 'LineString' as const, coordinates: points.map((point) => [point.lng, point.lat] as [number, number]) },
-          }];
-        }) : [],
-      });
-      const aheadSource = map?.getSource('ahead-line') as import('maplibre-gl').GeoJSONSource | undefined;
-      const aheadTip = map?.getSource('ahead-tip') as import('maplibre-gl').GeoJSONSource | undefined;
-      aheadSource?.setData(EMPTY_LINE);
-      aheadTip?.setData({ type: 'FeatureCollection', features: [] });
-      const halo = map?.getSource('accuracy-halo') as import('maplibre-gl').GeoJSONSource | undefined;
-      halo?.setData({ type: 'FeatureCollection', features });
-      const rider = youRef.current;
-      const youHalo = map?.getSource('you-halo') as import('maplibre-gl').GeoJSONSource | undefined;
-      const youLine = map?.getSource('you-line') as import('maplibre-gl').GeoJSONSource | undefined;
-      if (mode === 'rider' && rider) {
-        const radius = Math.max(rider.accuracy || 0, 25);
-        youHalo?.setData({
+      const updateLayers = now - lastLayerUpdate >= 100;
+      if (updateLayers) lastLayerUpdate = now;
+      if (updateLayers) {
+        const trails = renderer?.source('bus-trails');
+        trails?.setData({
           type: 'FeatureCollection',
-          features: [{
+          features: mode === 'rider' ? [...markers.current.values()].flatMap((item) => {
+            const points = trimTrail(item.glide?.trail ?? [], TRAIL_M);
+            if (points.length < 2) return [];
+            return [{
+              type: 'Feature' as const,
+              properties: {},
+              geometry: { type: 'LineString' as const, coordinates: points.map((point) => [point.lng, point.lat] as [number, number]) },
+            }];
+          }) : [],
+        });
+        const aheadSource = renderer?.source('ahead-line');
+        const aheadTip = renderer?.source('ahead-tip');
+        aheadSource?.setData(EMPTY_LINE);
+        aheadTip?.setData({ type: 'FeatureCollection', features: [] });
+        const halo = renderer?.source('accuracy-halo');
+        halo?.setData({ type: 'FeatureCollection', features });
+        const rider = youRef.current;
+        const youHalo = renderer?.source('you-halo');
+        const youLine = renderer?.source('you-line');
+        if (mode === 'rider' && rider) {
+          const radius = Math.max(rider.accuracy || 0, 25);
+          youHalo?.setData({
+            type: 'FeatureCollection',
+            features: [{
+              type: 'Feature',
+              properties: {},
+              geometry: { type: 'Polygon', coordinates: [accuracyRing(rider, radius)] },
+            }],
+          });
+          youLine?.setData(selectedAt ? {
             type: 'Feature',
             properties: {},
-            geometry: { type: 'Polygon', coordinates: [accuracyRing(rider, radius)] },
-          }],
-        });
-        youLine?.setData(selectedAt ? {
-          type: 'Feature',
-          properties: {},
-          geometry: { type: 'LineString', coordinates: [[rider.lng, rider.lat], selectedAt] },
-        } : EMPTY_LINE);
-      } else {
-        youHalo?.setData({ type: 'FeatureCollection', features: [] });
-        youLine?.setData(EMPTY_LINE);
+            geometry: { type: 'LineString', coordinates: [[rider.lng, rider.lat], selectedAt] },
+          } : EMPTY_LINE);
+        } else {
+          youHalo?.setData({ type: 'FeatureCollection', features: [] });
+          youLine?.setData(EMPTY_LINE);
+        }
       }
       if (followAt && map) {
         map.jumpTo({
@@ -399,84 +461,95 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
   }, [mapReady, mode]);
 
   useEffect(() => {
-    if (follow && mapRef.current && mapRef.current.getZoom() < 14) {
-      mapRef.current.easeTo({ zoom: 14, duration: 450 });
+    if (follow && mapRef.current && mapRef.current.camera.getZoom() < 14) {
+      mapRef.current.camera.easeTo({ zoom: 14, duration: 450 });
     }
   }, [follow]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
-    let cancelled = false;
-    void import('maplibre-gl').then((maplibre) => {
-      if (cancelled || !mapRef.current) return;
-      const shown = data.buses.filter((bus) => (route === 'all' || bus.route === route) && (!search.trim() || `bus ${bus.fleet} ${bus.route}`.toLowerCase().includes(search.trim().toLowerCase())));
-      const seen = new Set<string>();
-      for (const bus of shown) {
-        seen.add(bus.id);
-        const geometry = routeGeometry(bus.route)?.points ?? [];
-        const display = snapToRoad(bus, geometry, bus.accuracy);
-        const next: [number, number] = [display.lng, display.lat];
-        const heading = bus.heading ?? display.heading;
-        const current = markers.current.get(bus.id);
-        const length = routeLength(geometry);
-        const syncGlide = (pin: Pin) => {
-          if (geometry.length < 2 || length <= 0) {
-            pin.glide = null;
-            pin.marker.setLngLat(next);
-            return;
-          }
-          const serverAlong = projectOnto(geometry, display).along;
-          const base = demoSpeed(length);
-          if (!pin.glide) {
-            const trail = mode === 'rider' ? trailSamples(geometry, serverAlong, Math.min(base * 45, TRAIL_M), performance.now(), TRAIL_MS) : [];
-            pin.glide = { along: serverAlong, at: performance.now(), speed: base, heading, route: geometry, length, trail };
-            pin.marker.setLngLat(next);
-            return;
-          }
-          pin.glide.route = geometry;
-          pin.glide.length = length;
-          pin.glide.speed = glideSpeed(base, alongError(pin.glide.along, serverAlong, length));
-        };
-        if (!current) {
-          const { element: el, arrow } = createBusPin(bus.fleet);
-          el.addEventListener('click', () => setSelected(bus.id));
-          const marker = new maplibre.Marker({ element: el, anchor: 'bottom' }).setLngLat(next).addTo(map);
-          const pin: Pin = { marker, arrow, glide: null, accuracy: bus.accuracy };
-          syncGlide(pin);
-          markers.current.set(bus.id, pin);
-        } else {
-          current.accuracy = bus.accuracy;
-          syncGlide(current);
+    const query = search.trim().toLowerCase();
+    const shown = data.buses.filter((bus) => bus.recordedAt && (
+      bus.id === aboard || ((route === 'all' || bus.route === route) && `bus ${bus.fleet} ${bus.route}`.toLowerCase().includes(query))
+    ));
+    const seen = new Set<string>();
+    for (const bus of shown) {
+      seen.add(bus.id);
+      const geometry = routeGeometry(bus.route)?.points ?? [];
+      const snapped = snapToRoad(bus, geometry, bus.accuracy);
+      const display = bus.simulated ? bus : snapped;
+      const next: [number, number] = [display.lng, display.lat];
+      const heading = bus.heading ?? snapped.heading;
+      const current = markers.current.get(bus.id);
+      const path = bus.simulated ? demoRoutePath(bus.route) : [];
+      const length = routeLength(path);
+      const syncGlide = (pin: Pin) => {
+        if (length <= 0 || bus.stale) {
+          pin.glide = null;
+          pin.marker.setLngLat(next);
+          pin.arrow.style.transform = `rotate(${heading - map.camera.getBearing()}deg)`;
+          return;
         }
-        const element = markers.current.get(bus.id)?.marker.getElement();
-        if (element) {
-          element.dataset.stale = bus.stale ? 'true' : 'false';
-          element.dataset.idle = bus.onShift ? 'false' : 'true';
-          element.dataset.on = selected === bus.id ? 'true' : 'false';
-          element.dataset.dim = selected && selected !== bus.id ? 'true' : 'false';
-          element.style.zIndex = selected === bus.id ? '3' : '1';
+        // The outbound and inbound tracks overlap. Time/heading disambiguate the two legs.
+        const outbound = projectOnto(geometry, display);
+        const forward = Math.cos((heading - outbound.heading) * Math.PI / 180) >= 0;
+        const serverAlong = forward ? outbound.along : length - outbound.along;
+        const base = demoSpeed(length);
+        const now = performance.now();
+        if (!pin.glide || pin.glide.route !== path) {
+          const trail = mode === 'rider' ? trailSamples(path, serverAlong, Math.min(base * 45, TRAIL_M), now, TRAIL_MS) : [];
+          pin.glide = { along: serverAlong, at: now, syncedAt: now, speed: base, heading, route: path, length, trail };
+          pin.marker.setLngLat(next);
+          return;
         }
+        const error = alongError(pin.glide.along, serverAlong, length);
+        if (Math.abs(error) > 120) {
+          pin.glide.along = serverAlong;
+          pin.glide.trail = [];
+        }
+        pin.glide.syncedAt = now;
+        pin.glide.speed = glideSpeed(base, Math.abs(error) > 120 ? 0 : error);
+      };
+      if (!current) {
+        const { element: el, arrow } = createBusPin(bus.fleet);
+        el.addEventListener('click', () => setSelected(bus.id));
+        const marker = map.marker(el, 'bottom', next);
+        const pin: Pin = { marker, arrow, glide: null, accuracy: bus.accuracy };
+        syncGlide(pin);
+        markers.current.set(bus.id, pin);
+      } else {
+        current.accuracy = bus.accuracy;
+        syncGlide(current);
       }
-      for (const [id, item] of markers.current) {
-        if (!seen.has(id)) {
-          item.marker.remove();
-          markers.current.delete(id);
-        }
+      const element = markers.current.get(bus.id)?.marker.getElement();
+      if (element) {
+        element.dataset.stale = bus.stale ? 'true' : 'false';
+        element.dataset.idle = bus.onShift ? 'false' : 'true';
+        element.dataset.on = selected === bus.id ? 'true' : 'false';
+        element.dataset.aboard = String(bus.id === aboard);
+        element.dataset.dim = selected && selected !== bus.id && bus.id !== aboard ? 'true' : 'false';
+        element.setAttribute('aria-label', bus.id === aboard ? `You're on Bus ${bus.fleet}` : `Bus ${bus.fleet}`);
+        element.style.zIndex = bus.id === aboard ? '5' : selected === bus.id ? '3' : '1';
       }
-    });
-    return () => { cancelled = true; };
-  }, [data.buses, route, search, selected, mode, mapReady]);
+    }
+    for (const [id, item] of markers.current) {
+      if (!seen.has(id)) {
+        item.marker.remove();
+        markers.current.delete(id);
+      }
+    }
+  }, [data.buses, route, search, selected, mode, mapReady, aboard]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
     const chosen = data.buses.find((item) => item.id === selected);
-    const drawRoute = chosen?.route && (mode === 'operator' || showRoute);
+    const drawRoute = chosen?.route && mode === 'operator';
     const line = drawRoute ? (routeGeometry(chosen.route)?.points.map((point) => [point.lng, point.lat] as [number, number]) ?? []) : [];
-    const routeSource = map.getSource('route-line') as import('maplibre-gl').GeoJSONSource | undefined;
+    const routeSource = map.source('route-line');
     routeSource?.setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: line } });
-    const stopSource = map.getSource('stop-dots') as import('maplibre-gl').GeoJSONSource | undefined;
+    const stopSource = map.source('stop-dots');
     if (mode !== 'operator') {
       stopSource?.setData(EMPTY_POINTS);
       return;
@@ -510,6 +583,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
   ];
   const routes = [...new Set(data.buses.flatMap((bus) => (bus.route ? [bus.route] : [])))];
   const bus = data.buses.find((item) => item.id === selected) ?? null;
+  const boardedBus = data.buses.find((item) => item.id === aboard);
   const displayBus = bus ? snapToRoad(bus, routeGeometry(bus.route)?.points ?? [], bus.accuracy) : null;
   const query = search.trim().toLowerCase();
   const visible = data.buses.filter((item) => {
@@ -600,13 +674,13 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
       if (picked.length >= 1 && haversineMetres(origin, item) > OPEN_FRAME_M) break;
       picked.push(item);
     }
-    const key = selected ? `${selected}${showRoute ? '-route' : ''}` : (youNear ? 'open-you' : 'open-buses');
+    const key = selected ? selected : (youNear ? 'open-you' : 'open-buses');
     if (fittedKey.current === key) return;
     if (selected && !displayBus) return;
     fittedKey.current = key;
     const spots = picked.map((item) => snapToRoad(item, routeGeometry(item.route)?.points ?? [], item.accuracy));
     void import('maplibre-gl').then((maplibre) => {
-      const map = mapRef.current;
+      const map = mapRef.current?.camera;
       if (!map || fittedKey.current !== key || map.getContainer().clientHeight < 200) return;
       const besideBus = viewer && displayBus && haversineMetres(viewer, displayBus) <= OPEN_FRAME_M ? viewer : null;
       const seed = (selected ? (besideBus ?? displayBus) : (youNear ?? spots[0])) ?? spots[0];
@@ -630,9 +704,6 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
           bounds = boundsFor(shown);
         }
       }
-      if (selected && showRoute && bus?.route) {
-        for (const point of routeGeometry(bus.route)?.points ?? []) bounds.extend([point.lng, point.lat]);
-      }
       map.fitBounds(bounds, {
         padding,
         maxZoom: 16,
@@ -652,6 +723,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
   return (
     <div className="relative h-full">
       <div ref={holder} className={mode === 'rider' ? 'h-[calc(100dvh-88px)] w-full' : 'h-[62vh] w-full md:h-dvh'} />
+      {mapError ? <p role="alert" className="absolute inset-x-4 top-20 z-10 rounded-xl bg-white p-4 text-sm font-semibold">The street map could not load. Reload to try again.</p> : null}
       {mode === 'rider' ? (
         <div className="absolute left-4 right-4 top-4 z-10 flex items-center gap-2">
           <label className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-full bg-white px-4 shadow-[0_8px_24px_rgba(11,27,59,0.08)]">
@@ -659,6 +731,15 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8A93A6" strokeWidth="2.4" aria-hidden><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Find a bus" className="h-11 min-w-0 flex-1 bg-transparent text-[15px] font-semibold text-[#0B1B3B] outline-none placeholder:text-[#8A93A6]" />
           </label>
+          {query ? (
+            <div className="absolute inset-x-0 top-[calc(100%+4px)] z-20 max-h-48 overflow-auto rounded-2xl bg-white p-1 shadow-lg">
+              {visible.some((item) => item.recordedAt) ? visible.filter((item) => item.recordedAt).map((item) => (
+                <button key={item.id} type="button" className="block w-full truncate rounded-xl px-3 py-2 text-left text-sm font-bold text-[#0B1B3B] hover:bg-[#E7EEFF]" onClick={() => { setSelected(item.id); setSearch(''); }}>
+                  Show Bus {item.fleet} on map
+                </button>
+              )) : <p className="px-3 py-2 text-sm text-[#5C6578]">No buses match your search.</p>}
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="absolute left-3 top-3 z-10 flex gap-3 rounded-2xl bg-white px-3 py-2 text-[12px] font-bold text-[#0B1B3B] shadow-[0_8px_24px_rgba(11,27,59,0.1)]">
@@ -698,6 +779,14 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
           </ul>
         </aside>
       ) : null}
+      {mode === 'rider' && aboard ? (
+        <div className="absolute left-4 right-4 top-[72px] z-10 flex items-center justify-between gap-2 rounded-2xl bg-[#087653] px-4 py-2.5 text-sm font-bold text-white">
+          <button type="button" className="text-white" onClick={() => { if (boardedBus) { setSelected(boardedBus.id); setFollow(true); } }}>
+            {boardedBus ? `You're on Bus ${boardedBus.fleet}` : 'On board · Location unavailable'}
+          </button>
+          <button type="button" className="shrink-0 rounded-lg border border-white/70 px-2 py-1 text-white" onClick={() => confirmAboard(null)}>I got off</button>
+        </div>
+      ) : null}
       {mode === 'rider' && bus ? (
         <div
           data-testid="bus-card"
@@ -711,7 +800,7 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
           <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-[#E4E8F0]" aria-hidden />
           <div className="flex items-center gap-3">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#1F5BFF] text-[18px] font-extrabold text-white">{bus.fleet}</span>
-            <p className="min-w-0 flex-1 truncate text-[17px] font-semibold text-[#3E4A63]">{usualRoute(bus.route) || `Bus ${bus.fleet}`}</p>
+            <p className="min-w-0 flex-1 truncate text-[17px] font-semibold text-[#3E4A63]">Bus {bus.fleet}</p>
             <button type="button" aria-label="Follow bus" aria-pressed={follow} className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${follow ? 'bg-[#1F5BFF] text-white' : 'bg-[#F4F6FB] text-[#0B1B3B]'}`} onClick={() => setFollow((value) => !value)}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></svg>
             </button>
@@ -720,7 +809,11 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
             </button>
           </div>
           <p data-testid="heading-line" className="mt-3 text-[16px] font-extrabold leading-snug tracking-[-0.03em]">
-            {riderGap ? (
+            {aboard === bus.id ? (
+              <span className="text-[#087653]">{bus.stale ? 'On board · Last known position' : 'On board'}</span>
+            ) : aboard ? (
+              'Viewing another bus'
+            ) : riderGap ? (
               <>
                 <span className="text-[#0B1B3B]">{metresAway(riderGap.metres)}</span>
                 {riderGap.approach ? <span className={riderGap.approach === 'towards' ? 'text-[#128A4E]' : 'text-[#5C6578]'}>{` · ${approachPhrase(riderGap.approach)}`}</span> : null}
@@ -731,12 +824,21 @@ export function LiveMap({ mode }: { mode: 'rider' | 'operator' }) {
             ) : data.demo ? 'Finding your location…' : 'Outside the Lusaka service area'}
           </p>
           <p className="mt-1 truncate text-[13px] font-medium text-[#8A93A6]">{streetLine(bus)}</p>
-          {bus.route && routeGeometry(bus.route) ? (
-            <div className="mt-3 flex items-center justify-between">
-              <span className="text-[14px] font-semibold text-[#5C6578]">Show route</span>
-              <button type="button" role="switch" aria-checked={showRoute} aria-label="Show route" data-testid="show-route" className={`relative h-7 w-12 rounded-full transition-colors ${showRoute ? 'bg-[#1F5BFF]' : 'bg-[#E4E8F0]'}`} onClick={() => setShowRoute((value) => !value)}>
-                <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow ${showRoute ? 'left-5' : 'left-0.5'}`} />
+          {!aboard && bus.recordedAt && !bus.stale ? (
+            <button type="button" className="mt-3 w-full rounded-xl bg-[#E7F5EE] px-3 py-2 text-sm font-bold text-[#075A40]" onClick={() => confirmAboard(bus.id)}>
+              I’m on Bus {bus.fleet}
+            </button>
+          ) : null}
+          {mode === 'rider' && bus.route ? (
+            <div className="mt-3 rounded-xl bg-[#F4F6FB] px-3 py-2">
+              <button type="button" aria-expanded={showRoute} aria-label={showRoute ? 'Hide route information' : 'Show route information'} className="text-sm font-semibold text-[#184bde]" onClick={() => setShowRoute((value) => !value)}>
+                {showRoute ? 'Hide route' : 'Show route'}
               </button>
+              {showRoute ? (
+                <p className="mt-2 text-sm font-medium text-[#3E4A63]">{usualRoute(bus.route)}</p>
+              ) : (
+                <p className="mt-2 text-sm text-[#5C6578]">{bus.stale ? 'Live location is reconnecting. The map shows the last position.' : 'Live location updates as this bus moves. Use the distance above to decide when to meet it.'}</p>
+              )}
             </div>
           ) : null}
         </div>

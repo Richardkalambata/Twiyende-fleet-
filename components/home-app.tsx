@@ -2,15 +2,13 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Map, MapPin, Ticket, Wallet } from 'lucide-react';
+import { Map, MapPin, Plus, Ticket } from 'lucide-react';
 import { PayForm } from './pay-form';
 import { Logo, Avatar } from './shell';
 import { EmptyState } from './ui';
 import { CountUp } from '@/components/motion/engine';
 import { formatBalance } from '@/lib/money';
 import type { BusOption, RideCard } from '@/lib/types';
-
-export type UsualRoute = { fleetNumber: string; route: string };
 
 export function HomeApp({
   name,
@@ -19,7 +17,6 @@ export function HomeApp({
   balanceNgwee,
   rides,
   monthCount,
-  usual,
   buses,
   initialFleet = '',
 }: {
@@ -29,7 +26,6 @@ export function HomeApp({
   balanceNgwee: number;
   rides: RideCard[];
   monthCount: number;
-  usual: UsualRoute[];
   buses: BusOption[];
   initialFleet?: string;
 }) {
@@ -77,26 +73,13 @@ export function HomeApp({
           </span>
         </Link>
         <Link href="/topup" className="press col-span-2 flex h-14 items-center gap-3 rounded-[20px] bg-white px-3 text-[#0B1B3B]">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#E7EEFF] text-[#1F5BFF]"><Wallet className="h-5 w-5" /></span>
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#E7EEFF] text-[#1F5BFF]"><Plus className="h-5 w-5" aria-hidden /></span>
           <span>
-            <span className="block text-[15px] font-extrabold">Top up</span>
+            <span className="block text-[15px] font-extrabold">Add funds</span>
             <span className="block text-[12px] font-semibold text-[#3E4A63]">MTN, Airtel, or Zamtel</span>
           </span>
         </Link>
       </div>
-      <section className="mt-4">
-        <h2 className="text-[16px] font-extrabold">Your usual routes</h2>
-        {usual.length === 0 ? <p className="mt-1 text-[13px] text-[#5C6578]">Pay a fare and your routes will show up here.</p> : (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {usual.map((route) => (
-              <button key={route.fleetNumber} type="button" onClick={() => { setPreset(route.fleetNumber); setPaying(true); }} className="press rounded-full border border-[#E4E8F0] bg-white px-3 py-2 text-left text-[#0B1B3B]">
-                <span className="block text-[13px] font-extrabold">Bus {route.fleetNumber}</span>
-                <span className="block max-w-[140px] truncate text-[11px] font-semibold text-[#3E4A63]">{route.route}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </section>
       <section className="mt-4">
         <div className="flex items-center justify-between">
           <h2 className="text-[16px] font-extrabold">Recent rides</h2>

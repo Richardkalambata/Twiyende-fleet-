@@ -5,6 +5,9 @@ import { Bus, Clock, Info, ShieldCheck } from 'lucide-react';
 import { shouldSendFix } from '@/lib/tracking-math';
 import { createBusPin } from './bus-pin';
 import { MAP_STYLE, tuneMapStyle } from './map-style';
+import { vectorTrackingMap, type MapMarker, type TrackingCamera } from './map-renderer';
+import { routeGeometry } from '@/lib/lusaka-routes';
+import { snapToRoad } from '@/lib/tracking-math';
 import { formatHour24 } from '@/lib/time';
 
 type Shift = {
@@ -26,8 +29,8 @@ export function ShiftBar() {
   const watch = useRef<number | null>(null);
   const last = useRef<{ lat: number; lng: number; at: number } | null>(null);
   const mini = useRef<HTMLDivElement>(null);
-  const miniMap = useRef<import('maplibre-gl').Map | null>(null);
-  const miniPin = useRef<import('maplibre-gl').Marker | null>(null);
+  const miniMap = useRef<TrackingCamera | null>(null);
+  const miniPin = useRef<MapMarker | null>(null);
   const pointRef = useRef<{ lat: number; lng: number } | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
@@ -97,24 +100,40 @@ export function ShiftBar() {
     const node = mini.current;
     if (!node || !shift.sharing) return;
     let dead = false;
+    const start = pointRef.current ?? { lat: -15.416, lng: 28.283 };
+    const fallback = async () => {
+      const { rasterTrackingMap } = await import('./raster-map');
+      if (dead) return;
+      node.replaceChildren();
+      node.classList.remove('maplibregl-map');
+      const renderer = rasterTrackingMap(node, false, () => {});
+      attachPreviewMap(renderer);
+    };
+    function attachPreviewMap(renderer: Pick<import('./map-renderer').TrackingMap, 'marker'> & { camera: TrackingCamera }) {
+      const point = pointRef.current ?? start;
+      const { element } = createBusPin(shift.fleet ?? '');
+      element.dataset.on = 'true';
+      const center: [number, number] = [point.lng, point.lat];
+      miniPin.current = renderer.marker(element, 'bottom', center);
+      miniMap.current = renderer.camera;
+      renderer.camera.jumpTo({ center, padding: { left: 0, right: 0, top: 0, bottom: 0 } });
+    }
     void import('maplibre-gl').then(async (maplibre) => {
       await import('maplibre-gl/dist/maplibre-gl.css');
-      if (dead || !mini.current) return;
-      const start = pointRef.current ?? { lat: -15.416, lng: 28.283 };
+      if (dead) return;
       const map = new maplibre.Map({
-        container: mini.current,
+        container: node,
         style: MAP_STYLE,
         center: [start.lng, start.lat],
         zoom: 13,
         interactive: false,
-        attributionControl: false,
+        attributionControl: { compact: true },
       });
       map.on('load', () => tuneMapStyle(map));
-      const { element: el } = createBusPin(shift.fleet ?? '');
-      el.dataset.on = 'true';
-      miniPin.current = new maplibre.Marker({ element: el, anchor: 'center' }).setLngLat([start.lng, start.lat]).addTo(map);
-      miniMap.current = map;
-    });
+      attachPreviewMap(vectorTrackingMap(map, maplibre.Marker));
+    }).catch(() => fallback().catch(() => {
+      if (!dead) setNote('The preview map is unavailable. Location sharing can still continue.');
+    }));
     return () => {
       dead = true;
       miniMap.current?.remove();
@@ -124,18 +143,18 @@ export function ShiftBar() {
   }, [shift.sharing, shift.fleet]);
 
   useEffect(() => {
-    const point = here;
-    if (!point) return;
+    if (!here) return;
+    const point = snapToRoad(here, routeGeometry(shift.route)?.points ?? [], null);
     const place = () => {
       if (!miniMap.current || !miniPin.current) return false;
       miniPin.current.setLngLat([point.lng, point.lat]);
-      miniMap.current.jumpTo({ center: [point.lng, point.lat] });
+      miniMap.current.jumpTo({ center: [point.lng, point.lat], padding: { left: 0, right: 0, top: 0, bottom: 0 } });
       return true;
     };
     if (place()) return;
     const timer = window.setInterval(() => { if (place()) window.clearInterval(timer); }, 200);
     return () => window.clearInterval(timer);
-  }, [here]);
+  }, [here, shift.route]);
 
   async function toggle() {
     setPending(true);

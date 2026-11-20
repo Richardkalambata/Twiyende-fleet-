@@ -290,7 +290,6 @@ input[type='time'] {
 
 @media (prefers-reduced-motion: reduce) {
   .pulse-dot,
-  .bus-pin[data-on='true'],
   .check-pop,
   .rise,
   .code-wait,
@@ -579,88 +578,106 @@ html[data-motion='rich'] .nav-pill {
   transition: transform 0.5s cubic-bezier(0.22, 1.4, 0.36, 1);
 }
 
-.bus-pin {
-  position: relative;
-  width: 42px;
-  height: 48px;
-  border: 0;
-  padding: 0;
-  background: transparent;
-  filter: drop-shadow(0 2px 1px rgba(11, 27, 59, 0.4)) drop-shadow(0 7px 10px rgba(11, 27, 59, 0.42));
-  transform-origin: 50% 100%;
-}
-.bus-pin .bus-mark { display: block; width: 42px; height: 48px; }
-.bus-pin .bus-num {
+/* The marker bottom is the geographic point. Only its inner face scales. */
+.bus-pin.maplibregl-marker,
+.you-pin.maplibregl-marker {
   position: absolute;
-  left: 50%;
-  top: 23px;
-  transform: translateX(-50%);
-  min-width: 18px;
-  padding: 0 5px;
-  border-radius: 6px;
-  background: #1f5bff;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 800;
-  line-height: 17px;
-  letter-spacing: -0.03em;
-  text-align: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
-.bus-pin[data-on='true'] {
-  z-index: 3;
-  transform: scale(1.2);
+.bus-pin { width: 64px; height: 70px; cursor: pointer; }
+.bus-face {
+  position: absolute;
+  left: 5px;
+  bottom: 8px;
+  display: flex;
+  width: 54px;
+  height: 52px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  border: 2px solid #fff;
+  border-radius: 50% 50% 48% 48%;
+  background: #fff;
+  color: #0b1b3b;
+  box-shadow: 0 3px 10px #0b1b3b55;
+  transform-origin: center 56px;
 }
-.bus-pin[data-on='true']::before {
+.bus-face::after {
   content: '';
   position: absolute;
-  inset: -8px -6px 4px;
-  border-radius: 50%;
-  animation: bus-pulse 1.6s ease-out infinite;
-  pointer-events: none;
+  z-index: -1;
+  left: 50%;
+  top: calc(100% - 1px);
+  width: 14px;
+  height: 10px;
+  transform: translateX(-50%);
+  background: #fff;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
 }
+.bus-mark { width: 32px; height: 22px; flex-shrink: 0; }
+.bus-num { min-width: 27px; margin-top: -1px; border-radius: 6px; background: #1f5bff; padding: 2px 5px; color: #fff; font-size: 11px; font-weight: 800; line-height: 1; text-align: center; }
+.bus-pin[data-on='true'] .bus-face { box-shadow: 0 0 0 3px #1f5bff44, 0 4px 12px #0b1b3b66; transform: scale(1.08); }
+.bus-pin[data-aboard='true'] .bus-num { background: #087653; }
 .bus-pin[data-dim='true'] { opacity: 0.4; }
-.you-pin {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: transparent;
-}
-.you-dot {
-  width: 16px;
-  height: 16px;
-  border: 3px solid #fff;
-  border-radius: 999px;
-  background: #1a73e8;
-  box-shadow: 0 0 0 10px rgba(26, 115, 232, 0.28), 0 2px 6px rgba(26, 115, 232, 0.35);
-}
-.you-label {
-  color: #1a73e8;
-  font-size: 13px;
-  font-weight: 800;
-  text-shadow: 0 0 4px #fff, 0 0 4px #fff;
-}
-@keyframes bus-pulse {
-  0% { box-shadow: 0 0 0 5px rgba(31, 91, 255, 0.34); }
-  70% { box-shadow: 0 0 0 14px rgba(31, 91, 255, 0); }
-  100% { box-shadow: 0 0 0 5px rgba(31, 91, 255, 0.34); }
-}
 .bus-pin[data-stale='true'] { opacity: 0.45; }
 .bus-pin[data-idle='true'] { opacity: 0.72; }
-.bus-pin .heading-arrow {
+.bus-pin:focus-visible { outline: 2px solid #184bde; outline-offset: 4px; }
+.heading-arrow {
   position: absolute;
-  right: -4px;
-  bottom: 2px;
   display: grid;
+  place-items: center;
+  right: 1px;
+  bottom: 6px;
   width: 18px;
   height: 18px;
-  place-items: center;
-  border-radius: 999px;
+  border-radius: 50%;
   background: #fff;
-  box-shadow: 0 2px 5px rgba(11, 27, 59, 0.4);
-  transform-origin: center center;
+  color: #184bde;
+  box-shadow: 0 1px 4px #0b1b3b44;
   pointer-events: none;
 }
-.bus-pin .heading-arrow svg { display: block; width: 12px; height: 12px; }
+.heading-arrow svg { width: 13px; height: 13px; }
+.bus-aboard {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  padding: 3px 6px;
+  white-space: nowrap;
+  background: #087653;
+  color: #fff;
+  font-size: 8px;
+  font-weight: 800;
+}
+.bus-pin[data-aboard='true'] .bus-aboard { display: block; }
+.you-pin { width: 16px; height: 16px; z-index: 4; pointer-events: none; }
+.you-dot {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: #1a73e8;
+  box-shadow: 0 1px 5px #0b1b3b66;
+}
+.you-label {
+  position: absolute;
+  left: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  padding: 2px 6px;
+  white-space: nowrap;
+  background: #fff;
+  color: #174ba6;
+  font-size: 11px;
+  font-weight: 800;
+}
 .sheet { background: #fff; }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .sheet { background: rgba(255, 255, 255, 0.9); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
@@ -737,3 +754,17 @@ html[data-motion='rich'] .land-in { animation-name: land-depth; }
   ::view-transition-old(root),
   ::view-transition-new(root) { animation: none; }
 }
+
+/* Leaflet fallback uses the same pin geometry and geographic anchor. */
+.bus-pin.twende-raster-pin,
+.you-pin.twende-raster-pin {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.twende-anchor-bottom { transform: translate(-50%, -100%); }
+.twende-anchor-center { transform: translate(-50%, -50%); }
+.twende-raster-marker:has(.you-pin) { pointer-events: none; }
+.twende-raster-marker .bus-pin { pointer-events: auto; }
+.leaflet-container { z-index: 0; }

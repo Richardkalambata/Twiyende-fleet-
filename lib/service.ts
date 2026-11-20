@@ -402,30 +402,28 @@ export async function payFare(passengerId: string, fleetRaw: string, fareRaw: st
   if (!passenger) return { ok: false as const, message: 'Sign in again.' };
   try {
     return await withTransaction(async () => {
-      let code = '';
-      let rideId = '';
+      const db = await getDb();
       for (let attempt = 0; attempt < 8; attempt += 1) {
-        code = randomCode(4);
-        rideId = nid('ride');
-        try {
-          await (await getDb()).run(`INSERT INTO rides
-              (id, passenger_id, passenger_label, bus_id, conductor_id, amount_ngwee, code, status, created_at, verified_at, route_snapshot, expires_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, NULL, ?, ?)`, rideId, passengerId, passenger.short_name, bus.id, bus.conductor_id, amount, code, Date.now(), bus.route, Date.now() + 3 * 60 * 60 * 1000);
-          break;
-        } catch (error) {
-          if (!isUnique(error) || attempt === 7) throw error;
-        }
+        const code = randomCode(4);
+        const rideId = nid('ride');
+        const inserted = await db.run(`INSERT INTO rides
+            (id, passenger_id, passenger_label, bus_id, conductor_id, amount_ngwee, code, status, created_at, verified_at, route_snapshot, expires_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, NULL, ?, ?)
+            ON CONFLICT (code) DO NOTHING`, rideId, passengerId, passenger.short_name, bus.id, bus.conductor_id, amount, code, Date.now(), bus.route, Date.now() + 3 * 60 * 60 * 1000);
+        if (inserted.changes === 0) continue;
+
+        const balanceNgwee = await writeWallet(passengerId, -amount, 'fare', `Fare for Bus ${bus.fleet_number}`, { rideId });
+        return {
+          ok: true as const,
+          rideId,
+          code,
+          amountNgwee: amount,
+          balanceNgwee,
+          fleetNumber: bus.fleet_number,
+          route: bus.route,
+        };
       }
-      const balanceNgwee = await writeWallet(passengerId, -amount, 'fare', `Fare for Bus ${bus.fleet_number}`, { rideId });
-      return {
-        ok: true as const,
-        rideId,
-        code,
-        amountNgwee: amount,
-        balanceNgwee,
-        fleetNumber: bus.fleet_number,
-        route: bus.route,
-      };
+      throw new UserError('Could not create a fare code. Please try again.');
     });
   } catch (error) {
     return asFail(error);

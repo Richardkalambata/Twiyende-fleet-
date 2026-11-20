@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { getDb, type Db } from './db';
 import { LUSAKA_LANDMARKS } from './lusaka-places';
-import { LUSAKA_ROUTES, routeGeometry } from './lusaka-routes';
+import { demoRoutePath, LUSAKA_ROUTES } from './lusaka-routes';
 import { DAY_MS, lusakaDateKey, startOfLusakaDay } from './time';
 import {
   DEMO_LOOP_MS,
@@ -28,6 +28,7 @@ export type LiveBus = {
   recordedAt: number;
   stale: boolean;
   onShift: boolean;
+  simulated?: boolean;
   conductor?: string | null;
 };
 
@@ -155,17 +156,16 @@ async function advanceSimulator(now = Date.now()) {
   const db = await getDb();
   const buses = await db.all<{ id: string; route: string }>(`SELECT id, route FROM buses ORDER BY fleet_number`);
   for (const [index, bus] of buses.entries()) {
-    const geometry = bus.route ? routeGeometry(bus.route) : undefined;
-    if (!geometry) continue;
+    const path = demoRoutePath(bus.route);
+    if (path.length < 2) continue;
     const latest = await db.get<{ source: string; recorded_at: number; lat: number; lng: number }>(
       `SELECT source, recorded_at, lat, lng FROM bus_latest WHERE bus_id = ?`,
       bus.id,
     );
     if (latest?.source === 'conductor' && now - latest.recorded_at < CONDUCTOR_HOLD_MS) continue;
     // Three minutes around the corridor. Every poll writes a fresh point so open maps never sit on a stale fix.
-    const spot = pointAlong(geometry.points, ((now / DEMO_LOOP_MS) + index * 0.17) % 1);
-    const elapsed = latest ? Math.max(0.2, (now - latest.recorded_at) / 1000) : 1;
-    const speed = latest ? haversineMetres(latest, spot) / elapsed : demoSpeed(routeLength(geometry.points));
+    const spot = pointAlong(path, ((now / DEMO_LOOP_MS) + index * 0.17) % 1);
+    const speed = demoSpeed(routeLength(path));
     await db.run(
       `INSERT INTO bus_locations (id, bus_id, lat, lng, heading, speed, accuracy, recorded_at, source) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, 'simulated')`,
       id('loc'),
@@ -173,7 +173,7 @@ async function advanceSimulator(now = Date.now()) {
       spot.lat,
       spot.lng,
       spot.heading,
-      Math.min(8, Math.max(3, speed)),
+      speed,
       now,
     );
     await db.run(
@@ -185,7 +185,7 @@ async function advanceSimulator(now = Date.now()) {
       spot.lat,
       spot.lng,
       spot.heading,
-      Math.min(8, Math.max(3, speed)),
+      speed,
       now,
     );
   }
@@ -282,6 +282,7 @@ export async function listLiveBuses(viewer: { id: string; role: string }, now = 
       recordedAt: row.recorded_at,
       stale,
       onShift,
+      simulated,
     };
     if (operator) bus.conductor = row.conductor_name;
     return [bus];

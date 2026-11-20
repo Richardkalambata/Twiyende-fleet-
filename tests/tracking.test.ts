@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { Client } from 'pg';
 import { test } from 'node:test';
 import { aheadMetres, aheadSegment, alongError, approachFromDistances, approachLabel, demoSpeed, formatDistance, formatReach, formatSpeed, formatUpdated, glideDistance, glideSpeed, haversineMetres, inLusaka, isStale, pointAlong, projectOnto, reachMinutes, riderCounts, routeEndInDirection, routeLength, shouldSendFix, showsAccuracyHalo, snapToRoad, STALE_MS, trailSamples, trimTrail } from '../lib/tracking-math';
-import { routeGeometry } from '../lib/lusaka-routes';
+import { demoRoutePath, routeGeometry } from '../lib/lusaka-routes';
 import { describePlace, LUSAKA_LANDMARKS, LUSAKA_STREETS } from '../lib/lusaka-places';
 
 const UNIT_URL = 'postgres://twende:twende@127.0.0.1:5432/twende_unit';
@@ -146,7 +146,10 @@ test('direction is the route end ahead, with a short trail behind and no wrap', 
 test('a bus glides forward along the road and does not jump backward', () => {
   const length = 5_000;
   const base = demoSpeed(length);
-  assert.ok(base > 20 && base < 40);
+  assert.ok(base > 2 && base < 4);
+  const path = demoRoutePath('Town to Matero');
+  assert.deepEqual(path.at(-1), path[0]);
+  assert.ok(haversineMetres(pointAlong(path, 0.999), pointAlong(path, 0.001)) < 30);
   assert.ok(Math.abs(glideDistance(100, base, 1 / 60) - (100 + base / 60)) < 0.001);
   assert.equal(glideDistance(100, base, 5), 100 + base * 0.1);
   assert.equal(alongError(100, 160, length), 60);

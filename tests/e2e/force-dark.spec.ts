@@ -9,31 +9,30 @@ test.use({
   },
 });
 
-test('forced Chrome dark mode keeps the light UI', async ({ page }) => {
-  const dir = '/opt/cursor/artifacts/screens';
+test('forced Chrome dark mode keeps the light UI', async ({ page }, testInfo) => {
   await page.goto('/login');
   await assertLightControls(page);
-  await page.screenshot({ path: `${dir}/dark-signin-412.png` });
+  await page.screenshot({ path: testInfo.outputPath('dark-signin-412.png') });
 
   await page.getByRole('button', { name: /Richard/ }).click();
   await page.waitForURL('**/home');
   await page.getByRole('heading', { name: 'Richard' }).waitFor();
   await page.waitForTimeout(600);
   await assertLightControls(page);
-  await page.screenshot({ path: `${dir}/dark-home-412.png` });
+  await page.screenshot({ path: testInfo.outputPath('dark-home-412.png') });
 
   await page.getByRole('button', { name: /Pay a fare/ }).click();
   await page.getByLabel('Bus number').fill('12');
   await page.getByText('Town to Matero').waitFor();
   await assertLightControls(page);
-  await page.screenshot({ path: `${dir}/dark-pay-412.png` });
+  await page.screenshot({ path: testInfo.outputPath('dark-pay-412.png') });
 
   await page.context().clearCookies();
   await page.goto('/business/login');
   await page.getByRole('button', { name: /Richard/ }).click();
   await page.waitForURL('**/business/desk**');
   await assertLightControls(page);
-  await page.screenshot({ path: `${dir}/dark-desk-412.png` });
+  await page.screenshot({ path: testInfo.outputPath('dark-desk-412.png') });
 
   await page.context().clearCookies();
   await page.goto('/business/conductor/login');
@@ -42,5 +41,5 @@ test('forced Chrome dark mode keeps the light UI', async ({ page }) => {
   await page.goto('/business/drive/lost');
   await page.getByRole('button', { name: 'Bag' }).waitFor();
   await assertLightControls(page);
-  await page.screenshot({ path: `${dir}/dark-lost-412.png` });
+  await page.screenshot({ path: testInfo.outputPath('dark-lost-412.png') });
 });

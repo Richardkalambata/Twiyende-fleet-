@@ -20,6 +20,7 @@ export const metadata: Metadata = {
   title: { default: 'Twende', template: '%s · Twende' },
   description: 'Cashless minibus fares for Lusaka. Pay from your phone, confirm with a short code.',
   applicationName: 'Twende',
+  icons: { icon: '/images/icon.svg' },
 };
 
 export const viewport: Viewport = {

@@ -4,8 +4,8 @@ export const STALE_MS = 3 * 60 * 1000;
 export const MOVE_METRES = 15;
 export const SEND_GAP_MS = 30 * 1000;
 export const FALLBACK_SPEED_MPS = 8;
-/** Demo buses complete their corridor in three minutes. The map glides at this same rate. */
-export const DEMO_LOOP_MS = 180_000;
+/** The demo makes a complete return journey at city speed. */
+export const DEMO_LOOP_MS = 1_800_000;
 
 export function demoSpeed(lengthMetres: number): number {
   if (lengthMetres <= 0) return FALLBACK_SPEED_MPS;
@@ -70,11 +70,16 @@ export function shouldSendFix(previous: (GeoPoint & { at: number }) | null, next
   return haversineMetres(previous, next) > MOVE_METRES;
 }
 
+const cumulativeDistances = new WeakMap<GeoPoint[], number[]>();
+
 function cumulative(points: GeoPoint[]): number[] {
+  const cached = cumulativeDistances.get(points);
+  if (cached) return cached;
   const out = [0];
   for (let index = 1; index < points.length; index += 1) {
     out.push(out[index - 1] + haversineMetres(points[index - 1], points[index]));
   }
+  cumulativeDistances.set(points, out);
   return out;
 }
 

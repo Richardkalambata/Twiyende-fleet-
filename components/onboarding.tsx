@@ -15,9 +15,9 @@ const FAQ = [
 ];
 
 const STEPS = [
-  { src: '/brand/device-hand-home.jpg', blur: blur['device-hand-home'], alt: 'A hand holding a phone on a Lusaka street, showing the Twende wallet', title: 'Top up', body: 'Add money to your Twende wallet and choose MTN, Airtel, or Zamtel.' },
-  { src: '/brand/device-hand-pay.jpg', blur: blur['device-hand-pay'], alt: 'A hand holding a phone on a Lusaka street, paying the fare for bus 12', title: 'Enter the bus number', body: 'Type the number on the bus and pick the fare for that route.' },
-  { src: '/brand/device-hand-ticket.jpg', blur: blur['device-hand-ticket'], alt: 'A hand holding a phone on a Lusaka street, showing the ride code', title: 'Show the code', body: 'One code. The conductor verifies it once, on that bus.' },
+  { src: '/images/brand/device-hand-home.jpg', blur: blur['device-hand-home'], alt: 'A hand holding a phone on a Lusaka street, showing the Twende wallet', title: 'Top up', body: 'Add money to your Twende wallet and choose MTN, Airtel, or Zamtel.' },
+  { src: '/images/brand/device-hand-pay.jpg', blur: blur['device-hand-pay'], alt: 'A hand holding a phone on a Lusaka street, paying the fare for bus 12', title: 'Enter the bus number', body: 'Type the number on the bus and pick the fare for that route.' },
+  { src: '/images/brand/device-hand-ticket.jpg', blur: blur['device-hand-ticket'], alt: 'A hand holding a phone on a Lusaka street, showing the ride code', title: 'Show the code', body: 'One code. The conductor verifies it once, on that bus.' },
 ];
 
 export function Onboarding() {
@@ -26,7 +26,7 @@ export function Onboarding() {
       <section data-hero className="relative h-[100svh] min-h-[640px] overflow-hidden text-white md:h-[88vh]">
         <div className="parallax-photo absolute inset-[-4%]">
           <Image
-            src="/brand/campaign-rider.jpg"
+            src="/images/brand/campaign-rider.jpg"
             alt="A woman laughing at her phone beside a Lusaka minibus"
             fill
             priority
@@ -60,7 +60,7 @@ export function Onboarding() {
 
       <section className="mx-auto grid max-w-[1200px] items-center gap-8 px-5 py-20 md:grid-cols-12 md:gap-16 md:px-8 md:py-32">
         <Reveal className="md:col-span-6">
-          <Still src="/brand/moment-ride.jpg" blur={blur['moment-ride']} alt="A mother and child looking at a phone on a minibus" />
+          <Still src="/images/brand/moment-ride.jpg" blur={blur['moment-ride']} alt="A mother and child looking at a phone on a minibus" />
         </Reveal>
         <Reveal delay={80} className="md:col-span-6">
           <p className="text-[13px] font-bold uppercase tracking-[0.14em] text-[#1F5BFF]">On board</p>
@@ -89,7 +89,7 @@ export function Onboarding() {
 
       <section className="mx-auto grid max-w-[1200px] items-center gap-8 px-5 py-20 md:grid-cols-12 md:gap-16 md:px-8 md:py-32">
         <Reveal className="md:order-2 md:col-span-6">
-          <Still src="/brand/moment-verify.jpg" blur={blur['moment-verify']} alt="A passenger showing his phone to a smiling conductor" />
+          <Still src="/images/brand/moment-verify.jpg" blur={blur['moment-verify']} alt="A passenger showing his phone to a smiling conductor" />
         </Reveal>
         <Reveal delay={80} className="md:order-1 md:col-span-6">
           <p className="text-[13px] font-bold uppercase tracking-[0.14em] text-[#1F5BFF]">The conductor</p>
@@ -126,7 +126,7 @@ export function Onboarding() {
       </section>
 
       <section className="relative overflow-hidden text-white">
-        <Image src="/brand/campaign-rider.jpg" alt="" fill quality={90} className="object-cover object-[70%_center]" sizes="100vw" />
+        <Image src="/images/brand/campaign-rider.jpg" alt="" fill quality={90} className="object-cover object-[70%_center]" sizes="100vw" />
         <div className="absolute inset-0 bg-[#071230]/78" />
         <div className="relative mx-auto flex max-w-[1200px] flex-col items-start gap-6 px-5 py-20 md:px-8 md:py-32">
           <h2 className="max-w-xl text-[32px] md:text-[52px]">Your next ride starts here.</h2>
