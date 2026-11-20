@@ -36,6 +36,7 @@ import {
   addRouteFare,
   settleDay,
   recordConductorPayout,
+  saveConductorPayoutDestination,
   markNotificationRead,
 } from './service';
 import type { Fail } from './types';
@@ -342,7 +343,15 @@ export async function readNoticeAction(formData: FormData) {
 
 export async function recordConductorPayoutAction(_previous: { ok: boolean; message: string } | null, data: FormData) {
   const user = await requireUser(['operator']);
-  const result = await recordConductorPayout(user.id, String(data.get('conductor') ?? ''), String(data.get('amount') ?? ''), String(data.get('date') ?? ''), String(data.get('requestId') ?? ''));
+  const result = await recordConductorPayout(user.id, String(data.get('conductor') ?? ''), String(data.get('amount') ?? ''), String(data.get('date') ?? ''), String(data.get('requestId') ?? ''), String(data.get('transferReference') ?? ''));
+  if (result.ok) refresh();
+  return result;
+}
+
+
+export async function saveConductorWalletAction(_previous: { ok: boolean; message: string } | null, data: FormData) {
+  const user = await requireUser(['conductor']);
+  const result = await saveConductorPayoutDestination(user.id, String(data.get('network') ?? ''), String(data.get('phone') ?? ''));
   if (result.ok) refresh();
   return result;
 }

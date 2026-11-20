@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { formatBalance } from '@/lib/money';
-import { getConductorEarnings, listConductorPayouts } from '@/lib/service';
+import { getConductorEarnings, listConductorPayouts, networkDisplay } from '@/lib/service';
 
 export const metadata = { title: 'Earnings reports' };
 
@@ -32,6 +32,7 @@ export default async function EarningsPage() {
             {payouts.map((payout) => (
               <li key={payout.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
                 <div><p className="font-semibold">{payout.operator_name}</p><time className="text-sm text-[#5C6578]" dateTime={payout.paid_on}>{new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'Africa/Lusaka' }).format(new Date(`${payout.paid_on}T12:00:00Z`))}</time></div>
+                {payout.network ? <p className="text-sm text-[#5C6578]">{networkDisplay(payout.network)} · {payout.transfer_reference}</p> : null}
                 <strong>{formatBalance(payout.amount_ngwee)}</strong>
               </li>
             ))}

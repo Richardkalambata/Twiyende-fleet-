@@ -7,13 +7,13 @@ import { EmptyState } from '@/components/ui';
 import { formatBalance, formatGrouped } from '@/lib/money';
 import { formatPhone } from '@/lib/phone';
 import { formatRideWhen, lusakaDateKey } from '@/lib/time';
-import { getPayoutSummary, listConductors, listOwnerBuses, networkDisplay } from '@/lib/service';
+import { conductorPayoutDestinations, getPayoutSummary, listOperatorConductorPayouts, listConductors, listOwnerBuses, networkDisplay } from '@/lib/service';
 
 export const metadata = { title: 'Payouts' };
 
 export default async function PayoutsPage() {
   const user = await requireUser(['operator']);
-  const [summary, conductors] = await Promise.all([getPayoutSummary(user.id), listConductors(user.id)]);
+  const [summary, conductors, destinations, conductorPayouts] = await Promise.all([getPayoutSummary(user.id), listConductors(user.id), conductorPayoutDestinations(user.id), listOperatorConductorPayouts(user.id)]);
   return (
     <div className="space-y-4 px-4 py-5 md:px-6">
       <h1 className="text-[28px] font-semibold">Payouts</h1>
@@ -34,7 +34,18 @@ export default async function PayoutsPage() {
         <input name="amount" required placeholder="Amount in K" aria-label="Amount" className="h-11 w-40 rounded-xl bg-white px-3 text-[#0B1B3B] placeholder:text-[#5C6578]" />
         <button className="h-11 rounded-xl bg-[#1F5BFF] px-4 font-bold text-white">Mark settled</button>
       </form>
-      <ConductorPayoutForm conductors={conductors} today={lusakaDateKey()} />
+      <ConductorPayoutForm conductors={conductors} destinations={destinations} today={lusakaDateKey()} />
+      <section className="rounded-2xl bg-white p-4">
+        <h2 className="font-bold">Conductor payout history</h2>
+        {conductorPayouts.length === 0 ? <p className="mt-2 text-sm">No conductor payouts recorded yet.</p> : (
+          <ul className="mt-2 divide-y divide-[#E4E8F0]">
+            {conductorPayouts.map((payout) => <li key={payout.id} className="flex flex-wrap justify-between gap-2 py-3 text-sm">
+              <span><strong>{payout.conductor_name}</strong><br />{payout.paid_on}{payout.network ? ` · ${networkDisplay(payout.network)}` : ''}{payout.transfer_reference ? ` · ${payout.transfer_reference}` : ''}</span>
+              <strong>{formatBalance(payout.amount_ngwee)}</strong>
+            </li>)}
+          </ul>
+        )}
+      </section>
       <PayoutForms phone={summary.payoutPhone ?? user.phone} network={summary.payoutNetwork ?? 'mtn'} today={formatGrouped(summary.todayNgwee)} />
       <section className="rounded-3xl bg-white p-4 shadow-sm">
         <h2 className="font-semibold">History</h2>

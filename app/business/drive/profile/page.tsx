@@ -1,5 +1,6 @@
 import { requireUser } from '@/lib/auth';
 import { signOutAction } from '@/lib/actions';
+import { ConductorWalletForm } from '@/components/conductor-wallet-form';
 import { ProfileForms } from '@/components/account-forms';
 import { Avatar } from '@/components/shell';
 import { formatPhone } from '@/lib/phone';
@@ -27,6 +28,7 @@ export default async function ConductorProfilePage() {
         <Row label="Today's bus" value={home.bus?.fleet_number ?? 'Unassigned'} />
         <Row label="Route" value={home.bus?.route ?? 'Ask your operator'} />
       </dl>
+      <ConductorWalletForm phone={user.payoutPhone ?? user.phone} network={user.payoutNetwork} />
       <ProfileForms name={user.name} mode="pin" />
       <form action={signOutAction}>
         <button className="press flex h-12 w-full items-center gap-3 rounded-2xl bg-white px-4 text-[15px] font-semibold shadow-[0_8px_24px_rgba(11,27,59,0.06)]">

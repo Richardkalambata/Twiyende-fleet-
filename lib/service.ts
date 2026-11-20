@@ -525,14 +525,14 @@ export async function getConductorEarnings(userId: string) {
 }
 
 export async function listConductorPayouts(conductorId: string) {
-  return (await getDb()).all<{ id: string; operator_name: string; paid_on: string; amount_ngwee: number }>(
-    `SELECT p.id, u.name AS operator_name, p.paid_on, p.amount_ngwee
+  return (await getDb()).all<{ id: string; operator_name: string; paid_on: string; amount_ngwee: number; network: string | null; transfer_reference: string | null }>(
+    `SELECT p.id, u.name AS operator_name, p.paid_on, p.amount_ngwee, p.network, p.transfer_reference
      FROM conductor_payouts p JOIN users u ON u.id = p.operator_id
      WHERE p.conductor_id = ? ORDER BY p.paid_on DESC, p.created_at DESC, p.id DESC`, conductorId,
   );
 }
 
-export async function recordConductorPayout(operatorId: string, conductorId: string, amountRaw: string, paidOn: string, requestId: string) {
+export async function recordConductorPayout(operatorId: string, conductorId: string, amountRaw: string, paidOn: string, requestId: string, transferRefRaw: string) {
   const amount = parseMoney(amountRaw, 100_000_000);
   if (amount === null) return { ok: false as const, message: 'Enter a payout from K1 to K1,000,000.' };
   const day = new Date(`${paidOn}T12:00:00Z`);
@@ -542,11 +542,20 @@ export async function recordConductorPayout(operatorId: string, conductorId: str
   if (!/^[a-f0-9-]{36}$/i.test(requestId)) return { ok: false as const, message: 'Reload the page and try again.' };
   const id = `${operatorId}:${requestId}`;
   const db = await getDb();
-  const inserted = await db.run(`INSERT INTO conductor_payouts (id, operator_id, conductor_id, amount_ngwee, paid_on, created_at)
-    SELECT ?, ?, id, ?, ?, ? FROM users WHERE id = ? AND operator_id = ? AND role = 'conductor'
-    ON CONFLICT (id) DO NOTHING`, id, operatorId, amount, paidOn, Date.now(), conductorId, operatorId);
-  if (!inserted.changes && !await db.get(`SELECT id FROM conductor_payouts WHERE id = ? AND conductor_id = ? AND amount_ngwee = ? AND paid_on = ?`, id, conductorId, amount, paidOn)) {
-    return { ok: false as const, message: 'Choose a conductor in your fleet or start a new payout record.' };
+  const reference = cleanText(transferRefRaw, 80).toUpperCase();
+  if (!reference) return { ok: false as const, message: 'Enter the mobile-money transfer reference after paying.' };
+  const previous = await db.get(`SELECT id FROM conductor_payouts WHERE id = ? AND conductor_id = ?
+    AND amount_ngwee = ? AND paid_on = ? AND transfer_reference = ?`, id, conductorId, amount, paidOn, reference);
+  if (previous) return { ok: true as const, message: 'Payout recorded.' };
+  const inserted = await db.run(`INSERT INTO conductor_payouts
+    (id, operator_id, conductor_id, amount_ngwee, paid_on, created_at, network, destination, transfer_reference)
+    SELECT ?, ?, id, ?, ?, ?, payout_network, payout_phone, ? FROM users
+    WHERE id = ? AND operator_id = ? AND role = 'conductor' AND payout_phone IS NOT NULL
+      AND payout_network IN ('mtn', 'airtel', 'zamtel')
+    ON CONFLICT DO NOTHING`, id, operatorId, amount, paidOn, Date.now(), reference, conductorId, operatorId);
+  if (!inserted.changes && !await db.get(`SELECT id FROM conductor_payouts WHERE id = ? AND conductor_id = ?
+    AND amount_ngwee = ? AND paid_on = ? AND transfer_reference = ?`, id, conductorId, amount, paidOn, reference)) {
+    return { ok: false as const, message: 'Check the conductor’s mobile-money details and make sure this transfer reference has not already been recorded.' };
   }
   return { ok: true as const, message: 'Payout recorded.' };
 }
@@ -1048,9 +1057,9 @@ type Agg = { created_at: number; amount_ngwee: number; bus_id: string; conductor
 export async function getOwnerDashboard(ownerId: string, range: RangeKey, routeFleet?: string): Promise<Dashboard> {
   const now = new Date();
   const window = rangeWindow(range, now);
-  const rows = await (await getDb()).all(`SELECT r.created_at, r.amount_ngwee, r.bus_id, r.conductor_id, b.fleet_number
+  const rows = await (await getDb()).all(`SELECT COALESCE(r.verified_at, r.created_at) AS created_at, r.amount_ngwee, r.bus_id, r.conductor_id, b.fleet_number
       FROM rides r JOIN buses b ON b.id = r.bus_id
-      WHERE b.owner_id = ? AND r.status = 'verified' AND r.created_at >= ? AND r.created_at < ?`, ownerId, Math.min(window.previousStart, window.start), window.end) as Agg[];
+      WHERE b.owner_id = ? AND r.status = 'verified' AND COALESCE(r.verified_at, r.created_at) >= ? AND COALESCE(r.verified_at, r.created_at) < ?`, ownerId, Math.min(window.previousStart, window.start), window.end) as Agg[];
   const inSpan = (row: Agg, start: number, end: number) => row.created_at >= start && row.created_at < end;
   const current = rows.filter((row) => inSpan(row, window.start, window.end));
   const previous = rows.filter((row) => inSpan(row, window.previousStart, window.previousEnd));
@@ -1160,6 +1169,29 @@ export async function listConductors(ownerId: string): Promise<ConductorOption[]
   return rows.map((row) => ({ id: row.id, shortName: row.short_name, phone: row.phone, busFleet: row.fleet_number }));
 }
 
+export async function conductorPayoutDestinations(operatorId: string) {
+  return (await getDb()).all<{ id: string; payout_phone: string | null; payout_network: string | null }>(
+    "SELECT id, payout_phone, payout_network FROM users WHERE operator_id = ? AND role = 'conductor'", operatorId,
+  );
+}
+
+export async function saveConductorPayoutDestination(conductorId: string, network: string, rawPhone: string) {
+  const phone = normalizePhone(rawPhone);
+  if (!phone || !['mtn', 'airtel', 'zamtel'].includes(network)) {
+    return { ok: false as const, message: 'Choose a mobile-money network and enter a valid Zambian number.' };
+  }
+  await (await getDb()).run("UPDATE users SET payout_phone = ?, payout_network = ? WHERE id = ? AND role = 'conductor'", phone, network, conductorId);
+  return { ok: true as const, message: 'Mobile-money details saved.' };
+}
+
+export async function listOperatorConductorPayouts(operatorId: string) {
+  return (await getDb()).all<{ id: string; conductor_name: string; paid_on: string; amount_ngwee: number; network: string | null; transfer_reference: string | null }>(
+    `SELECT p.id, u.name AS conductor_name, p.paid_on, p.amount_ngwee, p.network, p.transfer_reference
+    FROM conductor_payouts p JOIN users u ON u.id = p.conductor_id
+    WHERE p.operator_id = ? ORDER BY p.paid_on DESC, p.created_at DESC, p.id DESC`, operatorId,
+  );
+}
+
 export type OwnerLostItem = {
   id: string;
   category: string;
@@ -1255,14 +1287,28 @@ export async function registerConductor(ownerId: string, nameRaw: string, phoneR
 }
 
 async function assignConductorInTransaction(ownerId: string, busId: string, conductorId: string | null) {
+  const db = await getDb();
+  await db.run('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', `fleet-assignment:${ownerId}`);
   const bus = await busById(busId);
   if (!bus || bus.owner_id !== ownerId) throw new UserError('That bus is not in your fleet.');
-  if (conductorId) {
-    const conductor = await userById(conductorId);
-    if (!conductor || conductor.role !== 'conductor') throw new UserError('Choose a conductor.');
-    await (await getDb()).run('UPDATE buses SET conductor_id = NULL WHERE conductor_id = ?', conductorId);
+  if (conductorId && !await db.get("SELECT id FROM users WHERE id = ? AND operator_id = ? AND role = 'conductor'", conductorId, ownerId)) {
+    throw new UserError('Choose a conductor in your fleet.');
   }
-  await (await getDb()).run('UPDATE buses SET conductor_id = ? WHERE id = ? AND owner_id = ?', conductorId, busId, ownerId);
+  const today = lusakaDateKey();
+  const now = Date.now();
+  await db.run(`UPDATE shifts SET ended_at = ? WHERE ended_at IS NULL AND
+    ((bus_id = ? AND conductor_id IS DISTINCT FROM ?::text) OR
+     (conductor_id = ? AND bus_id <> ? AND bus_id IN (SELECT id FROM buses WHERE owner_id = ?)))`,
+    now, busId, conductorId, conductorId, busId, ownerId);
+  await db.run(`DELETE FROM assignments WHERE shift_date = ? AND
+    (bus_id = ? OR (conductor_id = ? AND bus_id IN (SELECT id FROM buses WHERE owner_id = ?)))`,
+    today, busId, conductorId, ownerId);
+  if (conductorId) {
+    await db.run('UPDATE buses SET conductor_id = NULL WHERE owner_id = ? AND conductor_id = ?', ownerId, conductorId);
+    await db.run('INSERT INTO assignments (id, conductor_id, bus_id, shift_date, created_at) VALUES (?, ?, ?, ?, ?)',
+      nid('asg'), conductorId, busId, today, now);
+  }
+  await db.run('UPDATE buses SET conductor_id = ? WHERE id = ? AND owner_id = ?', conductorId, busId, ownerId);
 }
 
 export async function assignConductor(ownerId: string, busId: string, conductorId: string | null) {
@@ -1470,30 +1516,7 @@ export async function listAssignments(ownerId: string) {
 }
 
 export async function saveAssignment(ownerId: string, busId: string, conductorId: string | null) {
-  const today = lusakaDateKey();
-  try {
-    await withTransaction(async () => {
-      const bus = await busById(busId);
-      if (!bus || bus.owner_id !== ownerId) throw new UserError('That bus is not in your fleet.');
-      await (await getDb()).run('DELETE FROM assignments WHERE bus_id = ? AND shift_date = ?', busId, today);
-      if (!conductorId) {
-        await (await getDb()).run('UPDATE buses SET conductor_id = NULL WHERE id = ?', busId);
-        return;
-      }
-      const conductor = await userById(conductorId);
-      if (!conductor || conductor.role !== 'conductor') throw new UserError('Choose a conductor.');
-      await (await getDb()).run('DELETE FROM assignments WHERE conductor_id = ? AND shift_date = ?', conductorId, today);
-      await (await getDb()).run(
-        'INSERT INTO assignments (id, conductor_id, bus_id, shift_date, created_at) VALUES (?, ?, ?, ?, ?)',
-        nid('asg'), conductorId, busId, today, Date.now(),
-      );
-      await (await getDb()).run('UPDATE buses SET conductor_id = NULL WHERE conductor_id = ?', conductorId);
-      await (await getDb()).run('UPDATE buses SET conductor_id = ? WHERE id = ?', conductorId, busId);
-    });
-    return { ok: true as const };
-  } catch (error) {
-    return asFail(error);
-  }
+  return assignConductor(ownerId, busId, conductorId);
 }
 
 async function notifyUser(userId: string, title: string, body: string, href: string) {

@@ -153,6 +153,11 @@ CREATE TABLE IF NOT EXISTS conductor_payouts (
   paid_on TEXT NOT NULL,
   created_at BIGINT NOT NULL
 );
+ALTER TABLE conductor_payouts ADD COLUMN IF NOT EXISTS network TEXT;
+ALTER TABLE conductor_payouts ADD COLUMN IF NOT EXISTS destination TEXT;
+ALTER TABLE conductor_payouts ADD COLUMN IF NOT EXISTS transfer_reference TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_conductor_payout_reference
+  ON conductor_payouts (operator_id, network, transfer_reference) WHERE transfer_reference IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_conductor_payout_history
   ON conductor_payouts (conductor_id, paid_on DESC, created_at DESC);
 
