@@ -69,6 +69,7 @@ export async function loginAction(_prev: Fail | null, formData: FormData): Promi
   if (gate === 'business' && result.user.role !== 'operator') {
     return { ok: false, message: 'Passengers and conductors use their own sign-in.' };
   }
+  await destroySession();
   await createSession(result.user.id);
   redirect(homeFor(result.user.role));
 }
@@ -87,6 +88,7 @@ export async function demoLoginAction(formData: FormData) {
   if (gate === 'conductor' && result.user.role !== 'conductor') {
     redirect(`${back}?error=${encodeURIComponent('This sign-in is for conductors. Operators use Operator sign in.')}`);
   }
+  await destroySession();
   await createSession(result.user.id);
   redirect(homeFor(result.user.role));
 }
