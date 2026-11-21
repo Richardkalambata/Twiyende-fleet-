@@ -13,8 +13,6 @@ export function LoginForm({ accounts, error, gate = 'passenger', operatorSmsRequ
   const [state, action, pending] = useActionState(loginAction, null);
   const [phone, setPhone] = useState('');
   const [pin, setPin] = useState('');
-  const [legacy, setLegacy] = useState(false);
-  const pinLength = legacy ? 4 : 6;
   const message = state?.message ?? error;
   useEffect(() => { if (message) toast(message); }, [message]);
 
@@ -48,17 +46,12 @@ export function LoginForm({ accounts, error, gate = 'passenger', operatorSmsRequ
             <input name="phone" value={phone} onChange={(event) => setPhone(event.target.value)} inputMode="tel" autoComplete="username" required className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[18px] font-semibold text-[#0B1B3B] outline-none placeholder:text-[#5C6578] focus:border-[#1F5BFF]" />
           </label>
           <label className="block text-[13px] font-medium text-[#5C6578]">
-            {legacy ? 'Old four-digit PIN' : 'Six-digit PIN'}
-            <input name="pin" type="password" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, '').slice(0, pinLength))} inputMode="numeric" autoComplete="current-password" maxLength={pinLength} pattern={`[0-9]{${pinLength}}`} required className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[20px] font-semibold tracking-[0.4em] text-[#0B1B3B] outline-none focus:border-[#1F5BFF]" />
+            Six-digit PIN
+            <input name="pin" type="password" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="current-password" maxLength={6} pattern="[0-9]{6}" required className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[20px] font-semibold tracking-[0.4em] text-[#0B1B3B] outline-none focus:border-[#1F5BFF]" />
           </label>
-          {legacy && <label className="block md:col-span-2">New six-digit PIN
-            <input name="nextPin" type="password" className="field mt-2" inputMode="numeric" autoComplete="new-password" maxLength={6} pattern="[0-9]{6}" required />
-          </label>}
-          <input type="hidden" name="legacy" value={legacy ? 'yes' : 'no'} />
-          <button type="button" className="justify-self-start text-left text-sm font-semibold md:col-span-2 text-[#1F5BFF]" onClick={() => { setLegacy(!legacy); setPin(''); }}>{legacy ? 'Use my six-digit PIN' : 'Upgrade my old four-digit PIN'}</button>
           <input type="hidden" name="gate" value={resolved} />
           {message ? <p className="text-sm text-[#E5484D] md:col-span-2" role="alert">{message}</p> : null}
-          <button className="flex h-12 w-full md:col-span-2 items-center justify-center rounded-xl bg-[#1F5BFF] text-[15px] font-bold text-white disabled:opacity-50" disabled={pending || pin.length !== pinLength}>
+          <button className="flex h-12 w-full md:col-span-2 items-center justify-center rounded-xl bg-[#1F5BFF] text-[15px] font-bold text-white disabled:opacity-50" disabled={pending || pin.length !== 6}>
             {pending ? 'Signing in…' : 'Log in'}
           </button>
         </form>}

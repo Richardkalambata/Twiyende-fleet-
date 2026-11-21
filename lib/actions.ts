@@ -40,9 +40,7 @@ import {
   markNotificationRead,
 } from './service';
 import { beginOperatorVerification, completeOperatorVerification } from './operator-verification';
-import { getDb } from './db';
 import { requiresOperatorSms } from './operator-sms-policy';
-import { hashPin } from './pin';
 import type { Fail } from './types';
 
 function refresh() {
@@ -60,12 +58,7 @@ export async function loginAction(previous: LoginState, formData: FormData): Pro
     redirect('/business/desk');
   }
   const pin = String(formData.get('pin') ?? '');
-  const legacy = formData.get('legacy') === 'yes';
-  const nextPin = String(formData.get('nextPin') ?? '');
-  if (legacy && (!/^\d{4}$/.test(pin) || !/^\d{6}$/.test(nextPin))) {
-    return { ok: false, message: 'Enter your old PIN and a new six-digit PIN.' };
-  }
-  const result = await authenticate(String(formData.get('phone') ?? ''), pin, legacy);
+  const result = await authenticate(String(formData.get('phone') ?? ''), pin);
   if (!result.ok) return result;
   const gate = String(formData.get('gate') ?? 'passenger');
   if (gate === 'passenger' && result.user.role !== 'passenger') {
@@ -90,15 +83,10 @@ export async function loginAction(previous: LoginState, formData: FormData): Pro
   if (gate === 'business' && result.user.role !== 'operator') {
     return { ok: false, message: 'Passengers and conductors use their own sign-in.' };
   }
-  const nextHash = legacy ? hashPin(nextPin) : null;
   if (result.user.role === 'operator' && requiresOperatorSms()) {
-    const sent = await beginOperatorVerification(result.user.id, result.user.phone, result.pinHash, nextHash);
+    const sent = await beginOperatorVerification(result.user.id, result.user.phone, result.pinHash, null);
     if (!sent) return { ok: false, message: 'We could not send a code. Wait a minute and try again.' };
     return { ok: true, step: 'sms' };
-  }
-  if (nextHash) {
-    const updated = await (await getDb()).get('UPDATE users SET pin_hash = ? WHERE id = ? AND pin_hash = ? RETURNING id', nextHash, result.user.id, result.pinHash);
-    if (!updated) return { ok: false, message: 'Your PIN has changed. Sign in again.' };
   }
   await destroySession();
   await createSession(result.user.id);

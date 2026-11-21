@@ -237,10 +237,10 @@ export function homeFor(role: Role): string {
   return '/home';
 }
 
-export async function authenticate(phoneRaw: string, pin: string, allowLegacy = false): Promise<{ ok: true; user: PublicUser; pinHash: string } | Fail> {
+export async function authenticate(phoneRaw: string, pin: string): Promise<{ ok: true; user: PublicUser; pinHash: string } | Fail> {
   const phone = normalizePhone(phoneRaw);
   if (!phone) return { ok: false, message: 'Enter a Zambian mobile number, like 0971 000 001.' };
-  if (!/^\d{6}$/.test(pin) && !(allowLegacy && /^\d{4}$/.test(pin))) {
+  if (!/^\d{6}$/.test(pin)) {
     return { ok: false, message: 'Enter your six-digit PIN.' };
   }
   const now = Date.now();
