@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useActionState, useEffect, useState } from 'react';
 import { demoLoginAction, loginAction } from '@/lib/actions';
@@ -25,13 +26,26 @@ export function LoginForm({ accounts, error, gate = 'passenger', operatorSmsRequ
       : 'Your next ride starts here.';
 
   return (
-    <main id="main" className="min-h-dvh w-full bg-[#F4F6FB] text-[#0B1B3B] lg:grid lg:items-center">
-      <div className="flex w-full min-w-0 flex-col px-5 pb-6 sm:px-8 md:px-12 lg:px-[clamp(3rem,8vw,10rem)] lg:py-12">
-        <div className="safe-top"><Logo business={resolved !== 'passenger'} /></div>
-        <h1 className="mt-6 text-[clamp(26px,7vw,32px)] font-extrabold tracking-[-0.04em]">{title}</h1>
-        <p className="mt-1 text-[15px] leading-5 text-[#5C6578]">{subtitle}</p>
+    <main id="main" className="grid min-h-dvh w-full grid-rows-[minmax(12rem,1fr)_auto] bg-[#F4F6FB] text-[#0B1B3B] md:grid-rows-[minmax(17rem,1fr)_auto] lg:grid-cols-[1.05fr_1fr] lg:grid-rows-1">
+      <header className="relative isolate flex min-w-0 flex-col justify-between overflow-hidden bg-[#0B1B3B] px-5 pb-7 pt-[max(1.5rem,env(safe-area-inset-top))] sm:px-8 md:px-12 md:pb-10 lg:px-[clamp(3rem,5vw,7rem)] lg:py-12">
+        <Image
+          src={resolved === 'passenger' ? '/images/brand/hero-rider-828.avif' : '/images/brand/hero-business-828.avif'}
+          alt=""
+          fill
+          sizes="(min-width: 1024px) 52vw, 100vw"
+          className="-z-20 object-cover object-center"
+          priority
+        />
+        <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-t from-[#07142D] via-[#07142D]/50 to-[#07142D]/65" />
+        <div><Logo tone="light" business={resolved !== 'passenger'} /></div>
+        <div className="mt-10 text-white lg:mt-auto">
+          <h1 className="text-[clamp(2rem,5vw,5rem)] font-extrabold leading-[0.98] tracking-[-0.055em]">{title}</h1>
+          <p className="mt-3 max-w-md text-sm leading-relaxed text-white/90 md:text-base lg:text-lg">{subtitle}</p>
+        </div>
+      </header>
+      <div className="flex min-w-0 flex-col justify-center px-5 py-7 sm:px-8 md:px-12 md:py-10 lg:px-[clamp(3rem,5vw,7rem)] lg:py-12">
         {state?.ok ? (
-          <form action={action} className="mt-6 max-w-xl space-y-4">
+          <form action={action} className="space-y-4">
             <p>Enter the six-digit code sent to your registered mobile number.</p>
             <label className="block">Verification code
               <input name="code" className="field mt-2" inputMode="numeric" autoComplete="one-time-code" maxLength={6} pattern="[0-9]{6}" required />
@@ -40,14 +54,14 @@ export function LoginForm({ accounts, error, gate = 'passenger', operatorSmsRequ
             <button disabled={pending} className="h-12 w-full rounded-xl bg-[#1F5BFF] font-bold text-white">Verify and sign in</button>
             <button type="button" onClick={() => window.location.reload()} className="font-semibold text-[#1F5BFF]">Restart sign-in</button>
           </form>
-        ) : <form action={action} className="mt-6 grid w-full gap-4">
+        ) : <form action={action} className="grid w-full gap-5">
           <label className="block text-[13px] font-medium text-[#5C6578]">
             Phone number
-            <input name="phone" value={phone} onChange={(event) => setPhone(event.target.value)} inputMode="tel" autoComplete="username" required className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[18px] font-semibold text-[#0B1B3B] outline-none placeholder:text-[#5C6578] focus:border-[#1F5BFF]" />
+            <input name="phone" value={phone} onChange={(event) => setPhone(event.target.value)} inputMode="tel" autoComplete="username" required className="mt-2 min-h-12 w-full rounded-xl border border-[#D5DCE8] bg-white px-4 py-2 text-[18px] font-semibold text-[#0B1B3B] outline-none placeholder:text-[#5C6578] focus:border-[#1F5BFF]" />
           </label>
           <label className="block text-[13px] font-medium text-[#5C6578]">
             Six-digit PIN
-            <input name="pin" type="password" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="current-password" maxLength={6} pattern="[0-9]{6}" required className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[20px] font-semibold tracking-[0.4em] text-[#0B1B3B] outline-none focus:border-[#1F5BFF]" />
+            <input name="pin" type="password" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="current-password" maxLength={6} pattern="[0-9]{6}" required className="mt-2 min-h-12 w-full rounded-xl border border-[#D5DCE8] bg-white px-4 py-2 text-[20px] font-semibold tracking-[0.4em] text-[#0B1B3B] outline-none focus:border-[#1F5BFF]" />
           </label>
           <input type="hidden" name="gate" value={resolved} />
           {message ? <p className="text-sm text-[#E5484D]" role="alert">{message}</p> : null}
