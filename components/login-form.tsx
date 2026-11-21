@@ -40,7 +40,7 @@ export function LoginForm({ accounts, error, gate = 'passenger', operatorSmsRequ
             <button disabled={pending} className="h-12 w-full rounded-xl bg-[#1F5BFF] font-bold text-white">Verify and sign in</button>
             <button type="button" onClick={() => window.location.reload()} className="font-semibold text-[#1F5BFF]">Restart sign-in</button>
           </form>
-        ) : <form action={action} className="mt-6 grid w-full max-w-3xl gap-4">
+        ) : <form action={action} className="mt-6 grid w-full gap-4">
           <label className="block text-[13px] font-medium text-[#5C6578]">
             Phone number
             <input name="phone" value={phone} onChange={(event) => setPhone(event.target.value)} inputMode="tel" autoComplete="username" required className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[18px] font-semibold text-[#0B1B3B] outline-none placeholder:text-[#5C6578] focus:border-[#1F5BFF]" />
