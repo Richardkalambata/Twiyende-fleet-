@@ -127,7 +127,7 @@ export function VerifyPad({
           </form>
         </div>
       </div>
-      <div className="md:mx-auto md:w-full md:max-w-3xl lg:max-w-[1360px] lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:gap-8 xl:gap-12">
+      <div className="w-full md:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:gap-8 xl:gap-12">
       <section>
       <h1 className="mt-5 text-[28px] font-extrabold tracking-[-0.03em]">Hello, {name}</h1>
       <div className="mt-3 rounded-2xl bg-[#0B1B3B] px-4 py-3">

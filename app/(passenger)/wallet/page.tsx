@@ -16,7 +16,7 @@ export default async function WalletHistory({ searchParams }: { searchParams: Pr
     listWalletActivity(user.id, PAGE_SIZE + 1, (page - 1) * PAGE_SIZE),
   ]);
   return (
-    <div className="safe-top mx-auto max-w-4xl px-5 pb-8 lg:px-10">
+    <div className="safe-top w-full px-5 pb-8 lg:px-10">
       <Link href="/home" className="text-sm font-semibold text-[#184BDE]">← Home</Link>
       <h1 className="mt-3 text-3xl font-extrabold">Transaction history</h1>
       <p className="mt-2 text-sm text-[#5C6578]">Current balance <strong className="text-[#0B1B3B]">{formatBalance(home.balanceNgwee)}</strong></p>

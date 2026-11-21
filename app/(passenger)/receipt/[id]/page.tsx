@@ -21,7 +21,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
   const pending = receipt.status === 'pending';
   const share = `Twende ${receipt.code} Bus ${receipt.fleetNumber} ${formatBalance(receipt.amountNgwee)}`;
   return (
-    <div className="safe-top mx-auto max-w-6xl px-4 pb-8 text-[#0B1B3B] sm:px-8 lg:px-10 lg:pt-8">
+    <div className="safe-top w-full px-4 pb-8 text-[#0B1B3B] sm:px-8 lg:px-10 lg:pt-8">
       <Link href={pending ? "/home" : "/rides"} className="inline-flex min-h-10 items-center text-sm font-bold text-[#184BDE] print:hidden">← {pending ? "Home" : "My rides"}</Link>
       <div className="mt-2 flex items-center justify-between"><Logo /><span className="text-[12px] text-[#8A93A6]">{formatHour24(receipt.createdAt)}</span></div>
       <h1 className="mt-4 text-[28px] sm:text-4xl font-extrabold tracking-[-0.04em]">{pending ? 'Your ride ticket' : 'Ride receipt'}</h1>

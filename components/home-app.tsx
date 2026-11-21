@@ -34,7 +34,7 @@ export function HomeApp({
   const letters = name.split(/\s+/).filter(Boolean).map((part) => part[0]).slice(0, 2).join('').toUpperCase() || initials;
   if (paying) return <PayForm buses={buses} balanceNgwee={balanceNgwee} initialFleet={preset} onClose={() => setPaying(false)} />;
   return (
-    <div className="mx-auto max-w-[1440px] px-5 pb-4 text-[#0B1B3B] lg:px-10 lg:py-8">
+    <div className="w-full px-5 pb-4 text-[#0B1B3B] lg:px-10 lg:py-8">
       <header className="safe-top flex items-center justify-between">
         <Logo />
         <Avatar initials={letters} size={36} />

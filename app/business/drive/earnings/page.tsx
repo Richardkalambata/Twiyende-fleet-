@@ -9,7 +9,7 @@ export default async function EarningsPage() {
   const user = await requireUser(['conductor']);
   const [earnings, payouts] = await Promise.all([getConductorEarnings(user.id), listConductorPayouts(user.id)]);
   return (
-    <div className="safe-top mx-auto max-w-5xl space-y-4 px-5 pb-6">
+    <div className="safe-top w-full space-y-4 px-5 pb-6">
       <Link href="/business/drive/trips" className="inline-flex min-h-10 items-center text-sm font-bold text-[#184BDE]">← Today’s trips</Link>
       <h1 className="text-[28px] font-extrabold">Earnings reports</h1>
       <section>

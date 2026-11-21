@@ -26,6 +26,7 @@ for (const role of roles) {
     for (const width of [320, 390, 768, 1024, 1440, 1920]) {
       await page.setViewportSize({ width, height: width <= 390 ? 640 : 900 });
       await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+      await expect.poll(async () => (await page.locator('[data-workspace]').boundingBox())?.width).toBe(width);
       if (role.nav !== 'Fleet') {
         const shell = page.locator('.twende-shell[data-workspace]');
         await expect(shell).toHaveCSS('flex-direction', width >= 1024 ? 'row' : 'column');

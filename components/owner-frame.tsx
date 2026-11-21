@@ -27,7 +27,7 @@ export function OwnerFrame({ children, openLost, operator, company }: { children
   const [menuOpen, setMenuOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   return (
-    <div className="min-h-dvh bg-[#F4F6FB] text-[#0B1B3B] lg:flex">
+    <div data-workspace="true" className="min-h-dvh w-full bg-[#F4F6FB] text-[#0B1B3B] lg:flex">
       <aside className="relative flex shrink-0 flex-col bg-[#0B1B3B] text-white lg:sticky lg:top-0 lg:h-dvh lg:w-56">
         <div className="flex items-center justify-between px-4 py-4 lg:px-7 lg:pt-8 lg:pb-6">
           <Logo tone="light" business />
