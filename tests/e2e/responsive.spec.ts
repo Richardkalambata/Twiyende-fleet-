@@ -10,6 +10,17 @@ for (const role of roles) {
   test(`${role.nav} workspace at phone, tablet, and desktop widths`, async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 });
     await page.goto(role.login);
+    const loginPage = page.locator('main#main');
+    for (const width of [320, 768, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect.poll(async () => (await loginPage.boundingBox())?.width).toBe(width);
+      await expect(page.getByLabel('Six-digit PIN')).toBeVisible();
+    }
+    if (role.nav === 'Passenger') {
+      await expect(page.getByRole('link', { name: /operator|conductor/i })).toHaveCount(0);
+    } else {
+      await expect(page.getByRole('link', { name: /are you (a conductor|the operator)/i })).toBeVisible();
+    }
     await page.getByRole('button', { name: role.name }).click();
     await page.waitForURL(`**${role.landed}`);
     for (const width of [320, 390, 768, 1024, 1440, 1920]) {
