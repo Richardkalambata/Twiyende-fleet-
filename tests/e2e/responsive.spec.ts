@@ -21,8 +21,9 @@ for (const role of roles) {
       expect(phoneBox).not.toBeNull();
       expect(pinBox).not.toBeNull();
       if (phoneBox && pinBox) {
-        if (width >= 768) expect(pinBox.x).toBeGreaterThan(phoneBox.x);
-        else expect(pinBox.y).toBeGreaterThan(phoneBox.y);
+        expect(pinBox.x).toBe(phoneBox.x);
+        expect(pinBox.width).toBe(phoneBox.width);
+        expect(pinBox.y).toBeGreaterThanOrEqual(phoneBox.y + phoneBox.height);
       }
     }
     if (role.nav === 'Passenger') {

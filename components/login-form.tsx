@@ -40,7 +40,7 @@ export function LoginForm({ accounts, error, gate = 'passenger', operatorSmsRequ
             <button disabled={pending} className="h-12 w-full rounded-xl bg-[#1F5BFF] font-bold text-white">Verify and sign in</button>
             <button type="button" onClick={() => window.location.reload()} className="font-semibold text-[#1F5BFF]">Restart sign-in</button>
           </form>
-        ) : <form action={action} className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-x-6">
+        ) : <form action={action} className="mt-6 grid w-full max-w-3xl gap-4">
           <label className="block text-[13px] font-medium text-[#5C6578]">
             Phone number
             <input name="phone" value={phone} onChange={(event) => setPhone(event.target.value)} inputMode="tel" autoComplete="username" required className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[18px] font-semibold text-[#0B1B3B] outline-none placeholder:text-[#5C6578] focus:border-[#1F5BFF]" />
@@ -50,8 +50,8 @@ export function LoginForm({ accounts, error, gate = 'passenger', operatorSmsRequ
             <input name="pin" type="password" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="current-password" maxLength={6} pattern="[0-9]{6}" required className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[20px] font-semibold tracking-[0.4em] text-[#0B1B3B] outline-none focus:border-[#1F5BFF]" />
           </label>
           <input type="hidden" name="gate" value={resolved} />
-          {message ? <p className="text-sm text-[#E5484D] md:col-span-2" role="alert">{message}</p> : null}
-          <button className="flex h-12 w-full md:col-span-2 items-center justify-center rounded-xl bg-[#1F5BFF] text-[15px] font-bold text-white disabled:opacity-50" disabled={pending || pin.length !== 6}>
+          {message ? <p className="text-sm text-[#E5484D]" role="alert">{message}</p> : null}
+          <button className="flex h-12 w-full items-center justify-center rounded-xl bg-[#1F5BFF] text-[15px] font-bold text-white disabled:opacity-50" disabled={pending || pin.length !== 6}>
             {pending ? 'Signing in…' : 'Log in'}
           </button>
         </form>}
