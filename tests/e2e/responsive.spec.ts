@@ -14,7 +14,16 @@ for (const role of roles) {
     for (const width of [320, 768, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       await expect.poll(async () => (await loginPage.boundingBox())?.width).toBe(width);
-      await expect(page.getByLabel('Six-digit PIN')).toBeVisible();
+      const pin = page.getByLabel('Six-digit PIN');
+      await expect(pin).toBeVisible();
+      const phoneBox = await page.getByLabel('Phone number').boundingBox();
+      const pinBox = await pin.boundingBox();
+      expect(phoneBox).not.toBeNull();
+      expect(pinBox).not.toBeNull();
+      if (phoneBox && pinBox) {
+        if (width >= 768) expect(pinBox.x).toBeGreaterThan(phoneBox.x);
+        else expect(pinBox.y).toBeGreaterThan(phoneBox.y);
+      }
     }
     if (role.nav === 'Passenger') {
       await expect(page.getByRole('link', { name: /operator|conductor/i })).toHaveCount(0);

@@ -28,12 +28,12 @@ export function LoginForm({ accounts, error, gate = 'passenger', operatorSmsRequ
 
   return (
     <main id="main" className="min-h-dvh w-full bg-[#F4F6FB] text-[#0B1B3B] lg:grid lg:items-center">
-      <div className="mx-auto flex w-full max-w-xl flex-col px-5 pb-6 md:px-12 lg:max-w-2xl lg:px-20 lg:py-12">
+      <div className="flex w-full min-w-0 flex-col px-5 pb-6 sm:px-8 md:px-12 lg:px-[clamp(3rem,8vw,10rem)] lg:py-12">
         <div className="safe-top"><Logo business={resolved !== 'passenger'} /></div>
         <h1 className="mt-6 text-[clamp(26px,7vw,32px)] font-extrabold tracking-[-0.04em]">{title}</h1>
         <p className="mt-1 text-[15px] leading-5 text-[#5C6578]">{subtitle}</p>
         {state?.ok ? (
-          <form action={action} className="mt-6 space-y-4">
+          <form action={action} className="mt-6 max-w-xl space-y-4">
             <p>Enter the six-digit code sent to your registered mobile number.</p>
             <label className="block">Verification code
               <input name="code" className="field mt-2" inputMode="numeric" autoComplete="one-time-code" maxLength={6} pattern="[0-9]{6}" required />
@@ -42,27 +42,27 @@ export function LoginForm({ accounts, error, gate = 'passenger', operatorSmsRequ
             <button disabled={pending} className="h-12 w-full rounded-xl bg-[#1F5BFF] font-bold text-white">Verify and sign in</button>
             <button type="button" onClick={() => window.location.reload()} className="font-semibold text-[#1F5BFF]">Restart sign-in</button>
           </form>
-        ) : <form action={action} className="mt-6">
+        ) : <form action={action} className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-x-6">
           <label className="block text-[13px] font-medium text-[#5C6578]">
             Phone number
             <input name="phone" value={phone} onChange={(event) => setPhone(event.target.value)} inputMode="tel" autoComplete="username" required className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[18px] font-semibold text-[#0B1B3B] outline-none placeholder:text-[#5C6578] focus:border-[#1F5BFF]" />
           </label>
-          <label className="mt-5 block text-[13px] font-medium text-[#5C6578]">
+          <label className="block text-[13px] font-medium text-[#5C6578]">
             {legacy ? 'Old four-digit PIN' : 'Six-digit PIN'}
             <input name="pin" type="password" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, '').slice(0, pinLength))} inputMode="numeric" autoComplete="current-password" maxLength={pinLength} pattern={`[0-9]{${pinLength}}`} required className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[20px] font-semibold tracking-[0.4em] text-[#0B1B3B] outline-none focus:border-[#1F5BFF]" />
           </label>
-          {legacy && <label className="mt-4 block">New six-digit PIN
+          {legacy && <label className="block md:col-span-2">New six-digit PIN
             <input name="nextPin" type="password" className="field mt-2" inputMode="numeric" autoComplete="new-password" maxLength={6} pattern="[0-9]{6}" required />
           </label>}
           <input type="hidden" name="legacy" value={legacy ? 'yes' : 'no'} />
-          <button type="button" className="mt-3 text-sm font-semibold text-[#1F5BFF]" onClick={() => { setLegacy(!legacy); setPin(''); }}>{legacy ? 'Use my six-digit PIN' : 'Upgrade my old four-digit PIN'}</button>
+          <button type="button" className="justify-self-start text-left text-sm font-semibold md:col-span-2 text-[#1F5BFF]" onClick={() => { setLegacy(!legacy); setPin(''); }}>{legacy ? 'Use my six-digit PIN' : 'Upgrade my old four-digit PIN'}</button>
           <input type="hidden" name="gate" value={resolved} />
-          {message ? <p className="mt-3 text-sm text-[#E5484D]" role="alert">{message}</p> : null}
-          <button className="mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-[#1F5BFF] text-[15px] font-bold text-white disabled:opacity-50" disabled={pending || pin.length !== pinLength}>
+          {message ? <p className="text-sm text-[#E5484D] md:col-span-2" role="alert">{message}</p> : null}
+          <button className="flex h-12 w-full md:col-span-2 items-center justify-center rounded-xl bg-[#1F5BFF] text-[15px] font-bold text-white disabled:opacity-50" disabled={pending || pin.length !== pinLength}>
             {pending ? 'Signing in…' : 'Log in'}
           </button>
         </form>}
-        {resolved !== 'passenger' && <div className="mt-4 space-y-2 text-center text-[13px] font-semibold">
+        {resolved !== 'passenger' && <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px] font-semibold">
           {resolved === 'operator' ? (
             <>
               <Link href="/business/signup" className="block text-[#1F5BFF]">Create a company</Link>
@@ -77,7 +77,7 @@ export function LoginForm({ accounts, error, gate = 'passenger', operatorSmsRequ
           ) : null}
         </div>}
         {!state?.ok && accounts.length > 0 ? (
-          <div className="mt-4 space-y-2">
+          <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {accounts.slice(0, 3).map((account) => (
               <form key={account.id} action={demoLoginAction}>
                 <input type="hidden" name="userId" value={account.id} />
