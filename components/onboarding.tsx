@@ -15,9 +15,9 @@ const FAQ = [
 ];
 
 const STEPS = [
-  { src: '/images/brand/device-hand-home.jpg', blur: blur['device-hand-home'], alt: 'A hand holding a phone on a Lusaka street, showing the Twende wallet', title: 'Top up', body: 'Try a simulated wallet top-up with MTN, Airtel, or Zamtel.' },
-  { src: '/images/brand/device-hand-pay.jpg', blur: blur['device-hand-pay'], alt: 'A hand holding a phone on a Lusaka street, paying the fare for bus 12', title: 'Enter the bus number', body: 'Type the number on the bus and pick the fare for that route.' },
-  { src: '/images/brand/device-hand-ticket.jpg', blur: blur['device-hand-ticket'], alt: 'A hand holding a phone on a Lusaka street, showing the ride code', title: 'Show the code', body: 'One code. The conductor verifies it once, on that bus.' },
+  { src: '/images/brand/device-hand-home-option-d.webp', blur: blur['device-hand-home'], alt: 'A hand holding a phone on a Lusaka street, showing the Twende wallet', title: 'Top up', body: 'Try a simulated wallet top-up with MTN, Airtel, or Zamtel.' },
+  { src: '/images/brand/device-hand-pay-option-d.webp', blur: blur['device-hand-pay'], alt: 'A hand holding a phone on a Lusaka street, paying the fare for bus 12', title: 'Enter the bus number', body: 'Type the number on the bus and pick the fare for that route.' },
+  { src: '/images/brand/device-hand-ticket-option-d.webp', blur: blur['device-hand-ticket'], alt: 'A hand holding a phone on a Lusaka street, showing the ride code', title: 'Show the code', body: 'One code. The conductor verifies it once, on that bus.' },
 ];
 
 export function Onboarding() {

@@ -71,7 +71,7 @@ export default function BusinessHome() {
         </div>
         <Reveal delay={80}>
           <PhotoMock
-            src="/images/brand/device-desk.jpg"
+            src="/images/brand/device-desk-option-d.webp"
             blur={blur['device-desk']}
             alt="A laptop showing the Kalambata Transport desk beside a phone with a verified K5 fare"
             width={3200}
