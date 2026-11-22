@@ -3,13 +3,15 @@
 import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CalendarDays, Coins, Map } from 'lucide-react';
+import { Bell, CalendarDays, Coins, Map } from 'lucide-react';
 import { signOutAction } from '@/lib/actions';
 import { Logo } from './shell';
+import { NotificationBadge, useUnreadNotifications } from './notification-badge';
 import { BusIcon, ChartIcon, CloseIcon, GearIcon, LogoutIcon, LostIcon, MenuIcon, UsersIcon, WalletIcon } from './icons';
 
 const LINKS = [
   { href: '/business/desk', label: 'Overview', icon: ChartIcon },
+  { href: '/business/desk/notifications', label: 'Notifications', icon: Bell },
   { href: '/business/desk/fares', label: 'Fares', icon: Coins },
   { href: '/business/desk/map', label: 'Map', icon: Map },
   { href: '/business/desk/buses', label: 'Buses', icon: BusIcon },
@@ -24,6 +26,7 @@ const LINKS = [
 
 export function OwnerFrame({ children, openLost, operator, company }: { children: ReactNode; openLost: number; company: string; operator: { name: string; initials: string } }) {
   const path = usePathname();
+  const unread = useUnreadNotifications();
   const [menuOpen, setMenuOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   return (
@@ -66,6 +69,7 @@ export function OwnerFrame({ children, openLost, operator, company }: { children
               <Link key={link.href} href={link.href} aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)} className={`relative flex h-10 shrink-0 items-center gap-3 rounded-xl px-3 text-[14px] font-semibold lg:h-14 lg:px-4 ${active ? 'bg-[#1F5BFF] text-white lg:bg-white lg:text-[#0B1B3B]' : 'text-white/70 hover:bg-white/10'}`}>
                 <Icon className="h-5 w-5" />
                 {link.label}
+                {link.href === '/business/desk/notifications' && <NotificationBadge unread={unread} />}
                 {link.href === '/business/desk/lost' && openLost > 0 ? <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-[#1F5BFF] px-1 text-[11px] text-white">{openLost}</span> : null}
               </Link>
             );
@@ -103,6 +107,7 @@ export function OwnerFrame({ children, openLost, operator, company }: { children
                   <Link key={link.href} href={link.href} onClick={() => setNavOpen(false)} className={`flex h-12 items-center gap-3 rounded-xl px-3 text-[16px] font-semibold ${active ? 'bg-[#1F5BFF] text-white' : 'text-white/80'}`}>
                     <Icon className="h-5 w-5" />
                     {link.label}
+                {link.href === '/business/desk/notifications' && <NotificationBadge unread={unread} />}
                   </Link>
                 );
               })}

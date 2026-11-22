@@ -128,13 +128,19 @@ export function ConductorAssignmentForm({ bus, conductors }: { bus: BusPerforman
   );
 }
 
-export function PayoutForms({ phone, network, today }: { phone: string; network: string; today: string }) {
+export function PayoutForms({ phone, network, today, locked }: { phone: string; network: string; today: string; locked: boolean }) {
   const [saved, save, saving] = useActionState(savePayoutAction, null as Fail | null);
   const [paid, pay, paying] = useActionState(payoutAction, null);
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <form action={save} className="rounded-3xl bg-white p-4 shadow-sm">
+      {locked ? (
+        <section className="rounded-3xl bg-white p-4 shadow-sm">
+          <h2 className="font-semibold">Locked payout destination</h2>
+          <p className="mt-2 text-sm">Account ending in {phone.slice(-4)}. Contact Twende support to change it.</p>
+        </section>
+      ) : <form action={save} className="rounded-3xl bg-white p-4 shadow-sm">
         <h2 className="font-semibold">Payout destination</h2>
+        <p className="mt-1 text-sm text-[#5C6578]">Check the destination before saving. It will be locked to your account.</p>
         <select name="network" defaultValue={network || 'mtn'} className="mt-3 h-14 w-full rounded-2xl bg-white px-4 text-[#0B1B3B]" aria-label="Network">
           <option value="mtn">MTN MoMo</option>
           <option value="airtel">Airtel Money</option>
@@ -142,14 +148,20 @@ export function PayoutForms({ phone, network, today }: { phone: string; network:
           <option value="bank">Bank account</option>
         </select>
         <input name="destination" defaultValue={phone} aria-label="Destination" className="mt-2 h-14 w-full rounded-2xl bg-white px-4 text-[#0B1B3B] placeholder:text-[#5C6578]" />
+        <label className="mt-3 grid gap-1 text-sm font-semibold">Confirm your six-digit PIN
+          <input name="pin" type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{6}" maxLength={6} required className={registrationField} />
+        </label>
         <button className={`${buttonClass('green')} mt-3`} disabled={saving}>{saving ? 'Saving…' : 'Save destination'}</button>
         {saved?.message ? <p className="mt-2 text-sm text-[#9A3B1A]">{saved.message}</p> : null}
-      </form>
+      </form>}
       <form action={pay} className="rounded-3xl bg-white p-4 shadow-sm">
         <h2 className="font-semibold">Request payout</h2>
         <p className="mt-1 text-sm text-[#5C6B63]">Simulated. Today’s takings are {today}. No Twende fee is deducted yet.</p>
         <input name="amount" defaultValue={today.replace(/[^\d.]/g, '')} aria-label="Amount in kwacha" className="mt-3 h-14 w-full rounded-2xl bg-white px-4 text-[#0B1B3B] placeholder:text-[#5C6578]" />
-        <button className={`${buttonClass('copper')} mt-3`} disabled={paying}>{paying ? 'Sending…' : 'Pay out'}</button>
+        <label className="mt-3 grid gap-1 text-sm font-semibold">Confirm your six-digit PIN
+          <input name="pin" type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{6}" maxLength={6} required className={registrationField} />
+        </label>
+        <button className={`${buttonClass('copper')} mt-3`} disabled={paying || !locked}>{paying ? 'Sending…' : 'Pay out'}</button>
         {paid && 'message' in paid ? <p className={`mt-2 text-sm ${paid.ok ? 'text-[#1F5BFF]' : 'text-[#9A3B1A]'}`}>{paid.message}</p> : null}
       </form>
     </div>

@@ -146,6 +146,14 @@ test('passenger pay, conductor verify, lost and found, owner totals', async () =
   assert.equal(paid.balanceNgwee, 10_500);
   assert.equal(paid.fleetNumber, '12');
 
+  const tracking = await import('../lib/tracking.ts');
+  const offShift = await service.verifyCode(IDS.mwila, paid.code);
+  assert.equal(offShift.ok, false);
+  if (!offShift.ok) assert.match(offShift.message, /Start your shift/);
+  assert.equal((await tracking.startShift(IDS.chanda)).ok, true);
+  assert.equal((await tracking.startShift(IDS.mwila)).ok, true);
+  assert.ok((await service.listNotifications(IDS.richard)).some((notice) => notice.title === 'Fare paid' && notice.href.endsWith(paid.rideId)));
+  assert.ok((await service.listNotifications(IDS.mwila)).some((notice) => notice.title === 'New fare payment'));
   const wrongBus = (await service.verifyCode(IDS.chanda, paid.code));
   assert.equal(wrongBus.ok, false);
   if (!wrongBus.ok) assert.match(wrongBus.message, /Bus 12/);
@@ -171,6 +179,7 @@ test('passenger pay, conductor verify, lost and found, owner totals', async () =
   const cancelled = (await service.cancelFare(IDS.richard, second.rideId));
   assert.equal(cancelled.ok, true);
   if (cancelled.ok) assert.equal(cancelled.balanceNgwee, 10_500);
+  assert.ok((await service.listNotifications(IDS.richard)).some((notice) => notice.title === 'Fare refunded' && notice.href.endsWith(second.rideId)));
   const voided = (await service.verifyCode(IDS.mwila, second.code));
   assert.equal(voided.ok, false);
   if (!voided.ok) assert.match(voided.message, /cancelled/);
@@ -227,6 +236,7 @@ test('passenger pay, conductor verify, lost and found, owner totals', async () =
 
   const payout = await service.requestPayout(IDS.owner, '10');
   assert.equal(payout.ok, true);
+  assert.ok((await service.listNotifications(IDS.owner)).some((notice) => notice.title === 'Test payout recorded' && notice.body.includes('No money was sent')));
   const summary = (await service.getPayoutSummary(IDS.owner));
   assert.ok(summary.availableNgwee > 0);
   assert.equal(summary.history[0]?.amountNgwee, 1000);
@@ -277,6 +287,8 @@ test('signup, pin, support, fare options, and code expiry', async () => {
   const paid = await service.payFare(created.id, '12', '5');
   assert.equal(paid.ok, true);
   if (!paid.ok) return;
+  const { startShift } = await import('../lib/tracking.ts');
+  assert.equal((await startShift(IDS.mwila)).ok, true);
   const verified = await service.verifyCode(IDS.mwila, paid.code);
   assert.equal(verified.ok, true);
   const ticket = await service.openSupport(created.id, 'Card reader', 'The conductor could not see my code.');
@@ -298,4 +310,65 @@ test('signup, pin, support, fare options, and code expiry', async () => {
   assert.equal((await service.payFare(created.id, '12', '7')).ok, true);
   const settled = await service.settleDay(IDS.owner, '12', '10');
   assert.equal(settled.ok, true);
+});
+
+test('fleet notifications are scoped and termination expires account access', async () => {
+  await useIsolatedDatabase();
+  process.env.DEMO_ROLE_SWITCHER = '1';
+  const service = await import('../lib/service.ts');
+  const { getDb, resetDatabase } = await import('../lib/db.ts');
+  const { startShift, endShift, openShift, syncExpiredFleetShifts } = await import('../lib/tracking.ts');
+  const { IDS, PHONES } = await import('../lib/constants.ts');
+  const { DAY_MS, lusakaDateKey } = await import('../lib/time.ts');
+  await resetDatabase();
+
+  assert.equal((await startShift(IDS.mwila)).ok, true);
+  assert.equal((await startShift(IDS.mwila)).ok, true);
+  await endShift(IDS.mwila);
+  await endShift(IDS.mwila);
+  const notices = await service.listNotifications(IDS.owner);
+  assert.equal(notices.filter((notice) => notice.title === 'Shift started').length, 1);
+  assert.equal(notices.filter((notice) => notice.title === 'Shift ended').length, 1);
+  const alert = notices.find((notice) => notice.title === 'Shift started')!;
+  await service.markNotificationRead(IDS.richard, alert.id);
+  assert.equal((await service.listNotifications(IDS.owner)).find((notice) => notice.id === alert.id)?.unread, true);
+  await service.markNotificationRead(IDS.owner, alert.id);
+  assert.equal((await service.listNotifications(IDS.owner)).find((notice) => notice.id === alert.id)?.unread, false);
+  assert.equal((await service.savePayoutDestination(IDS.owner, 'airtel', PHONES.mwila)).ok, false);
+
+  assert.equal((await startShift(IDS.mwila)).ok, true);
+  const expiringShift = await openShift(IDS.mwila);
+  assert.ok(expiringShift);
+  await (await getDb()).run('UPDATE shifts SET expires_at = ? WHERE id = ?', Date.now() - 1, expiringShift.id);
+  await syncExpiredFleetShifts(IDS.owner);
+  await syncExpiredFleetShifts(IDS.owner);
+  assert.equal(await openShift(IDS.mwila), null);
+  assert.equal((await service.listNotifications(IDS.owner)).filter((notice) => notice.title === 'Shift ended').length, 2);
+
+  assert.equal((await service.saveConductorPayoutDestination(IDS.mwila, 'mtn', PHONES.mwila)).ok, true);
+  const payoutArgs = [IDS.owner, IDS.mwila, '5', lusakaDateKey(), '7d425664-c705-4616-b71f-6ad57ded51ea', 'TEST-123'] as const;
+  assert.equal((await service.recordConductorPayout(...payoutArgs)).ok, true);
+  assert.equal((await service.recordConductorPayout(...payoutArgs)).ok, true);
+  assert.equal((await service.listNotifications(IDS.owner)).filter((notice) => notice.title === 'Conductor payout recorded').length, 1);
+  assert.equal((await service.listNotifications(IDS.mwila)).filter((notice) => notice.title === 'Payout recorded').length, 1);
+
+  assert.equal((await service.assignConductor(IDS.owner, IDS.bus15, IDS.mwila)).ok, true);
+  assert.ok((await service.listNotifications(IDS.mwila)).some((notice) => notice.title === 'Bus assigned' && notice.body.includes('15')));
+  assert.equal((await startShift(IDS.mwila)).ok, true);
+  assert.equal((await service.terminateConductor(IDS.richard, IDS.mwila)).ok, false);
+  const before = Date.now();
+  assert.equal((await service.terminateConductor(IDS.owner, IDS.mwila)).ok, true);
+  assert.equal((await service.terminateConductor(IDS.owner, IDS.mwila)).ok, false);
+  assert.equal(await openShift(IDS.mwila), null);
+  assert.equal((await startShift(IDS.mwila)).ok, false);
+  assert.equal((await service.assignConductor(IDS.owner, IDS.bus15, IDS.mwila)).ok, false);
+  const account = await service.getPublicUser(IDS.mwila);
+  assert.ok(account?.conductorClosesAt && account.conductorClosesAt >= before + DAY_MS);
+  assert.ok((await service.listNotifications(IDS.mwila)).some((notice) => notice.title === 'Your conductor account is closing'));
+  assert.equal((await service.authenticate(PHONES.mwila, '123456')).ok, true);
+
+  await (await getDb()).run('UPDATE users SET conductor_closes_at = ? WHERE id = ?', Date.now() - 1, IDS.mwila);
+  assert.equal(await service.getPublicUser(IDS.mwila), null);
+  assert.equal((await service.authenticate(PHONES.mwila, '123456')).ok, false);
+  assert.equal((await service.authenticateDemo(IDS.mwila)).ok, false);
 });

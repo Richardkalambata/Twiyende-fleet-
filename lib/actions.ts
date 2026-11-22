@@ -39,6 +39,7 @@ import {
   recordConductorPayout,
   saveConductorPayoutDestination,
   markNotificationRead,
+  terminateConductor,
 } from './service';
 import { beginOperatorVerification, completeOperatorVerification } from './operator-verification';
 import { requiresOperatorSms } from './operator-sms-policy';
@@ -258,6 +259,9 @@ export async function assignConductorAction(_previous: { ok: boolean; message: s
 
 export async function savePayoutAction(_prev: Fail | null, formData: FormData): Promise<Fail | null> {
   const user = await requireUser(['operator']);
+  const confirmation = await authenticate(user.phone, String(formData.get('pin') ?? ''));
+  if (!confirmation.ok) return confirmation;
+  if (confirmation.user.id !== user.id) return { ok: false, message: 'Confirm your own PIN.' };
   const result = await savePayoutDestination(user.id, String(formData.get('network') ?? ''), String(formData.get('destination') ?? ''));
   if (!result.ok) return result;
   refresh();
@@ -266,6 +270,9 @@ export async function savePayoutAction(_prev: Fail | null, formData: FormData): 
 
 export async function payoutAction(_prev: Fail | { ok: true; message: string } | null, formData: FormData) {
   const user = await requireUser(['operator']);
+  const confirmation = await authenticate(user.phone, String(formData.get('pin') ?? ''));
+  if (!confirmation.ok) return confirmation;
+  if (confirmation.user.id !== user.id) return { ok: false, message: 'Confirm your own PIN.' };
   const result = await requestPayout(user.id, String(formData.get('amount') ?? ''));
   if (result.ok) refresh();
   return result;
@@ -374,6 +381,14 @@ export async function settleAction(formData: FormData) {
   const user = await requireUser(['operator']);
   await settleDay(user.id, String(formData.get('fleet') ?? ''), String(formData.get('amount') ?? ''));
   refresh();
+}
+
+export async function terminateConductorAction(_previous: { ok: boolean; message: string } | null, formData: FormData) {
+  const user = await requireUser(['operator']);
+  if (formData.get('confirm') !== 'on') return { ok: false, message: 'Confirm the account closure first.' };
+  const result = await terminateConductor(user.id, String(formData.get('conductorId') ?? ''));
+  if (result.ok) refresh();
+  return result;
 }
 
 export async function readNoticeAction(formData: FormData) {

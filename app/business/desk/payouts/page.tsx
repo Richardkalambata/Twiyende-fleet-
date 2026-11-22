@@ -13,7 +13,7 @@ export const metadata = { title: 'Payouts' };
 
 export default async function PayoutsPage() {
   const user = await requireUser(['operator']);
-  const [summary, conductors, destinations, conductorPayouts] = await Promise.all([getPayoutSummary(user.id), listConductors(user.id), conductorPayoutDestinations(user.id), listOperatorConductorPayouts(user.id)]);
+  const [summary, conductors, destinations, conductorPayouts] = await Promise.all([getPayoutSummary(user.id), listConductors(user.id, true), conductorPayoutDestinations(user.id), listOperatorConductorPayouts(user.id)]);
   return (
     <div className="space-y-4 px-4 py-5 md:px-6">
       <h1 className="text-[28px] font-semibold">Payouts</h1>
@@ -46,7 +46,7 @@ export default async function PayoutsPage() {
           </ul>
         )}
       </section>
-      <PayoutForms phone={summary.payoutPhone ?? user.phone} network={summary.payoutNetwork ?? 'mtn'} today={formatGrouped(summary.todayNgwee)} />
+      <PayoutForms locked={Boolean(summary.payoutPhone)} phone={summary.payoutPhone ?? user.phone} network={summary.payoutNetwork ?? 'mtn'} today={formatGrouped(summary.todayNgwee)} />
       <section className="rounded-3xl bg-white p-4 shadow-sm">
         <h2 className="font-semibold">History</h2>
         {summary.history.length === 0 ? <div className="mt-3"><EmptyState title="No payouts yet" body="Today’s takings stay available until you mark a bus settled." /></div> : null}

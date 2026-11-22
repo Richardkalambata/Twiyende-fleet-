@@ -44,6 +44,8 @@ CREATE TABLE IF NOT EXISTS users (
   created_at BIGINT NOT NULL
 );
 
+ALTER TABLE users ADD COLUMN IF NOT EXISTS conductor_closes_at BIGINT;
+
 CREATE TABLE IF NOT EXISTS wallets (
   user_id TEXT PRIMARY KEY REFERENCES users (id),
   balance_ngwee INTEGER NOT NULL DEFAULT 0

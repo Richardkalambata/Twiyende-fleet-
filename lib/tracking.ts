@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
-import { getDb, type Db } from './db';
+import { getDb, withTransaction, type Db } from './db';
+import { notifyShift } from './notifications';
 import { LUSAKA_LANDMARKS } from './lusaka-places';
 import { demoRoutePath, LUSAKA_ROUTES } from './lusaka-routes';
 import { DAY_MS, lusakaDateKey, startOfLusakaDay } from './time';
@@ -58,48 +59,81 @@ export function simulatedEnabled(): boolean {
 }
 
 async function assignedBus(conductorId: string) {
-  const today = lusakaDateKey();
-  return (await getDb()).get<{ id: string; fleet_number: string; route: string }>(
-    `SELECT b.id, b.fleet_number, b.route FROM assignments a JOIN buses b ON b.id = a.bus_id
-     WHERE a.conductor_id = ? AND a.shift_date = ? AND b.status = 'active' LIMIT 1`,
-    conductorId,
-    today,
+  return (await getDb()).get<{ id: string; fleet_number: string; route: string | null }>(
+    `SELECT b.id, b.fleet_number, b.route FROM buses b
+     JOIN users u ON u.id = ? AND u.operator_id = b.owner_id
+     WHERE u.conductor_closes_at IS NULL AND b.status = 'active' AND (
+       b.conductor_id = u.id OR EXISTS (
+         SELECT 1 FROM assignments a WHERE a.conductor_id = u.id AND a.bus_id = b.id AND a.shift_date = ?
+       )
+     ) ORDER BY (b.conductor_id = u.id) DESC NULLS LAST, b.id LIMIT 1`,
+    conductorId, lusakaDateKey(),
   );
 }
 
 export async function openShift(conductorId: string) {
-  const now = Date.now();
-  const db = await getDb();
-  await db.run(`UPDATE shifts SET ended_at = ? WHERE conductor_id = ? AND ended_at IS NULL AND expires_at <= ?`, now, conductorId, now);
-  return db.get<{ id: string; bus_id: string; started_at: number; expires_at: number }>(
+  return (await getDb()).get<{ id: string; bus_id: string; started_at: number; expires_at: number }>(
     `SELECT id, bus_id, started_at, expires_at FROM shifts WHERE conductor_id = ? AND ended_at IS NULL AND expires_at > ? ORDER BY started_at DESC LIMIT 1`,
-    conductorId,
-    now,
+    conductorId, Date.now(),
   );
+}
+
+async function closeExpiredShifts(scope: { conductorId: string } | { operatorId: string }, now: number) {
+  const db = await getDb();
+  const byConductor = 'conductorId' in scope;
+  const ended = await db.all<{ conductor_id: string; bus_id: string }>(
+    `UPDATE shifts SET ended_at = expires_at WHERE ended_at IS NULL AND expires_at <= ? AND
+     ${byConductor ? 'conductor_id = ?' : 'bus_id IN (SELECT id FROM buses WHERE owner_id = ?)'}
+     RETURNING conductor_id, bus_id`, now, byConductor ? scope.conductorId : scope.operatorId,
+  );
+  for (const shift of ended) await notifyShift(shift.conductor_id, shift.bus_id, 'ended');
+}
+
+export async function syncExpiredFleetShifts(operatorId: string) {
+  const now = Date.now();
+  const expired = await (await getDb()).get(
+    `SELECT 1 FROM shifts s JOIN buses b ON b.id = s.bus_id
+     WHERE b.owner_id = ? AND s.ended_at IS NULL AND s.expires_at <= ? LIMIT 1`, operatorId, now,
+  );
+  if (expired) await withTransaction(() => closeExpiredShifts({ operatorId }, now));
 }
 
 export async function startShift(conductorId: string) {
-  const bus = await assignedBus(conductorId);
-  if (!bus) return { ok: false as const, message: 'No bus is assigned to you today.' };
-  const existing = await openShift(conductorId);
-  if (existing) return { ok: true as const, busId: existing.bus_id, fleet: bus.fleet_number, route: bus.route, startedAt: existing.started_at, already: true };
-  const now = Date.now();
-  const expires = startOfLusakaDay(new Date(now)) + DAY_MS;
-  await (await getDb()).run(
-    `INSERT INTO shifts (id, conductor_id, bus_id, started_at, ended_at, expires_at) VALUES (?, ?, ?, ?, NULL, ?)`,
-    id('shf'),
-    conductorId,
-    bus.id,
-    now,
-    expires,
-  );
-  return { ok: true as const, busId: bus.id, fleet: bus.fleet_number, route: bus.route, startedAt: now, already: false };
+  return withTransaction(async () => {
+    const db = await getDb();
+    const conductor = await db.get<{ operator_id: string | null }>(
+      "SELECT operator_id FROM users WHERE id = ? AND role = 'conductor'", conductorId,
+    );
+    if (!conductor?.operator_id) return { ok: false as const, message: 'No bus is assigned to you.' };
+    await db.run('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', `fleet-assignment:${conductor.operator_id}`);
+    const bus = await assignedBus(conductorId);
+    if (!bus) return { ok: false as const, message: 'No active bus is assigned to you.' };
+    const now = Date.now();
+    await closeExpiredShifts({ conductorId }, now);
+    const existing = await openShift(conductorId);
+    if (existing) {
+      return { ok: true as const, busId: existing.bus_id, fleet: bus.fleet_number, route: bus.route, startedAt: existing.started_at, already: true };
+    }
+    const expires = startOfLusakaDay(new Date(now)) + DAY_MS;
+    await db.run(
+      'INSERT INTO shifts (id, conductor_id, bus_id, started_at, ended_at, expires_at) VALUES (?, ?, ?, ?, NULL, ?)',
+      id('shf'), conductorId, bus.id, now, expires,
+    );
+    await notifyShift(conductorId, bus.id, 'started');
+    return { ok: true as const, busId: bus.id, fleet: bus.fleet_number, route: bus.route, startedAt: now, already: false };
+  });
 }
 
 export async function endShift(conductorId: string) {
-  const now = Date.now();
-  await (await getDb()).run(`UPDATE shifts SET ended_at = ? WHERE conductor_id = ? AND ended_at IS NULL`, now, conductorId);
-  return { ok: true as const };
+  return withTransaction(async () => {
+    const now = Date.now();
+    const ended = await (await getDb()).all<{ bus_id: string }>(
+      'UPDATE shifts SET ended_at = LEAST(expires_at, ?) WHERE conductor_id = ? AND ended_at IS NULL RETURNING bus_id',
+      now, conductorId,
+    );
+    for (const shift of ended) await notifyShift(conductorId, shift.bus_id, 'ended');
+    return { ok: true as const };
+  });
 }
 
 export async function recordConductorLocation(

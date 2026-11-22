@@ -7,6 +7,7 @@ import { formatBalance, formatCompact, parseFare, parseMoney } from './money';
 import { getPaymentProvider, type PayoutNetwork } from './payments';
 import { hashPin, verifyPin } from './pin';
 import { formatPhone, normalizePhone } from './phone';
+import { notifyShift, notifyUser } from './notifications';
 import { getSmsProvider } from './sms';
 import { cleanText, nid } from './text';
 import {
@@ -56,6 +57,7 @@ type UserRow = {
   role: string;
   initials: string;
   demo: boolean;
+  conductor_closes_at: number | null;
   payout_phone: string | null;
   payout_network: string | null;
 };
@@ -117,6 +119,7 @@ function mapUser(row: UserRow): PublicUser {
     demo: row.demo === true,
     payoutPhone: row.payout_phone,
     payoutNetwork: row.payout_network,
+    conductorClosesAt: row.conductor_closes_at,
   };
 }
 
@@ -126,7 +129,7 @@ async function userById(id: string): Promise<UserRow | null> {
 
 export async function getPublicUser(id: string): Promise<PublicUser | null> {
   const row = await userById(id);
-  return row ? mapUser(row) : null;
+  return row && (row.conductor_closes_at == null || row.conductor_closes_at > Date.now()) ? mapUser(row) : null;
 }
 
 export function parseRange(value: string | undefined): RangeKey {
@@ -257,6 +260,9 @@ export async function authenticate(phoneRaw: string, pin: string): Promise<{ ok:
   if (!row || !verifyPin(pin, row.pin_hash)) {
     return { ok: false, message: 'That phone number and PIN do not match.' };
   }
+  if (row.conductor_closes_at != null && row.conductor_closes_at <= now) {
+    return { ok: false, message: 'This conductor account is closed.' };
+  }
   return { ok: true, user: mapUser(row), pinHash: row.pin_hash };
 }
 
@@ -264,14 +270,14 @@ export async function authenticateDemo(userId: string): Promise<{ ok: true; user
   if (process.env.DEMO_ROLE_SWITCHER !== '1') {
     return { ok: false, message: 'Demo sign-in is turned off.' };
   }
-  const row = await (await getDb()).get('SELECT * FROM users WHERE id = ? AND demo = TRUE', userId) as UserRow | undefined;
+  const row = await (await getDb()).get('SELECT * FROM users WHERE id = ? AND demo = TRUE AND (conductor_closes_at IS NULL OR conductor_closes_at > ?)', userId, Date.now()) as UserRow | undefined;
   if (!row) return { ok: false, message: 'That demo account is not available.' };
   return { ok: true, user: mapUser(row) };
 }
 
 export async function listDemoAccounts(): Promise<DemoAccount[]> {
   if (process.env.DEMO_ROLE_SWITCHER !== '1') return [];
-  const rows = await (await getDb()).all(`SELECT * FROM users WHERE demo = TRUE`) as UserRow[];
+  const rows = await (await getDb()).all(`SELECT * FROM users WHERE demo = TRUE AND conductor_closes_at IS NULL`) as UserRow[];
   const buses = await (await getDb()).all('SELECT fleet_number, conductor_id FROM buses') as Array<{
     fleet_number: string;
     conductor_id: string | null;
@@ -414,6 +420,10 @@ export async function payFare(passengerId: string, fleetRaw: string, fareRaw: st
   try {
     return await withTransaction(async () => {
       const db = await getDb();
+      const current = await db.get<BusRow>('SELECT * FROM buses WHERE id = ? FOR SHARE', bus.id);
+      if (!current || current.status !== 'active' || current.conductor_id !== bus.conductor_id || current.route !== bus.route) {
+        throw new UserError('This bus changed while you were paying. Check the bus and try again.');
+      }
       const rideId = nid('ride');
       const now = Date.now();
       const expiresAt = now + 3 * 60 * 60 * 1000;
@@ -423,6 +433,10 @@ export async function payFare(passengerId: string, fleetRaw: string, fareRaw: st
         VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, NULL, ?, ?)`,
         rideId, passengerId, passenger.short_name, bus.id, bus.conductor_id, amount, code, now, bus.route, expiresAt);
       const balanceNgwee = await writeWallet(passengerId, -amount, 'fare', `Fare for Bus ${bus.fleet_number}`, { rideId });
+      await notifyUser(passengerId, 'Fare paid', `${formatBalance(amount)} paid for Bus ${bus.fleet_number}. Show your code to the conductor.`, `/receipt/${rideId}`);
+      if (bus.conductor_id) {
+        await notifyUser(bus.conductor_id, 'New fare payment', `A rider paid ${formatBalance(amount)} on Bus ${bus.fleet_number}. The fare is awaiting verification.`, '/business/drive');
+      }
       return { ok: true as const, rideId, code, amountNgwee: amount, balanceNgwee, fleetNumber: bus.fleet_number, route: bus.route };
     });
   } catch (error) {
@@ -443,6 +457,7 @@ export async function cancelFare(passengerId: string, rideId: string) {
       const balanceNgwee = await writeWallet(passengerId, ride.amount_ngwee, 'refund', `Refund for Bus ${ride.fleet_number}`, {
         rideId,
       });
+      await notifyUser(passengerId, 'Fare refunded', `${formatBalance(ride.amount_ngwee)} was returned to your wallet for Bus ${ride.fleet_number}.`, `/receipt/${rideId}`);
       return { ok: true as const, balanceNgwee };
     });
   } catch (error) {
@@ -460,6 +475,11 @@ export async function verifyCode(conductorId: string, rawCode: string) {
   }
   try {
     return await withTransaction(async () => {
+      const shift = await (await getDb()).get(
+        'SELECT id FROM shifts WHERE conductor_id = ? AND bus_id = ? AND ended_at IS NULL AND expires_at > ? LIMIT 1 FOR UPDATE',
+        conductorId, bus.id, Date.now(),
+      );
+      if (!shift) throw new UserError('Start your shift before verifying a fare.');
       const ride = await (await getDb()).get(`SELECT r.* FROM rides r LEFT JOIN code_leases c ON c.code = r.code
         WHERE r.code = ? AND (c.code IS NULL OR c.record_id = r.id)`, code) as
         | (RideJoin & { fleet_number?: string })
@@ -560,23 +580,30 @@ export async function recordConductorPayout(operatorId: string, conductorId: str
   }
   if (!/^[a-f0-9-]{36}$/i.test(requestId)) return { ok: false as const, message: 'Reload the page and try again.' };
   const id = `${operatorId}:${requestId}`;
-  const db = await getDb();
-  const reference = cleanText(transferRefRaw, 80).toUpperCase();
-  if (!reference) return { ok: false as const, message: 'Enter the mobile-money transfer reference after paying.' };
-  const previous = await db.get(`SELECT id FROM conductor_payouts WHERE id = ? AND conductor_id = ?
-    AND amount_ngwee = ? AND paid_on = ? AND transfer_reference = ?`, id, conductorId, amount, paidOn, reference);
-  if (previous) return { ok: true as const, message: 'Payout recorded.' };
-  const inserted = await db.run(`INSERT INTO conductor_payouts
-    (id, operator_id, conductor_id, amount_ngwee, paid_on, created_at, network, destination, transfer_reference)
-    SELECT ?, ?, id, ?, ?, ?, payout_network, payout_phone, ? FROM users
-    WHERE id = ? AND operator_id = ? AND role = 'conductor' AND payout_phone IS NOT NULL
-      AND payout_network IN ('mtn', 'airtel', 'zamtel')
-    ON CONFLICT DO NOTHING`, id, operatorId, amount, paidOn, Date.now(), reference, conductorId, operatorId);
-  if (!inserted.changes && !await db.get(`SELECT id FROM conductor_payouts WHERE id = ? AND conductor_id = ?
-    AND amount_ngwee = ? AND paid_on = ? AND transfer_reference = ?`, id, conductorId, amount, paidOn, reference)) {
-    return { ok: false as const, message: 'Check the conductor’s mobile-money details and make sure this transfer reference has not already been recorded.' };
-  }
-  return { ok: true as const, message: 'Payout recorded.' };
+  return withTransaction(async () => {
+    const db = await getDb();
+    const reference = cleanText(transferRefRaw, 80).toUpperCase();
+    if (!reference) return { ok: false as const, message: 'Enter the mobile-money transfer reference after paying.' };
+    const previous = await db.get(`SELECT id FROM conductor_payouts WHERE id = ? AND conductor_id = ?
+      AND amount_ngwee = ? AND paid_on = ? AND transfer_reference = ?`, id, conductorId, amount, paidOn, reference);
+    if (previous) return { ok: true as const, message: 'Payout recorded.' };
+    const inserted = await db.run(`INSERT INTO conductor_payouts
+      (id, operator_id, conductor_id, amount_ngwee, paid_on, created_at, network, destination, transfer_reference)
+      SELECT ?, ?, id, ?, ?, ?, payout_network, payout_phone, ? FROM users
+      WHERE id = ? AND operator_id = ? AND role = 'conductor' AND payout_phone IS NOT NULL
+        AND payout_network IN ('mtn', 'airtel', 'zamtel')
+      ON CONFLICT DO NOTHING`, id, operatorId, amount, paidOn, Date.now(), reference, conductorId, operatorId);
+    if (!inserted.changes && !await db.get(`SELECT id FROM conductor_payouts WHERE id = ? AND conductor_id = ?
+      AND amount_ngwee = ? AND paid_on = ? AND transfer_reference = ?`, id, conductorId, amount, paidOn, reference)) {
+      return { ok: false as const, message: 'Check the conductor’s mobile-money details and make sure this transfer reference has not already been recorded.' };
+    }
+    if (inserted.changes) {
+      const conductor = await userById(conductorId);
+      await notifyUser(operatorId, 'Conductor payout recorded', `${formatBalance(amount)} payout to ${conductor?.name ?? 'your conductor'} recorded.`, '/business/desk/payouts');
+      await notifyUser(conductorId, 'Payout recorded', `Your operator recorded a ${formatBalance(amount)} mobile-money payment.`, '/business/drive/earnings');
+    }
+    return { ok: true as const, message: 'Payout recorded.' };
+  });
 }
 
 
@@ -646,6 +673,7 @@ export async function topUp(passengerId: string, network: string, phoneRaw: stri
       const balanceNgwee = await writeWallet(passengerId, amount, 'topup', `Top up from ${networkLabel(network)}`, {
         transactionId, provider: network, providerRef: result.providerRef,
       });
+      await notifyUser(passengerId, 'Wallet topped up', `${formatBalance(amount)} was added to your Twende wallet.`, '/wallet');
       return { ok: true as const, balanceNgwee, providerRef: result.providerRef };
     });
   } catch (error) {
@@ -1185,11 +1213,12 @@ export async function listOwnerBuses(ownerId: string): Promise<BusPerformance[]>
   return (await getOwnerDashboard(ownerId, 'today')).buses;
 }
 
-export async function listConductors(ownerId: string): Promise<ConductorOption[]> {
-  const rows = await (await getDb()).all(`SELECT u.id, u.short_name, u.phone, b.fleet_number
+export async function listConductors(ownerId: string, includeClosing = false): Promise<ConductorOption[]> {
+  const rows = await (await getDb()).all(`SELECT u.id, u.short_name, u.phone, b.fleet_number, u.conductor_closes_at
       FROM users u LEFT JOIN buses b ON b.conductor_id = u.id AND b.owner_id = ?
-      WHERE u.role = 'conductor' AND u.operator_id = ? ORDER BY u.short_name`, ownerId, ownerId) as Array<{ id: string; short_name: string; phone: string; fleet_number: string | null }>;
-  return rows.map((row) => ({ id: row.id, shortName: row.short_name, phone: row.phone, busFleet: row.fleet_number }));
+      WHERE u.role = 'conductor' AND u.operator_id = ?
+        AND (?::boolean OR u.conductor_closes_at IS NULL) ORDER BY u.short_name`, ownerId, ownerId, includeClosing) as Array<{ id: string; short_name: string; phone: string; fleet_number: string | null; conductor_closes_at: number | null }>;
+  return rows.map((row) => ({ id: row.id, shortName: row.short_name, phone: row.phone, busFleet: row.fleet_number, closesAt: row.conductor_closes_at }));
 }
 
 export async function conductorPayoutDestinations(operatorId: string) {
@@ -1330,14 +1359,14 @@ async function assignConductorInTransaction(ownerId: string, busId: string, cond
   await db.run('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', `fleet-assignment:${ownerId}`);
   const bus = await busById(busId);
   if (!bus || bus.owner_id !== ownerId) throw new UserError('That bus is not in your fleet.');
-  if (conductorId && !await db.get("SELECT id FROM users WHERE id = ? AND operator_id = ? AND role = 'conductor'", conductorId, ownerId)) {
+  if (conductorId && !await db.get("SELECT id FROM users WHERE id = ? AND operator_id = ? AND role = 'conductor' AND conductor_closes_at IS NULL", conductorId, ownerId)) {
     throw new UserError('Choose a conductor in your fleet.');
   }
   const today = lusakaDateKey();
   const now = Date.now();
-  await db.run(`UPDATE shifts SET ended_at = ? WHERE ended_at IS NULL AND
+  const ended = await db.all<{ conductor_id: string; bus_id: string }>(`UPDATE shifts SET ended_at = LEAST(expires_at, ?) WHERE ended_at IS NULL AND
     ((bus_id = ? AND conductor_id IS DISTINCT FROM ?::text) OR
-     (conductor_id = ? AND bus_id <> ? AND bus_id IN (SELECT id FROM buses WHERE owner_id = ?)))`,
+     (conductor_id = ? AND bus_id <> ? AND bus_id IN (SELECT id FROM buses WHERE owner_id = ?))) RETURNING conductor_id, bus_id`,
     now, busId, conductorId, conductorId, busId, ownerId);
   await db.run(`DELETE FROM assignments WHERE shift_date = ? AND
     (bus_id = ? OR (conductor_id = ? AND bus_id IN (SELECT id FROM buses WHERE owner_id = ?)))`,
@@ -1348,6 +1377,40 @@ async function assignConductorInTransaction(ownerId: string, busId: string, cond
       nid('asg'), conductorId, busId, today, now);
   }
   await db.run('UPDATE buses SET conductor_id = ? WHERE id = ? AND owner_id = ?', conductorId, busId, ownerId);
+  for (const shift of ended) await notifyShift(shift.conductor_id, shift.bus_id, 'ended');
+  if (conductorId !== bus.conductor_id) {
+    if (conductorId) await notifyUser(conductorId, 'Bus assigned', `You’ve been assigned to Bus ${bus.fleet_number}.`, '/business/drive/trips');
+    if (bus.conductor_id) await notifyUser(bus.conductor_id, 'Bus assignment removed', `You’re no longer assigned to Bus ${bus.fleet_number}.`, '/business/drive/trips');
+  }
+}
+
+export async function terminateConductor(operatorId: string, conductorId: string) {
+  try {
+    return await withTransaction(async () => {
+      const db = await getDb();
+      await db.run('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', `fleet-assignment:${operatorId}`);
+      const now = Date.now();
+      const closesAt = now + DAY_MS;
+      const closed = await db.get<{ id: string }>(
+        `UPDATE users SET conductor_closes_at = ? WHERE id = ? AND operator_id = ?
+         AND role = 'conductor' AND conductor_closes_at IS NULL RETURNING id`,
+        closesAt, conductorId, operatorId,
+      );
+      if (!closed) throw new UserError('This conductor is unavailable or already scheduled to close.');
+      const ended = await db.all<{ bus_id: string }>(
+        'UPDATE shifts SET ended_at = LEAST(expires_at, ?) WHERE conductor_id = ? AND ended_at IS NULL RETURNING bus_id',
+        now, conductorId,
+      );
+      await db.run('UPDATE buses SET conductor_id = NULL WHERE conductor_id = ? AND owner_id = ?', conductorId, operatorId);
+      await db.run('DELETE FROM assignments WHERE conductor_id = ? AND shift_date >= ? AND bus_id IN (SELECT id FROM buses WHERE owner_id = ?)', conductorId, lusakaDateKey(), operatorId);
+      await db.run('UPDATE sessions SET expires_at = LEAST(expires_at, ?) WHERE user_id = ?', closesAt, conductorId);
+      for (const shift of ended) await notifyShift(conductorId, shift.bus_id, 'ended');
+      await notifyUser(conductorId, 'Your conductor account is closing', 'Your operator ended your assignment. You have 24 hours to review your account and payout history.', '/business/drive/earnings');
+      return { ok: true as const, message: 'Conductor removed from the fleet. Account access ends in 24 hours.' };
+    });
+  } catch (error) {
+    return asFail(error);
+  }
 }
 
 export async function assignConductor(ownerId: string, busId: string, conductorId: string | null) {
@@ -1378,7 +1441,7 @@ export async function getPayoutSummary(ownerId: string): Promise<PayoutSummary> 
   const user = await userById(ownerId);
   const dash = await getOwnerDashboard(ownerId, 'today');
   const history = await (await getDb()).all(`SELECT id, amount_ngwee, status, network, destination, created_at FROM payouts
-      WHERE owner_id = ? AND status = 'paid' ORDER BY created_at DESC LIMIT 20`, ownerId) as Array<{ id: string; amount_ngwee: number; status: string; network: string; destination: string; created_at: number }>;
+      WHERE owner_id = ? AND status = 'paid' ORDER BY created_at DESC, id DESC LIMIT 50`, ownerId) as Array<{ id: string; amount_ngwee: number; status: string; network: string; destination: string; created_at: number }>;
   return {
     availableNgwee: await ownerAvailableNgwee(ownerId),
     todayNgwee: dash.totalNgwee,
@@ -1403,7 +1466,11 @@ export async function savePayoutDestination(ownerId: string, network: string, de
   if (!destination || (network === 'bank' && destination.length < 6)) {
     return { ok: false as const, message: network === 'bank' ? 'Enter the account number.' : 'Enter the mobile-money number.' };
   }
-  await (await getDb()).run('UPDATE users SET payout_network = ?, payout_phone = ? WHERE id = ? AND role = ?', network, destination, ownerId, 'operator');
+  const updated = await (await getDb()).run(
+    "UPDATE users SET payout_network = ?, payout_phone = ? WHERE id = ? AND role IN ('operator', 'owner') AND payout_phone IS NULL",
+    network, destination, ownerId,
+  );
+  if (!updated.changes) return { ok: false as const, message: 'Your payout destination is locked. Contact Twende support to change it.' };
   return { ok: true as const };
 }
 
@@ -1416,8 +1483,9 @@ export async function requestPayout(ownerId: string, amountRaw: string) {
   if (amount == null) return { ok: false as const, message: 'Enter a payout of at least K1.' };
   const user = await userById(ownerId);
   if (!user) return { ok: false as const, message: 'Sign in again.' };
-  const network = (user.payout_network ?? 'mtn') as PayoutNetwork;
-  const destination = user.payout_phone ?? user.phone;
+  if (!user.payout_phone || !user.payout_network) return { ok: false as const, message: 'Set your payout destination first.' };
+  const network = user.payout_network as PayoutNetwork;
+  const destination = user.payout_phone;
   const payoutId = nid('pay');
   try {
     await withTransaction(async () => {
@@ -1449,11 +1517,18 @@ export async function requestPayout(ownerId: string, amountRaw: string) {
     await releaseReservation(payoutId);
     return { ok: false as const, message: result.message };
   }
-  const updated = await (await getDb()).run(`UPDATE payouts SET status = 'paid', provider_ref = ? WHERE id = ? AND status = 'reserved'`, result.providerRef, payoutId);
-  if (Number(updated.changes) !== 1) {
-    return { ok: false as const, message: 'The payout could not be recorded. Check payouts before trying again.' };
-  }
-  return { ok: true as const, message: `${formatBalance(amount)} sent to ${formatPhone(destination)} via ${networkLabel(network)}.` };
+  return withTransaction(async () => {
+    const updated = await (await getDb()).run(`UPDATE payouts SET status = 'paid', provider_ref = ? WHERE id = ? AND status = 'reserved'`, result.providerRef, payoutId);
+    if (updated.changes !== 1) {
+      return { ok: false as const, message: 'The payout could not be recorded. Check payouts before trying again.' };
+    }
+    const simulated = getPaymentProvider().id === 'simulated';
+    const message = simulated
+      ? `A ${formatBalance(amount)} test payout was recorded. No money was sent.`
+      : `${formatBalance(amount)} sent to ${formatPhone(destination)} via ${networkLabel(network)}.`;
+    await notifyUser(ownerId, simulated ? 'Test payout recorded' : 'Payout successful', message, '/business/desk/payouts');
+    return { ok: true as const, message };
+  });
 }
 
 export function fareArchiveYear(value?: string) {
@@ -1563,19 +1638,12 @@ export async function saveAssignment(ownerId: string, busId: string, conductorId
   return assignConductor(ownerId, busId, conductorId);
 }
 
-async function notifyUser(userId: string, title: string, body: string, href: string) {
-  await (await getDb()).run(
-    'INSERT INTO notifications (id, user_id, title, body, href, read_at, created_at) VALUES (?, ?, ?, ?, ?, NULL, ?)',
-    nid('ntf'), userId, title, body, href, Date.now(),
-  );
-}
-
 export async function listNotifications(userId: string): Promise<Notice[]> {
   const rows = await (await getDb()).all(
-    'SELECT id, title, body, href, read_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 20',
+    'SELECT id, title, body, href, read_at, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT 50',
     userId,
-  ) as Array<{ id: string; title: string; body: string; href: string; read_at: number | null }>;
-  return rows.map((row) => ({ id: row.id, title: row.title, body: row.body, href: row.href, unread: row.read_at == null }));
+  ) as Array<{ id: string; title: string; body: string; href: string; read_at: number | null; created_at: number }>;
+  return rows.map((row) => ({ id: row.id, title: row.title, body: row.body, href: row.href, unread: row.read_at == null, createdAt: row.created_at }));
 }
 
 export async function markNotificationRead(userId: string, id: string) {

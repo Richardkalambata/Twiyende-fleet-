@@ -13,6 +13,7 @@ export type PublicUser = {
   demo: boolean;
   payoutPhone: string | null;
   payoutNetwork: string | null;
+  conductorClosesAt?: number | null;
 };
 
 export type DemoAccount = {
@@ -30,6 +31,7 @@ export type Notice = {
   title: string;
   body: string;
   unread?: boolean;
+  createdAt?: number;
 };
 
 export type RideCard = {
@@ -160,6 +162,7 @@ export type ConductorOption = {
   shortName: string;
   phone: string;
   busFleet: string | null;
+  closesAt?: number | null;
 };
 
 export type PayoutRow = {
