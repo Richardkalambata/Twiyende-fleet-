@@ -778,7 +778,7 @@ html[data-motion='rich'] .land-in { animation-name: land-depth; }
   display: grid;
   place-items: center;
   background: #0b1b3b;
-  animation: brand-entry 460ms ease-out both;
+  animation: brand-entry 1500ms ease-out both;
 }
 
 .brand-entry svg {
@@ -786,7 +786,7 @@ html[data-motion='rich'] .land-in { animation-name: land-depth; }
 }
 
 @keyframes brand-entry {
-  0%, 70% { opacity: 1; visibility: visible; }
+  0%, 85% { opacity: 1; visibility: visible; }
   100% { opacity: 0; visibility: hidden; }
 }
 
