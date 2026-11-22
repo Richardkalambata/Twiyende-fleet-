@@ -162,7 +162,7 @@ export default function BusinessHome() {
         </div>
       </section>
       <SiteFooter business />
-      <StickyBar primary={{ href: '/business/signup', label: 'Create a company' }} secondary={{ href: '/business/login', label: 'Sign in' }} />
+      <StickyBar primary={{ href: '/business/signup', label: 'Create a company' }} secondary={{ href: '/business/login', label: 'Operator sign in' }} />
     </div>
   );
 }

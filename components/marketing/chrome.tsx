@@ -66,6 +66,15 @@ export function SiteHeader({ business = false }: { business?: boolean }) {
   );
 }
 
+export function CreatorCredit() {
+  return (
+    <a href="https://modernmindsettechnologies.com/" className="inline-flex items-center justify-center gap-2 text-[11px] font-semibold leading-tight text-[#5C6578] hover:underline">
+            <Image src="/images/modernmindset-logo.webp" alt="" width={520} height={101} className="h-auto w-24 shrink-0 md:w-28" />
+            <span>Built by ModernMindSet Technologies</span>
+          </a>
+  );
+}
+
 export function SiteFooter({ business = false }: { business?: boolean }) {
   return (
     <footer className="border-t border-[#E4E8F0] bg-white">
@@ -85,10 +94,7 @@ export function SiteFooter({ business = false }: { business?: boolean }) {
       <div className="border-t border-[#E4E8F0]">
         <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-4 text-[12px] font-semibold text-[#5C6578] md:px-8">
           <p>© 2026 Twende.</p>
-          <a href="https://modernmindsettechnologies.com/" className="inline-flex min-w-0 flex-wrap items-center gap-2.5 hover:underline">
-            <Image src="/images/modernmindset-logo.webp" alt="" width={520} height={101} className="h-auto w-28" />
-            <span>Built by ModernMindSet Technologies</span>
-          </a>
+          <div className="hidden md:block"><CreatorCredit /></div>
         </div>
       </div>
     </footer>
