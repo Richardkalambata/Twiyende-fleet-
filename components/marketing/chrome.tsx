@@ -1,15 +1,45 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { BusFront, CircleHelp, UsersRound } from 'lucide-react';
 import Link from 'next/link';
 import { Logo } from '@/components/shell';
 
 export function SiteHeader({ business = false }: { business?: boolean }) {
+  const [helpActive, setHelpActive] = useState(false);
+  useEffect(() => {
+    const sync = () => setHelpActive(window.location.hash === '#faq');
+    sync();
+    window.addEventListener('hashchange', sync);
+    window.addEventListener('popstate', sync);
+    return () => {
+      window.removeEventListener('hashchange', sync);
+      window.removeEventListener('popstate', sync);
+    };
+  }, [business]);
+
+  const links = [
+    { href: '/', label: 'Riders', Icon: UsersRound, active: !business && !helpActive },
+    { href: '/business', label: 'Business', Icon: BusFront, active: business && !helpActive },
+    { href: business ? '/business#faq' : '/#faq', label: 'Help', Icon: CircleHelp, active: helpActive },
+  ];
+  const renderLinks = () => links.map(({ href, label, Icon, active }) => (
+    <Link key={label} href={href}
+      onClick={() => setHelpActive(label === 'Help')}
+      aria-current={active ? (label === 'Help' ? 'location' : 'page') : undefined}
+      className="group relative flex min-h-12 items-center gap-2 rounded-lg px-2 hover:bg-current/5 md:px-3">
+      <Icon className="size-6 shrink-0" aria-hidden />
+      {label}
+      <span aria-hidden className={`absolute bottom-0.5 left-1/2 size-1.5 -translate-x-1/2 rounded-full bg-[#4D82FF] ${active ? '' : 'invisible'}`} />
+    </Link>
+  ));
+
   return (
     <header className="absolute inset-x-0 top-0 z-20">
       <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between px-5 md:h-20 md:px-8">
-        <Link href={business ? '/business' : '/'} aria-label="Twende home"><Logo tone="light" business={business} /></Link>
-        <nav className="hidden items-center gap-6 text-[14px] font-semibold text-[#D5DCEC] md:flex" aria-label="Site">
-          <Link href="/">Riders</Link>
-          <Link href="/business">Business</Link>
-          <Link href={business ? '/business#faq' : '/#faq'}>Help</Link>
+        <Link href={business ? '/business' : '/'} aria-label={business ? 'Twende Fleet home' : 'Twende home'}><Logo tone="light" business={business} /></Link>
+        <nav className="hidden items-center gap-2 text-[15px] font-semibold text-[#D5DCEC] md:flex" aria-label="Site">
+          {renderLinks()}
         </nav>
         <div className="flex items-center gap-2">
           <Link href={business ? '/business/login' : '/login'} className="hidden h-10 items-center rounded-xl px-3 text-[14px] font-bold text-white sm:inline-flex">Sign in</Link>
@@ -19,9 +49,7 @@ export function SiteHeader({ business = false }: { business?: boolean }) {
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14" /></svg>
             </summary>
             <nav aria-label="Mobile site" className="absolute right-0 top-full mt-2 grid w-48 gap-1 rounded-xl bg-white p-2 text-sm font-semibold text-[#0B1B3B] shadow-xl [&>a]:rounded-lg [&>a]:p-2">
-              <Link href="/">Riders</Link>
-              <Link href="/business">Business</Link>
-              <Link href={business ? '/business#faq' : '/#faq'}>Help</Link>
+              {renderLinks()}
               <Link href={business ? '/business/login' : '/login'}>Sign in</Link>
               {business && <Link href="/business/conductor/login">Conductor sign in</Link>}
             </nav>
@@ -37,7 +65,7 @@ export function SiteFooter({ business = false }: { business?: boolean }) {
     <footer className="border-t border-[#E4E8F0] bg-white">
       <div className="mx-auto flex max-w-[1200px] flex-col gap-6 px-5 py-10 md:flex-row md:items-start md:justify-between md:px-8">
         <div>
-          <Logo />
+          <Logo business={business} />
           <p className="mt-3 max-w-xs text-[14px] leading-6 text-[#3E4A63]">Cashless minibus fares for Lusaka. Made in Lusaka.</p>
         </div>
         <nav className="grid grid-cols-2 gap-x-10 gap-y-2 text-[14px] font-semibold text-[#0B1B3B]" aria-label="Footer">

@@ -11,7 +11,7 @@ export default function BusinessSignup() {
   return (
     <main id="main" className="min-h-dvh w-full bg-[#F4F6FB] text-[#0B1B3B] lg:grid lg:items-center">
       <div className="safe-top w-full min-w-0 px-5 pb-10 sm:px-8 md:px-12 lg:px-[clamp(3rem,8vw,10rem)] lg:py-12">
-        <p className="text-sm font-semibold text-[#1F5BFF]">Twende Fleet Business</p>
+        <p className="text-sm font-semibold text-[#1F5BFF]">Twende Fleet</p>
         <h1 className="mt-2 text-[34px] font-semibold tracking-[-0.02em]">Open an operator account</h1>
         <form action={action} className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-x-6">
           <Field name="name" label="Your name" />

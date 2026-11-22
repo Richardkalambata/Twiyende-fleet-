@@ -46,7 +46,7 @@ export function Logo({ tone = 'dark', business = false }: { tone?: 'dark' | 'lig
       <svg className="block h-7 w-auto shrink-0" viewBox="0 0 372 102" role="img" aria-label="Twende">
         <use href="/images/twende-d.svg#wordmark" fill={light ? '#FFFFFF' : '#081A3F'} />
       </svg>
-      {business ? <span className={`mt-0.5 block text-[10px] font-semibold leading-none ${light ? 'text-white/75' : 'text-[#5C6578]'}`}>Fleet Business</span> : null}
+      {business ? <span className={`mt-0.5 block text-[10px] font-semibold leading-none ${light ? 'text-white/75' : 'text-[#5C6578]'}`}>Fleet</span> : null}
     </span>
   );
 }

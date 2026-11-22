@@ -6,7 +6,7 @@ import { SiteFooter, SiteHeader } from '@/components/marketing/chrome';
 import { PhotoMock, Still, StepRail } from '@/components/marketing/motion';
 import { Faq, Reveal, StickyBar } from '@/components/marketing/ui';
 
-export const metadata = { title: 'Twende Fleet Business' };
+export const metadata = { title: 'Twende Fleet' };
 
 const FLOW = [
   { title: 'Add buses', body: 'Fleet number, plate, route, and the default fare.' },

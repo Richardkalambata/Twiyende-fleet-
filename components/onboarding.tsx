@@ -114,9 +114,9 @@ export function Onboarding() {
         <div className="mx-auto flex max-w-[1200px] flex-col items-start justify-between gap-8 px-5 py-20 md:flex-row md:items-center md:px-8 md:py-32">
           <div>
             <h2 className="text-[32px] md:text-[48px]">Run the fleet</h2>
-            <p className="lead mt-6 text-[#D5DCEC]">Operators see the fares. Conductors verify the codes. Twende Fleet Business is the other door.</p>
+            <p className="lead mt-6 text-[#D5DCEC]">Operators see the fares. Conductors verify the codes. Both sign in through Twende Fleet.</p>
           </div>
-          <Link href="/business" className="inline-flex h-[52px] items-center rounded-xl bg-white px-6 text-[15px] font-bold text-[#0B1B3B]">Open Fleet Business</Link>
+          <Link href="/business" className="inline-flex h-[52px] items-center rounded-xl bg-white px-6 text-[15px] font-bold text-[#0B1B3B]">Open Twende Fleet</Link>
         </div>
       </section>
 
