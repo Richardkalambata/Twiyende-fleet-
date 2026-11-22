@@ -2,7 +2,6 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { CreatorCredit } from './chrome';
 
 export function Reveal({ children, className = '', delay = 0 }: { children: ReactNode; className?: string; delay?: number }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -74,12 +73,9 @@ export function StickyBar({ primary, secondary }: { primary: { href: string; lab
   if (!show) return null;
   return (
     <div className="md:hidden">
-      <div aria-hidden className="h-[calc(6.5rem+env(safe-area-inset-bottom))]" />
+      <div aria-hidden className="h-[calc(4.5rem+env(safe-area-inset-bottom))]" />
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E4E8F0] bg-white px-4 pb-[calc(.5rem+env(safe-area-inset-bottom))] pt-2">
-        <div className="mx-auto flex min-h-6 max-w-[420px] justify-end">
-          <CreatorCredit />
-        </div>
-        <div className="mx-auto mt-2 flex max-w-[420px] gap-2">
+        <div className="mx-auto flex max-w-[420px] gap-2">
           <Link href={secondary.href} className="flex h-12 flex-1 items-center justify-center rounded-xl bg-[#F4F6FB] text-center text-[14px] font-bold text-[#0B1B3B]">{secondary.label}</Link>
           <Link href={primary.href} className="flex h-12 flex-[1.4] items-center justify-center rounded-xl bg-[#1F5BFF] text-center text-[14px] font-bold text-white">{primary.label}</Link>
         </div>

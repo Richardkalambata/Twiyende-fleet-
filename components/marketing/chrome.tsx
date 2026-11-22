@@ -67,7 +67,7 @@ export function SiteHeader({ business = false }: { business?: boolean }) {
   );
 }
 
-export function CreatorCredit() {
+function CreatorCredit() {
   return (
     <a href="https://modernmindsettechnologies.com/" className="inline-flex items-center justify-center gap-2 text-[11px] font-semibold leading-tight text-[#5C6578] hover:underline">
             <span>Built by</span>
@@ -95,7 +95,7 @@ export function SiteFooter({ business = false }: { business?: boolean }) {
       <div className="border-t border-[#E4E8F0]">
         <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-4 text-[12px] font-semibold text-[#5C6578] md:px-8">
           <p>© 2026 Twende.</p>
-          <div className="hidden md:block"><CreatorCredit /></div>
+          <div className="ml-auto"><CreatorCredit /></div>
         </div>
       </div>
     </footer>
