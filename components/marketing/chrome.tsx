@@ -56,7 +56,7 @@ export function SiteHeader({ business = false }: { business?: boolean }) {
             </summary>
             <nav aria-label="Mobile site" className="absolute right-0 top-full mt-2 grid w-48 gap-1 rounded-xl bg-white p-2 text-sm font-semibold text-[#0B1B3B] shadow-xl [&>a]:rounded-lg [&>a]:p-2">
               {renderLinks(true)}
-              <Link href={business ? '/business/login' : '/login'}>Sign in</Link>
+              <Link href={business ? '/business/login' : '/login'}>{business ? 'Operator sign in' : 'Sign in'}</Link>
               {business && <Link href="/business/conductor/login">Conductor sign in</Link>}
             </nav>
           </details>
