@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { BusControls, RegisterBusForm } from '@/components/owner-forms';
 import { StatusPill } from '@/components/owner-frame';
@@ -24,7 +25,7 @@ export default async function BusesPage() {
                 <p className="text-sm text-[#5C6B63]">{bus.plate} · {bus.route ? bus.route.replaceAll(' to ', ' ↔ ') : 'No route'}</p>
                 <p className="mt-1 text-sm">{formatGrouped(bus.earningsNgwee)} · {bus.rides} rides today</p>
               </div>
-              <StatusPill status={bus.status} />
+              <div className="flex flex-wrap items-center gap-3"><StatusPill status={bus.status} /><Link className="text-sm font-bold text-[#1747CB]" href={`/bus-sign/${bus.id}`}>Print or download bus sign</Link></div>
             </div>
             <div className="mt-3"><BusControls bus={bus} conductors={conductors} /></div>
           </article>

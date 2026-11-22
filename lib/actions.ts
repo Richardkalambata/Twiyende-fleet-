@@ -1,5 +1,6 @@
 'use server';
 
+import { riderPaymentPath } from '@/lib/codes';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createSession, destroySession, getCurrentUser, requireUser } from './auth';
@@ -90,7 +91,7 @@ export async function loginAction(previous: LoginState, formData: FormData): Pro
   }
   await destroySession();
   await createSession(result.user.id);
-  redirect(homeFor(result.user.role));
+  redirect((result.user.role === 'passenger' ? riderPaymentPath(formData.get('bus')) : null) ?? homeFor(result.user.role));
 }
 
 export async function demoLoginAction(formData: FormData) {
@@ -109,7 +110,7 @@ export async function demoLoginAction(formData: FormData) {
   }
   await destroySession();
   await createSession(result.user.id);
-  redirect(homeFor(result.user.role));
+  redirect((result.user.role === 'passenger' ? riderPaymentPath(formData.get('bus')) : null) ?? homeFor(result.user.role));
 }
 
 export async function signOutAction() {
@@ -291,7 +292,7 @@ export async function signupPassengerAction(_prev: Fail | null, formData: FormDa
   });
   if (!result.ok) return result;
   await createSession(result.id);
-  redirect('/home');
+  redirect(riderPaymentPath(formData.get('bus')) ?? '/home');
 }
 
 export async function signupOperatorAction(_prev: Fail | null, formData: FormData): Promise<Fail | null> {

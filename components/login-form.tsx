@@ -6,6 +6,7 @@ import { LoaderCircle } from 'lucide-react';
 import { useFormStatus } from 'react-dom';
 import { useActionState, useEffect, useState } from 'react';
 import { demoLoginAction, loginAction } from '@/lib/actions';
+import { riderPaymentPath } from '@/lib/codes';
 import { formatPhone } from '@/lib/phone';
 import type { DemoAccount } from '@/lib/types';
 import { Logo } from './shell';
@@ -20,7 +21,7 @@ function SignInButton({ label, loadingLabel = 'Signing in…', disabled = false,
   );
 }
 
-export function LoginForm({ accounts, error, gate = 'passenger', operatorSmsRequired = false }: { accounts: DemoAccount[]; error?: string; operatorSmsRequired?: boolean; gate?: 'passenger' | 'operator' | 'conductor' | 'business' }) {
+export function LoginForm({ accounts, error, gate = 'passenger', operatorSmsRequired = false, bus }: { accounts: DemoAccount[]; bus?: string; error?: string; operatorSmsRequired?: boolean; gate?: 'passenger' | 'operator' | 'conductor' | 'business' }) {
   const resolved = gate === 'business' ? 'operator' : gate;
   const [state, action] = useActionState(loginAction, null);
   const [phone, setPhone] = useState('');
@@ -75,9 +76,11 @@ export function LoginForm({ accounts, error, gate = 'passenger', operatorSmsRequ
             <input name="pin" type="password" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="current-password" maxLength={6} pattern="[0-9]{6}" required className="mt-2 min-h-12 w-full rounded-xl border border-[#D5DCE8] bg-white px-4 py-2 text-[20px] font-semibold tracking-[0.4em] text-[#0B1B3B] outline-none focus:border-[#1F5BFF]" />
           </label>
           <input type="hidden" name="gate" value={resolved} />
+          {resolved === 'passenger' && riderPaymentPath(bus) && <input type="hidden" name="bus" value={bus} />}
           {message ? <p className="text-sm text-[#E5484D]" role="alert">{message}</p> : null}
           <SignInButton label="Log in" disabled={pin.length !== 6} className="flex h-12 w-full items-center justify-center rounded-xl bg-[#1F5BFF] text-[15px] font-bold text-white disabled:opacity-50 aria-busy:opacity-100" />
         </form>}
+        {resolved === 'passenger' && riderPaymentPath(bus) && <Link href={`/signup?bus=${bus}`} className="mt-4 font-semibold text-[#1747CB]">Create a rider account</Link>}
         {resolved !== 'passenger' && <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px] font-semibold">
           {resolved === 'operator' ? (
             <>
@@ -98,6 +101,7 @@ export function LoginForm({ accounts, error, gate = 'passenger', operatorSmsRequ
               <form key={account.id} action={demoLoginAction}>
                 <input type="hidden" name="userId" value={account.id} />
                 <input type="hidden" name="gate" value={resolved} />
+                {resolved === 'passenger' && riderPaymentPath(bus) && <input type="hidden" name="bus" value={bus} />}
                 <SignInButton className="flex w-full items-center justify-between rounded-xl bg-white px-3 py-2 text-left text-sm text-[#0B1B3B]" label={<>
                   <span className="font-semibold">{account.shortName}</span>
                   <span className="text-[#5C6578]">{formatPhone(account.phone)}</span>

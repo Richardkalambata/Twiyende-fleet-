@@ -5,7 +5,7 @@ import { assignConductorAction, logOperatorFoundAction, payoutAction, registerBu
 import { CONDUCTOR_CATEGORIES, categoryLabel } from '@/lib/categories';
 import { LUSAKA_ROUTES } from '@/lib/lusaka-routes';
 import type { BusPerformance, ConductorOption, Fail } from '@/lib/types';
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { buttonClass } from './shell';
 
 function Sheet({ label, title, children }: { label: string; title: string; children: ReactNode }) {
@@ -26,6 +26,18 @@ function Sheet({ label, title, children }: { label: string; title: string; child
 
 const registrationField = "h-12 w-full min-w-0 rounded-xl border border-[#AEB9CD] bg-[#F8FAFF] px-3 font-normal text-[#0B1B3B] placeholder:text-[#5C6578] focus-visible:outline-2 focus-visible:outline-[#1F5BFF]";
 
+function RouteInput({ label, defaultValue = '', className }: { label: string; defaultValue?: string; className: string }) {
+  const suggestions = useId();
+  return (
+    <>
+      <input name="route" list={suggestions} defaultValue={defaultValue} maxLength={60} aria-label={label} placeholder="Choose or type a route" className={className} />
+      <datalist id={suggestions}>
+        {LUSAKA_ROUTES.map(({ route }) => <option key={route} value={route} />)}
+      </datalist>
+    </>
+  );
+}
+
 export function RegisterBusForm({ conductors }: { conductors: ConductorOption[] }) {
   const [state, action, pending] = useActionState(registerBusAction, null as Fail | null);
   return (
@@ -38,10 +50,7 @@ export function RegisterBusForm({ conductors }: { conductors: ConductorOption[] 
         <input name="plate" required placeholder="Plate, BLZ 44 ZA" aria-label="Plate" className={registrationField} />
       </label>
       <label className="grid min-w-0 gap-1.5 text-sm font-semibold">Route
-        <select name="route" aria-label="Route" defaultValue="" className={registrationField}>
-        <option value="">No route</option>
-        {LUSAKA_ROUTES.map((item) => <option key={item.route} value={item.route}>{item.route.replaceAll(' to ', ' ↔ ')}</option>)}
-      </select>
+        <RouteInput label="Route" className={registrationField} />
       </label>
       <label className="grid min-w-0 gap-1.5 text-sm font-semibold">Conductor
         <select name="conductorId" aria-label="Assign conductor" className={registrationField}>
@@ -95,12 +104,7 @@ export function BusControls({ bus, conductors }: { bus: BusPerformance; conducto
       </form>
       <form action={saveRoute} className="flex items-center gap-2">
         <input type="hidden" name="busId" value={bus.id} />
-        <select name="route" defaultValue={bus.route ?? ''} aria-label={`Route for bus ${bus.fleetNumber}`} className="h-10 min-w-0 max-w-[180px] rounded-full bg-white px-3 text-sm text-[#0B1B3B]">
-          <option value="">No route</option>
-          {[...new Set([bus.route, ...LUSAKA_ROUTES.map((item) => item.route)].filter((item): item is string => Boolean(item)))].map((name) => (
-            <option key={name} value={name}>{name.replaceAll(' to ', ' ↔ ')}</option>
-          ))}
-        </select>
+        <RouteInput label={`Route for bus ${bus.fleetNumber}`} defaultValue={bus.route ?? ''} className="h-10 min-w-0 max-w-[180px] rounded-full bg-white px-3 text-sm text-[#0B1B3B]" />
         <button disabled={savingRoute} className="h-10 shrink-0 rounded-xl bg-[#1F5BFF] px-3 text-sm font-bold text-white">{savingRoute ? "Saving…" : "Save route"}</button>
       </form>
       {routeResult && <p className="basis-full text-sm" role={routeResult.ok ? "status" : "alert"}>{routeResult.message}</p>}

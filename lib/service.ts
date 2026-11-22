@@ -505,6 +505,16 @@ async function conductorToday(conductorId: string, now = new Date()) {
   return { rides: row.rides, amountNgwee: row.amount };
 }
 
+export async function getPrintableBus(user: Pick<PublicUser, 'id' | 'role'>, busId: string) {
+  if (user.role === 'conductor') {
+    const bus = await conductorBus(user.id);
+    return bus?.id === busId ? bus : null;
+  }
+  if (user.role !== 'operator') return null;
+  const bus = await busById(busId);
+  return bus?.owner_id === user.id ? bus : null;
+}
+
 export async function getConductorHome(userId: string) {
   const user = await userById(userId);
   if (!user) throw new UserError('Sign in again.');
@@ -1252,7 +1262,7 @@ export async function registerBus(ownerId: string, fleetRaw: string, plateRaw: s
   const plate = cleanText(plateRaw, 20).toUpperCase();
   const routeText = cleanText(routeRaw, 60);
   const route = routeText.length === 0 ? null : routeText;
-  if (fleet && !/^[1-9]\d{0,3}$/.test(fleet)) return { ok: false as const, message: 'Use the fleet number painted on the bus, such as 12.' };
+  if (fleet && !/^(?:0000|[1-9]\d{0,3})$/.test(fleet)) return { ok: false as const, message: 'Use the fleet number painted on the bus, such as 12.' };
   if (plate.length < 4) return { ok: false as const, message: 'Enter the number plate.' };
   if (routeText.length > 0 && routeText.length < 3) return { ok: false as const, message: 'Enter the route, such as Town to Matero.' };
   try {
@@ -1261,8 +1271,9 @@ export async function registerBus(ownerId: string, fleetRaw: string, plateRaw: s
       const db = await getDb();
       await db.run('SELECT pg_advisory_xact_lock(?)', 872345);
       if (!fleet) {
-        const next = await db.get<{ fleet: string }>(`SELECT n::text AS fleet FROM generate_series(1, 9999) n
-          WHERE NOT EXISTS (SELECT 1 FROM buses WHERE fleet_number = n::text) LIMIT 1`);
+        const next = await db.get<{ fleet: string }>(`SELECT candidate.fleet FROM (SELECT n, CASE WHEN n = 0 THEN '0000' ELSE n::text END AS fleet
+          FROM generate_series(0, 9999) n) candidate
+          WHERE NOT EXISTS (SELECT 1 FROM buses WHERE fleet_number = candidate.fleet) ORDER BY candidate.n LIMIT 1`);
         if (!next) throw new UserError('No fleet numbers are available.');
         fleet = next.fleet;
       }

@@ -1,3 +1,4 @@
+import { riderPaymentPath } from '@/lib/codes';
 import { requireUser } from '@/lib/auth';
 import { HomeApp } from '@/components/home-app';
 import { getPassengerHome, listPassengerRides } from '@/lib/service';
@@ -19,7 +20,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       rides={history.slice(0, 3)}
       monthCount={monthCount}
       buses={home.buses}
-      initialFleet={params.bus ?? ''}
+      initialFleet={riderPaymentPath(params.bus) ? params.bus : ''}
     />
   );
 }

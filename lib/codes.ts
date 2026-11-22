@@ -35,3 +35,8 @@ export function confusingCodeMessage(code: string): string | null {
   }
   return null;
 }
+
+
+export function riderPaymentPath(bus: unknown): string | null {
+  return typeof bus === 'string' && /^\d{1,4}$/.test(bus) ? `/home?bus=${bus}` : null;
+}

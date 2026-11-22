@@ -21,7 +21,10 @@ export const metadata: Metadata = {
   description: 'Cashless minibus fares for Lusaka. Pay from your phone, confirm with a short code.',
   applicationName: 'Twende',
   manifest: '/manifest.webmanifest',
-  icons: { icon: '/images/icon.svg' },
+  icons: {
+    icon: '/images/icon.svg',
+    apple: { url: '/images/twende-home-180.png', sizes: '180x180', type: 'image/png' },
+  },
 };
 
 export const viewport: Viewport = {

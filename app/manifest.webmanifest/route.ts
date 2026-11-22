@@ -1,3 +1,5 @@
+import { appInstallIcons } from '@/lib/app-icons';
+
 export function GET() {
   return Response.json({
     name: 'Twende',
@@ -7,6 +9,6 @@ export function GET() {
     display: 'standalone',
     background_color: '#F7F5F0',
     theme_color: '#0B1B3B',
-    icons: [{ src: '/images/icon.svg', sizes: 'any', type: 'image/svg+xml' }],
+    icons: appInstallIcons,
   }, { headers: { 'Content-Type': 'application/manifest+json' } });
 }
