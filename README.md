@@ -65,6 +65,18 @@ npm run build
 
 Set `DATABASE_URL` to the Neon pooled URL and `DATABASE_URL_UNPOOLED` to the direct URL. Deploy the Node.js runtime (not Edge). The app reads those variables at request time and does not need a SQLite file.
 
+## Cloudflare Workers
+
+Build with `npm run build:cloudflare` and deploy with `npm run deploy:cloudflare`.
+Set `DATABASE_URL` as a Worker runtime secret using the existing Neon pooled
+connection string with TLS enabled. Set the same runtime payment and sign-in
+options used by the Vercel release. The Worker expects the existing schema and
+does not create or seed the database on first request.
+
+Check the rider, conductor and operator flows on the Worker URL before switching
+traffic. Set `TWENDE_PUBLIC_ORIGIN` to the public rider URL that should appear in
+new bus QR codes.
+
 ## Demo accounts
 
 Every demo PIN is **123456**. The sign-in screen can also open these accounts in one tap. One-tap access requires `DEMO_ROLE_SWITCHER=1`. Enable it only on an isolated demo database.

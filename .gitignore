@@ -15,3 +15,6 @@ tsconfig.tsbuildinfo
 test-results
 playwright-report
 blob-report
+.open-next/
+.wrangler/
+.dev.vars*

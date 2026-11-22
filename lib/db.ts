@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { attachDatabasePool } from '@vercel/functions';
 import { Client, Pool, type PoolClient, type QueryResult, types as pgTypes } from 'pg';
 import { SCHEMA_SQL, TRUNCATE_SQL } from './schema';
@@ -22,6 +23,7 @@ type Queryable = {
 };
 
 const txStorage = new AsyncLocalStorage<PoolClient>();
+const workerPools = new WeakMap<object, Pool>();
 
 const globalForDb = globalThis as unknown as {
   twendePool?: Pool;
@@ -47,6 +49,21 @@ function sslFor(url: string): { rejectUnauthorized: false } | undefined {
 }
 
 function getPool(): Pool {
+  if (process.env.TWENDE_WORKERS === '1') {
+    const { ctx } = getCloudflareContext();
+    const existing = workerPools.get(ctx);
+    if (existing) return existing;
+    // Workers cannot reuse a Postgres socket across requests. Close each
+    // connection when its query or transaction releases it.
+    const pool = new Pool({
+      connectionString: databaseUrl(),
+      max: 5,
+      maxUses: 1,
+      connectionTimeoutMillis: 5_000,
+    });
+    workerPools.set(ctx, pool);
+    return pool;
+  }
   if (!globalForDb.twendePool) {
     const pool = new Pool({
       connectionString: databaseUrl(),
@@ -126,6 +143,9 @@ async function seedIfNeeded(force: boolean) {
 }
 
 async function ensureReady() {
+  // The migration uses the existing database and schema. A Worker request
+  // must never initialize it with demo data.
+  if (process.env.TWENDE_WORKERS === '1') return;
   const key = seedKey();
   if (globalForDb.twendeReady && globalForDb.twendeReadyKey === key) return globalForDb.twendeReady;
   globalForDb.twendeReadyKey = key;
