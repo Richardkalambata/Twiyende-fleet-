@@ -31,11 +31,12 @@ export function SiteHeader({ business = false }: { business?: boolean }) {
         event.currentTarget.closest('details')?.removeAttribute('open');
       }}
       aria-current={active ? (label === 'Help' ? 'location' : 'page') : undefined}
-      className={`flex min-h-11 items-center gap-2 rounded-xl px-3 transition-colors ${active
-        ? mobile ? 'bg-[#EAF0FF] text-[#1747CB]' : 'bg-white text-[#1747CB] shadow-sm'
-        : mobile ? 'hover:bg-[#F4F6FB]' : 'hover:bg-white/10 hover:text-white'}`}>
+      className={`flex min-h-11 items-center gap-2 rounded-xl px-3 transition-colors ${mobile
+        ? 'hover:bg-[#F4F6FB]' : 'hover:bg-white/10 hover:text-white'} ${active
+        ? mobile ? 'text-[#1747CB]' : 'text-white'
+        : ''}`}>
       <Icon className="size-6 shrink-0" aria-hidden />
-      {label}
+      <span className={active ? 'underline decoration-2 decoration-[#4D82FF] underline-offset-8' : undefined}>{label}</span>
     </Link>
   ));
 
@@ -85,7 +86,7 @@ export function SiteFooter({ business = false }: { business?: boolean }) {
         <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-4 text-[12px] font-semibold text-[#5C6578] md:px-8">
           <p>© 2026 Twende.</p>
           <a href="https://modernmindsettechnologies.com/" className="inline-flex min-w-0 flex-wrap items-center gap-2.5 hover:underline">
-            <Image src="/images/modernmindset-logo.webp" alt="" width={520} height={101} className="h-auto w-28 rounded-md bg-[#101827] px-2 py-1.5" />
+            <Image src="/images/modernmindset-logo.webp" alt="" width={520} height={101} className="h-auto w-28" />
             <span>Built by ModernMindSet Technologies</span>
           </a>
         </div>
