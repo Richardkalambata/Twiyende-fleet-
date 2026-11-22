@@ -24,7 +24,7 @@ export function SiteHeader({ business = false }: { business?: boolean }) {
     { href: '/business', label: 'Business', Icon: BusFront, active: business && !helpActive },
     { href: business ? '/business#faq' : '/#faq', label: 'Help', Icon: CircleHelp, active: helpActive },
   ];
-  const renderLinks = (mobile = false) => links.map(({ href, label, Icon, active }) => (
+  const renderLinks = (mobile = false, items = links) => items.map(({ href, label, Icon, active }) => (
     <Link key={label} href={href}
       onClick={(event) => {
         setHelpActive(label === 'Help');
@@ -55,9 +55,10 @@ export function SiteHeader({ business = false }: { business?: boolean }) {
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14" /></svg>
             </summary>
             <nav aria-label="Mobile site" className="absolute right-0 top-full mt-2 grid w-48 gap-1 rounded-xl bg-white p-2 text-sm font-semibold text-[#0B1B3B] shadow-xl [&>a]:rounded-lg [&>a]:p-2">
-              {renderLinks(true)}
+              {renderLinks(true, business ? links.slice(0, -1) : links)}
               <Link href={business ? '/business/login' : '/login'}>{business ? 'Operator sign in' : 'Sign in'}</Link>
               {business && <Link href="/business/conductor/login">Conductor sign in</Link>}
+              {business && renderLinks(true, links.slice(-1))}
             </nav>
           </details>
         </div>
