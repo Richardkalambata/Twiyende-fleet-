@@ -32,7 +32,7 @@ export function SiteHeader({ business = false }: { business?: boolean }) {
       }}
       aria-current={active ? (label === 'Help' ? 'location' : 'page') : undefined}
       className={`flex min-h-11 items-center gap-2 rounded-xl px-3 transition-colors ${mobile
-        ? 'hover:bg-[#F4F6FB]' : 'hover:bg-white/10 hover:text-white'} ${active
+        ? 'hover:text-[#1747CB]' : 'hover:text-white'} ${active
         ? mobile ? 'text-[#1747CB]' : 'text-white'
         : ''}`}>
       <Icon className="size-6 shrink-0" aria-hidden />
@@ -44,7 +44,7 @@ export function SiteHeader({ business = false }: { business?: boolean }) {
     <header className="absolute inset-x-0 top-0 z-20">
       <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between px-5 md:h-20 md:px-8">
         <Link href={business ? '/business' : '/'} aria-label={business ? 'Twende Fleet home' : 'Twende home'}><Logo tone="light" business={business} /></Link>
-        <nav className="hidden items-center gap-1 rounded-[16px] border border-white/15 bg-[#0B1B3B]/85 p-1 text-[15px] font-semibold text-[#D5DCEC] backdrop-blur-sm md:flex" aria-label="Site">
+        <nav className="hidden items-center gap-1 text-[15px] font-semibold text-[#D5DCEC] md:flex" aria-label="Site">
           {renderLinks()}
         </nav>
         <div className="flex items-center gap-2">
