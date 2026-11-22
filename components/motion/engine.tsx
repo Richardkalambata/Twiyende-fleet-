@@ -1,5 +1,7 @@
 'use client';
 
+import { Logo } from '@/components/shell';
+
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { formatBalance } from '@/lib/money';
@@ -113,7 +115,18 @@ export function RouteShift({ children }: { children: ReactNode }) {
     void node.offsetWidth;
     node.classList.add('route-enter');
   }, [path]);
-  return <div ref={ref}>{children}</div>;
+  const showBrand = path === '/' || path === '/business' || path === '/home'
+    || path === '/login' || path === '/business/login' || path === '/business/conductor/login';
+  return (
+    <>
+      {showBrand && (
+        <div key={path} className="brand-entry" aria-hidden="true">
+          <Logo tone="light" business={path.startsWith('/business')} />
+        </div>
+      )}
+      <div ref={ref}>{children}</div>
+    </>
+  );
 }
 
 export function CountUp({ ngwee }: { ngwee: number }) {

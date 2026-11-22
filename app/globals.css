@@ -770,3 +770,26 @@ html[data-motion='rich'] .land-in { animation-name: land-depth; }
 .leaflet-container { z-index: 0; }
 
 .bus-pin[data-own-fleet='true'] .bus-face { outline: 3px solid #d78300; outline-offset: 1px; }
+
+.brand-entry {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: #0b1b3b;
+  animation: brand-entry 460ms ease-out both;
+}
+
+.brand-entry svg {
+  height: 2.5rem;
+}
+
+@keyframes brand-entry {
+  0%, 70% { opacity: 1; visibility: visible; }
+  100% { opacity: 0; visibility: hidden; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-entry { animation-timing-function: steps(1, end); }
+}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { BusFront, CircleHelp, UsersRound } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { Logo } from '@/components/shell';
 
@@ -23,14 +24,18 @@ export function SiteHeader({ business = false }: { business?: boolean }) {
     { href: '/business', label: 'Business', Icon: BusFront, active: business && !helpActive },
     { href: business ? '/business#faq' : '/#faq', label: 'Help', Icon: CircleHelp, active: helpActive },
   ];
-  const renderLinks = () => links.map(({ href, label, Icon, active }) => (
+  const renderLinks = (mobile = false) => links.map(({ href, label, Icon, active }) => (
     <Link key={label} href={href}
-      onClick={() => setHelpActive(label === 'Help')}
+      onClick={(event) => {
+        setHelpActive(label === 'Help');
+        event.currentTarget.closest('details')?.removeAttribute('open');
+      }}
       aria-current={active ? (label === 'Help' ? 'location' : 'page') : undefined}
-      className="group relative flex min-h-12 items-center gap-2 rounded-lg px-2 hover:bg-current/5 md:px-3">
+      className={`flex min-h-11 items-center gap-2 rounded-xl px-3 transition-colors ${active
+        ? mobile ? 'bg-[#EAF0FF] text-[#1747CB]' : 'bg-white text-[#1747CB] shadow-sm'
+        : mobile ? 'hover:bg-[#F4F6FB]' : 'hover:bg-white/10 hover:text-white'}`}>
       <Icon className="size-6 shrink-0" aria-hidden />
       {label}
-      <span aria-hidden className={`absolute bottom-0.5 left-1/2 size-1.5 -translate-x-1/2 rounded-full bg-[#4D82FF] ${active ? '' : 'invisible'}`} />
     </Link>
   ));
 
@@ -38,7 +43,7 @@ export function SiteHeader({ business = false }: { business?: boolean }) {
     <header className="absolute inset-x-0 top-0 z-20">
       <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between px-5 md:h-20 md:px-8">
         <Link href={business ? '/business' : '/'} aria-label={business ? 'Twende Fleet home' : 'Twende home'}><Logo tone="light" business={business} /></Link>
-        <nav className="hidden items-center gap-2 text-[15px] font-semibold text-[#D5DCEC] md:flex" aria-label="Site">
+        <nav className="hidden items-center gap-1 rounded-[16px] border border-white/15 bg-[#0B1B3B]/85 p-1 text-[15px] font-semibold text-[#D5DCEC] backdrop-blur-sm md:flex" aria-label="Site">
           {renderLinks()}
         </nav>
         <div className="flex items-center gap-2">
@@ -49,7 +54,7 @@ export function SiteHeader({ business = false }: { business?: boolean }) {
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14" /></svg>
             </summary>
             <nav aria-label="Mobile site" className="absolute right-0 top-full mt-2 grid w-48 gap-1 rounded-xl bg-white p-2 text-sm font-semibold text-[#0B1B3B] shadow-xl [&>a]:rounded-lg [&>a]:p-2">
-              {renderLinks()}
+              {renderLinks(true)}
               <Link href={business ? '/business/login' : '/login'}>Sign in</Link>
               {business && <Link href="/business/conductor/login">Conductor sign in</Link>}
             </nav>
@@ -66,7 +71,7 @@ export function SiteFooter({ business = false }: { business?: boolean }) {
       <div className="mx-auto flex max-w-[1200px] flex-col gap-6 px-5 py-10 md:flex-row md:items-start md:justify-between md:px-8">
         <div>
           <Logo business={business} />
-          <p className="mt-3 max-w-xs text-[14px] leading-6 text-[#3E4A63]">Cashless minibus fares for Lusaka. Made in Lusaka.</p>
+          <p className="mt-3 max-w-xs text-[14px] leading-6 text-[#3E4A63]">Cashless minibus fares for Lusaka.</p>
         </div>
         <nav className="grid grid-cols-2 gap-x-10 gap-y-2 text-[14px] font-semibold text-[#0B1B3B]" aria-label="Footer">
           <Link href="/">Riders</Link>
@@ -76,7 +81,15 @@ export function SiteFooter({ business = false }: { business?: boolean }) {
           <Link href="/privacy">Privacy</Link>
         </nav>
       </div>
-      <p className="border-t border-[#E4E8F0] py-4 text-center text-[12px] font-semibold text-[#5C6578]">© 2026 Twende. Made in Lusaka.</p>
+      <div className="border-t border-[#E4E8F0]">
+        <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-4 text-[12px] font-semibold text-[#5C6578] md:px-8">
+          <p>© 2026 Twende.</p>
+          <a href="https://modernmindsettechnologies.com/" className="inline-flex min-w-0 flex-wrap items-center gap-2.5 hover:underline">
+            <Image src="/images/modernmindset-logo.webp" alt="" width={520} height={101} className="h-auto w-28 rounded-md bg-[#101827] px-2 py-1.5" />
+            <span>Built by ModernMindSet Technologies</span>
+          </a>
+        </div>
+      </div>
     </footer>
   );
 }
