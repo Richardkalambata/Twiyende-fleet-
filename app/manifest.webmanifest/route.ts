@@ -1,7 +1,5 @@
-import type { MetadataRoute } from 'next';
-
-export default function manifest(): MetadataRoute.Manifest {
-  return {
+export function GET() {
+  return Response.json({
     name: 'Twende',
     short_name: 'Twende',
     description: 'Cashless minibus fares for Lusaka',
@@ -10,5 +8,5 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: '#F7F5F0',
     theme_color: '#0B1B3B',
     icons: [{ src: '/images/icon.svg', sizes: 'any', type: 'image/svg+xml' }],
-  };
+  }, { headers: { 'Content-Type': 'application/manifest+json' } });
 }
