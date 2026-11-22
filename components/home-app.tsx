@@ -35,8 +35,8 @@ export function HomeApp({
   if (paying) return <PayForm buses={buses} balanceNgwee={balanceNgwee} initialFleet={preset} onClose={() => setPaying(false)} />;
   return (
     <div className="w-full px-5 pb-4 text-[#0B1B3B] lg:px-10 lg:py-8">
-      <header className="safe-top flex items-center justify-between">
-        <Logo />
+      <header className="safe-top flex items-center justify-end lg:justify-between">
+        <span className="hidden lg:inline-flex"><Logo /></span>
         <Avatar initials={letters} size={36} />
       </header>
       <p className="mt-3 text-[15px] text-[#5C6578]">{greeting},</p>

@@ -5,7 +5,7 @@ import { PhoneShell } from './shell';
 
 export function ConductorFrame({ children, nav }: { children: ReactNode; nav: ReactNode }) {
   return (
-    <PhoneShell tone="light" nav={nav}>
+    <PhoneShell tone="light" nav={nav} business>
       {children}
     </PhoneShell>
   );

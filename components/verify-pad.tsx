@@ -59,7 +59,7 @@ export function VerifyPad({
   if (!fleetNumber) {
     return (
       <div className="flex min-h-full flex-col px-5 pb-6 pt-4 text-[#0B1B3B]">
-        <div className="flex items-center justify-between">
+        <div className="hidden items-center justify-between lg:flex">
           <Logo business />
         </div>
         <div className="mt-16 text-center">
@@ -117,8 +117,8 @@ export function VerifyPad({
 
   return (
     <div className="flex min-h-full flex-col bg-[#071433] px-5 pb-4 pt-[max(12px,env(safe-area-inset-top))] text-white">
-      <div className="flex items-center justify-between gap-3">
-        <Logo tone="light" business />
+      <div className="flex items-center justify-end gap-3 lg:justify-between">
+        <span className="hidden lg:inline-flex"><Logo tone="light" business /></span>
         <div className="flex items-center gap-2">
           <form action={signOutAction}>
             <button type="submit" aria-label="Log out" className="press grid h-10 w-10 place-items-center rounded-full bg-white/10 text-white">

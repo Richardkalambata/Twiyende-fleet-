@@ -4,14 +4,21 @@ export function PhoneShell({
   children,
   tone = 'light',
   nav,
+  business = false,
 }: {
   children: ReactNode;
   tone?: 'light' | 'dark' | 'navy';
   nav?: ReactNode;
+  business?: boolean;
 }) {
   const navy = tone === 'navy';
   return (
     <div data-workspace={nav ? "true" : undefined} className={`twende-shell flex h-dvh w-full flex-col ${nav ? 'lg:flex-row' : ''} ${navy ? 'bg-[#071433] text-white' : 'bg-[#F4F6FB] text-[#0B1B3B]'} print:!h-auto`}>
+      {nav ? (
+        <header className="shrink-0 border-b border-white/10 bg-[#0B1B3B] px-5 pb-3 pt-[max(12px,env(safe-area-inset-top))] print:hidden lg:hidden">
+          <Logo tone="light" business={business} />
+        </header>
+      ) : null}
       <main id="main" className="min-h-0 min-w-0 flex-1 overflow-y-auto print:overflow-visible">
         {nav ? children : <div className="mx-auto w-full max-w-3xl md:px-6">{children}</div>}
       </main>
@@ -33,17 +40,13 @@ export function buttonClass(variant: 'copper' | 'green' | 'mint' | 'outline' | '
 }
 
 export function Logo({ tone = 'dark', business = false }: { tone?: 'dark' | 'light'; business?: boolean }) {
-  const word = tone === 'light' ? '#FFFFFF' : '#0B1B3B';
+  const light = tone === 'light';
   return (
-    <span className="inline-flex items-center gap-2">
-      <svg width="20" height="16" viewBox="0 0 20 16" aria-hidden>
-        <path d="M1 0h5.2L2.4 16H-2.8L1 0z" fill="#8FB0FF" />
-        <path d="M8.2 0h5.2L9.6 16H4.4L8.2 0z" fill="#1F5BFF" />
+    <span className="inline-flex flex-col items-start">
+      <svg className="block h-7 w-auto shrink-0" viewBox="0 0 372 102" role="img" aria-label="Twende">
+        <use href="/images/twende-d.svg#wordmark" fill={light ? '#FFFFFF' : '#081A3F'} />
       </svg>
-      <span className="leading-none">
-        <span className="block text-[18px] font-extrabold lowercase leading-none tracking-[-0.05em]" style={{ color: word }}>twende</span>
-        {business ? <span className={`mt-0.5 block text-[10px] font-semibold leading-none ${tone === 'light' ? 'text-white/75' : 'text-[#5C6578]'}`}>Fleet Business</span> : null}
-      </span>
+      {business ? <span className={`mt-0.5 block text-[10px] font-semibold leading-none ${light ? 'text-white/75' : 'text-[#5C6578]'}`}>Fleet Business</span> : null}
     </span>
   );
 }
