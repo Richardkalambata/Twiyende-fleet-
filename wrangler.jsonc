@@ -6,7 +6,10 @@
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "preview_urls": false,
-  "vars": { "TWENDE_WORKERS": "1" },
+  "vars": {
+    "TWENDE_WORKERS": "1",
+    "TWENDE_PUBLIC_ORIGIN": "https://twende-fleet-refresh.richardkalambata495.workers.dev"
+  },
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
   "images": { "binding": "IMAGES" }
 }
