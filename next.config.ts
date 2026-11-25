@@ -2,6 +2,10 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  output: process.env.TWENDE_STANDALONE === '1' ? 'standalone' : undefined,
+  async headers() {
+    return [{ source: '/api/:path*', headers: [{ key: 'Cache-Control', value: 'private, no-store' }] }];
+  },
   reactStrictMode: true,
   images: {
     formats: ['image/avif', 'image/webp'],

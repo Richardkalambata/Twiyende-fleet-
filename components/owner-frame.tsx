@@ -26,7 +26,7 @@ const LINKS = [
 
 export function OwnerFrame({ children, openLost, operator, company }: { children: ReactNode; openLost: number; company: string; operator: { name: string; initials: string } }) {
   const path = usePathname();
-  const unread = useUnreadNotifications();
+  const unread = useUnreadNotifications('operator');
   const [menuOpen, setMenuOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   return (
@@ -66,7 +66,7 @@ export function OwnerFrame({ children, openLost, operator, company }: { children
             const active = link.href === '/business/desk' ? path === '/business/desk' : path.startsWith(link.href);
             const Icon = link.icon;
             return (
-              <Link key={link.href} href={link.href} aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)} className={`relative flex h-10 shrink-0 items-center gap-3 rounded-xl px-3 text-[14px] font-semibold lg:h-14 lg:px-4 ${active ? 'bg-[#1F5BFF] text-white lg:bg-white lg:text-[#0B1B3B]' : 'text-white/70 hover:bg-white/10'}`}>
+              <Link prefetch={false} key={link.href} href={link.href} aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)} className={`relative flex h-10 shrink-0 items-center gap-3 rounded-xl px-3 text-[14px] font-semibold lg:h-14 lg:px-4 ${active ? 'bg-[#1F5BFF] text-white lg:bg-white lg:text-[#0B1B3B]' : 'text-white/70 hover:bg-white/10'}`}>
                 <Icon className="h-5 w-5" />
                 {link.label}
                 {link.href === '/business/desk/notifications' && <NotificationBadge unread={unread} />}
@@ -83,7 +83,7 @@ export function OwnerFrame({ children, openLost, operator, company }: { children
               <span className="block text-[11px] text-white/60">Operator</span>
             </span>
           </div>
-          <form action={signOutAction}>
+          <form action={signOutAction.bind(null, 'operator')}>
             <button type="submit" className="mt-1 flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[14px] font-semibold text-white hover:bg-white/10">
               <LogoutIcon className="h-5 w-5" />
               Log out
@@ -104,7 +104,7 @@ export function OwnerFrame({ children, openLost, operator, company }: { children
                 const active = link.href === '/business/desk' ? path === '/business/desk' : path.startsWith(link.href);
                 const Icon = link.icon;
                 return (
-                  <Link key={link.href} href={link.href} onClick={() => setNavOpen(false)} className={`flex h-12 items-center gap-3 rounded-xl px-3 text-[16px] font-semibold ${active ? 'bg-[#1F5BFF] text-white' : 'text-white/80'}`}>
+                  <Link prefetch={false} key={link.href} href={link.href} onClick={() => setNavOpen(false)} className={`flex h-12 items-center gap-3 rounded-xl px-3 text-[16px] font-semibold ${active ? 'bg-[#1F5BFF] text-white' : 'text-white/80'}`}>
                     <Icon className="h-5 w-5" />
                     {link.label}
                 {link.href === '/business/desk/notifications' && <NotificationBadge unread={unread} />}
@@ -112,7 +112,7 @@ export function OwnerFrame({ children, openLost, operator, company }: { children
                 );
               })}
             </nav>
-            <form action={signOutAction} className="p-4 pb-[max(16px,env(safe-area-inset-bottom))]">
+            <form action={signOutAction.bind(null, 'operator')} className="p-4 pb-[max(16px,env(safe-area-inset-bottom))]">
               <button type="submit" className="press flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-white text-[15px] font-bold text-[#0B1B3B]">
                 <LogoutIcon className="h-5 w-5" />
                 Log out
@@ -124,11 +124,11 @@ export function OwnerFrame({ children, openLost, operator, company }: { children
           <div id="operator-account-menu" className="absolute inset-x-3 top-full z-40 mt-2 rounded-2xl bg-white p-3 text-[#0B1B3B] shadow-[0_16px_40px_rgba(11,27,59,0.18)] lg:hidden">
             <p className="px-1 text-[15px] font-bold">{operator.name}</p>
             <p className="px-1 text-[13px] text-[#5C6578]">Operator</p>
-            <Link href="/business/desk/settings" onClick={() => setMenuOpen(false)} className="mt-3 flex h-12 items-center gap-3 rounded-xl bg-[#F4F6FB] px-3 text-[15px] font-semibold text-[#0B1B3B]">
+            <Link prefetch={false} href="/business/desk/settings" onClick={() => setMenuOpen(false)} className="mt-3 flex h-12 items-center gap-3 rounded-xl bg-[#F4F6FB] px-3 text-[15px] font-semibold text-[#0B1B3B]">
               <GearIcon className="h-5 w-5" />
               Settings
             </Link>
-            <form action={signOutAction} className="mt-2">
+            <form action={signOutAction.bind(null, 'operator')} className="mt-2">
               <button type="submit" className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0B1B3B] text-[15px] font-bold text-white">
                 <LogoutIcon className="h-5 w-5" />
                 Log out
@@ -155,7 +155,7 @@ export function RangeLinks({ range, route }: { range: string; route?: string }) 
         if (route && route !== 'all') params.set('route', route);
         const active = range === item.id;
         return (
-          <Link key={item.id} href={`/business/desk?${params.toString()}`} className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${active ? 'bg-[#1F5BFF] text-white' : 'bg-white text-[#0B1B3B]'}`}>
+          <Link prefetch={false} key={item.id} href={`/business/desk?${params.toString()}`} className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${active ? 'bg-[#1F5BFF] text-white' : 'bg-white text-[#0B1B3B]'}`}>
             {item.label}
           </Link>
         );

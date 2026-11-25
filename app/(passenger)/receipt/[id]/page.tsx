@@ -22,7 +22,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
   const share = `Twende ${receipt.code} Bus ${receipt.fleetNumber} ${formatBalance(receipt.amountNgwee)}`;
   return (
     <div className="safe-top w-full px-4 pb-8 text-[#0B1B3B] sm:px-8 lg:px-10 lg:pt-8">
-      <Link href={pending ? "/home" : "/rides"} className="inline-flex min-h-10 items-center text-sm font-bold text-[#184BDE] print:hidden">← {pending ? "Home" : "My rides"}</Link>
+      <Link prefetch={false} href={pending ? "/home" : "/rides"} className="inline-flex min-h-10 items-center text-sm font-bold text-[#184BDE] print:hidden">← {pending ? "Home" : "My rides"}</Link>
       <div className="mt-2 flex items-center justify-between"><Logo /><span className="text-[12px] text-[#8A93A6]">{formatHour24(receipt.createdAt)}</span></div>
       <h1 className="mt-4 text-[28px] sm:text-4xl font-extrabold tracking-[-0.04em]">{pending ? 'Your ride ticket' : 'Ride receipt'}</h1>
       <section className="flip-card elevate mt-4 overflow-hidden rounded-2xl bg-white sm:grid sm:grid-cols-2">
@@ -45,11 +45,11 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
       </section>
       <div className="mx-auto mt-4 max-w-lg print:hidden">
       {pending ? <CancelFare rideId={receipt.id} /> : null}
-      {receipt.status !== 'void' ? <Link href="/map" className="mt-4 block text-center text-sm font-bold text-[#184BDE]">Track your bus</Link> : null}
+      {receipt.status !== 'void' ? <Link prefetch={false} href="/map" className="mt-4 block text-center text-sm font-bold text-[#184BDE]">Track your bus</Link> : null}
       <PrintButton />
-      <Link href="/wallet" className="mt-3 block text-center text-sm font-semibold text-[#184BDE]">View transaction history</Link>
+      <Link prefetch={false} href="/wallet" className="mt-3 block text-center text-sm font-semibold text-[#184BDE]">View transaction history</Link>
       {pending ? <ShareReceipt text={share} /> : null}
-      <Link href="/lost/new" className="mt-3 block text-center text-[14px] font-semibold text-[#1F5BFF]">Report a lost item</Link>
+      <Link prefetch={false} href="/lost/new" className="mt-3 block text-center text-[14px] font-semibold text-[#1F5BFF]">Report a lost item</Link>
       </div>
     </div>
   );

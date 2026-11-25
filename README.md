@@ -140,3 +140,22 @@ including the merchant, reference, amount, and currency. The simulated
 wallet and existing app routes remain independent of the journal. A
 provider adapter, reconciliation, refunds, and payouts are still needed
 for a real-money pilot.
+
+
+## Standalone app and low-data testing
+
+Use `docker build -t twende .` for the standalone Next.js runtime. Deploy
+behind an HTTPS load balancer and point its readiness check at
+`/api/health`. Inject the runtime database credentials from a secret store
+and use a restricted role with `sslmode=verify-full`. Run schema preparation
+separately with the migration role. Production rejects simulated transfers,
+demo sign-ins, and runtime demo initialization.
+
+Use a separate database for test builds. Prepare it ahead of time and use
+`TWENDE_ENV=demo` for simulation. The current Cloudflare configuration
+is a demo configuration. Users need to sign in again upon switching to
+the release that separates rider, conductor, and operator sessions.
+
+The fare screen retrieves the selected bus. The live map and its network
+requests start after the user chooses to open it. Run the Playwright
+`fare-foundation.spec.ts` test against the isolated local fixture database.

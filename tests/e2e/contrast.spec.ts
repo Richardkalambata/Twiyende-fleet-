@@ -13,7 +13,7 @@ test('controls stay readable when the device prefers dark', async ({ page }) => 
   await page.waitForTimeout(600);
   await assertLightControls(page);
 
-  await page.getByRole('button', { name: /Pay a fare/ }).click();
+  await page.getByRole('link', { name: /Pay a fare/ }).click();
   await page.getByLabel('Bus number').waitFor();
   await assertLightControls(page);
 

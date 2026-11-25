@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test('rider pays, conductor verifies, operator sees the fare', async ({ page }) => {
+test('new rider tops up and opens a pending fare ticket', async ({ page }) => {
   const phone = `097${String(Date.now()).slice(-7)}`;
   await page.goto('/signup');
   await page.getByLabel('Name').fill('Test Rider');
@@ -20,10 +20,10 @@ test('rider pays, conductor verifies, operator sees the fare', async ({ page }) 
   await page.getByRole('button', { name: 'Confirm +K20.00' }).click();
   await expect(page.getByText('Simulated top-up complete')).toBeVisible({ timeout: 15000 });
   await page.goto('/home');
-  await page.getByRole('button', { name: /Pay a fare/ }).click();
+  await page.getByRole('link', { name: /Pay a fare/ }).click();
   await page.getByLabel('Bus number').fill('12');
   await page.locator('button').filter({ hasText: /^K\d+$/ }).first().click();
   await page.getByRole('button', { name: /Pay K/ }).click();
   await page.waitForURL('**/receipt/**');
-  await expect(page.getByText('Awaiting verification')).toBeVisible();
+  await expect(page.getByText('Pending · Waiting for conductor')).toBeVisible();
 });

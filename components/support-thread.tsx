@@ -8,7 +8,7 @@ export function SupportThread({ id, status, messages, viewer, operator }: {
   id: string; status: string; viewer: string; operator: boolean;
   messages: { id: string; author_id: string; body: string; created_at: number }[];
 }) {
-  const [result, send, pending] = useActionState(replySupportAction, null);
+  const [result, send, pending] = useActionState(replySupportAction.bind(null, operator ? 'operator' : 'passenger'), null);
   return (
     <section className="space-y-4">
       <ConductorRefresh />

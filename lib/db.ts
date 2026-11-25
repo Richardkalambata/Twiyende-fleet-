@@ -36,6 +36,12 @@ function databaseUrl(): string {
   if (!url) {
     throw new Error('DATABASE_URL is not set. Add the Postgres connection string before starting Twende.');
   }
+  if (process.env.TWENDE_ENV === 'production') {
+    const parameters = new URL(url).searchParams;
+    if (parameters.get('sslmode') !== 'verify-full' || parameters.has('uselibpqcompat')) {
+      throw new Error('Production PostgreSQL requires sslmode=verify-full.');
+    }
+  }
   return url;
 }
 
@@ -43,9 +49,20 @@ function directUrl(): string {
   return process.env.DATABASE_URL_UNPOOLED || databaseUrl();
 }
 
-function sslFor(url: string): { rejectUnauthorized: false } | undefined {
-  if (/localhost|127\.0\.0\.1/.test(url)) return undefined;
-  return { rejectUnauthorized: false };
+function localDatabase(url: string): boolean {
+  return ['localhost', '127.0.0.1', '[::1]'].includes(new URL(url).hostname);
+}
+
+export function canResetDemoDatabase(): boolean {
+  return process.env.TWENDE_ENV !== 'production'
+    && process.env.TWENDE_WORKERS !== '1'
+    && process.env.TWENDE_MANAGED_DATABASE !== '1'
+    && Boolean(process.env.DATABASE_URL && localDatabase(process.env.DATABASE_URL))
+    && (!process.env.DATABASE_URL_UNPOOLED || localDatabase(process.env.DATABASE_URL_UNPOOLED));
+}
+
+function sslFor(url: string): { rejectUnauthorized: true } | undefined {
+  return localDatabase(url) ? undefined : { rejectUnauthorized: true };
 }
 
 function getPool(): Pool {
@@ -143,9 +160,8 @@ async function seedIfNeeded(force: boolean) {
 }
 
 async function ensureReady() {
-  // The migration uses the existing database and schema. A Worker request
-  // must never initialize it with demo data.
-  if (process.env.TWENDE_WORKERS === '1') return;
+  // Demo initialization only runs on a local database.
+  if (!canResetDemoDatabase()) return;
   const key = seedKey();
   if (globalForDb.twendeReady && globalForDb.twendeReadyKey === key) return globalForDb.twendeReady;
   globalForDb.twendeReadyKey = key;
@@ -190,6 +206,7 @@ export async function withTransaction<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 export async function resetDatabase() {
+  if (!canResetDemoDatabase()) throw new Error('Demo reset requires a local test database.');
   globalForDb.twendeReady = null;
   globalForDb.twendeReadyKey = null;
   await seedIfNeeded(true);

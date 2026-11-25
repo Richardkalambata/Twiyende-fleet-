@@ -9,7 +9,7 @@ export default async function NotificationsPage() {
   return (
     <div className="safe-top space-y-4 px-5 pb-8">
       <h1 className="text-[28px] font-extrabold">Notifications</h1>
-      <NotificationList notices={await listNotifications(user.id)} />
+      <NotificationList role="passenger" notices={await listNotifications(user.id)} />
     </div>
   );
 }

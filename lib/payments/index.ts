@@ -5,11 +5,11 @@ export type { MobileMoneyNetwork, PaymentProvider, PayoutNetwork, PayoutRequest,
 
 /**
  * Returns the active payment provider.
- * Set PAYMENT_PROVIDER and construct a real adapter (for example a MoMo /
- * Airtel / Zamtel aggregator) beside SimulatedPaymentProvider when going live.
- * Never commit aggregator credentials.
+ * The current provider is for the demo environment. Live partner payments
+ * must use authenticated confirmations and the separate collection journal.
  */
 export function getPaymentProvider(): PaymentProvider {
+  if (process.env.TWENDE_ENV === 'production') throw new Error('A live payment provider is not configured.');
   const which = process.env.PAYMENT_PROVIDER ?? 'simulated';
   if (which !== 'simulated') {
     throw new Error(

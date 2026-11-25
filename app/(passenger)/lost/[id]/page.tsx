@@ -7,7 +7,7 @@ import { Bell } from '@/components/bell';
 import { CheckIcon, PinIcon } from '@/components/icons';
 import { Smartphone } from 'lucide-react';
 import { Logo } from '@/components/shell';
-import { getPassengerHome, getPassengerLostItem } from '@/lib/service';
+import { getPassengerLostItem, passengerNotices } from '@/lib/service';
 
 export const metadata = { title: 'Item found' };
 
@@ -24,7 +24,7 @@ export default async function LostDetailPage({ params }: { params: Promise<{ id:
           <span className="inline-flex items-center gap-2">
             <Logo tone="light" />
           </span>
-          <Bell notices={(await getPassengerHome(user.id)).notices} tone="light" />
+          <Bell notices={await passengerNotices(user.id)} tone="light" />
         </header>
       </div>
       <div className="-mt-4 space-y-3 px-4 pb-8">

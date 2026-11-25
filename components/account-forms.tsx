@@ -2,11 +2,11 @@
 
 import { useActionState } from 'react';
 import { changePinAction, updateProfileAction, saveCompanyAction } from '@/lib/actions';
-import type { Fail } from '@/lib/types';
+import type { Fail, Role } from '@/lib/types';
 
-export function ProfileForms({ name, mode = 'both' }: { name: string; mode?: 'both' | 'name' | 'pin' }) {
-  const [profile, saveProfile, saving] = useActionState(updateProfileAction, null as Fail | null);
-  const [pin, savePin, pinning] = useActionState(changePinAction, null as Fail | null);
+export function ProfileForms({ name, role, mode = 'both' }: { name: string; role: Role; mode?: 'both' | 'name' | 'pin' }) {
+  const [profile, saveProfile, saving] = useActionState(updateProfileAction.bind(null, role), null as Fail | null);
+  const [pin, savePin, pinning] = useActionState(changePinAction.bind(null, role), null as Fail | null);
   return (
     <div className="space-y-3">
       {mode !== 'pin' ? (

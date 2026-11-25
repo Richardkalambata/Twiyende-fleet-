@@ -1,14 +1,10 @@
-'use client';
-
-import { useState } from 'react';
 import Link from 'next/link';
 import { Map, MapPin, Plus, Ticket } from 'lucide-react';
-import { PayForm } from './pay-form';
 import { Logo, Avatar } from './shell';
 import { EmptyState } from './ui';
 import { CountUp } from '@/components/motion/engine';
 import { formatBalance } from '@/lib/money';
-import type { BusOption, RideCard } from '@/lib/types';
+import type { RideCard } from '@/lib/types';
 
 export function HomeApp({
   name,
@@ -17,8 +13,6 @@ export function HomeApp({
   balanceNgwee,
   rides,
   monthCount,
-  buses,
-  initialFleet = '',
 }: {
   name: string;
   initials: string;
@@ -26,13 +20,8 @@ export function HomeApp({
   balanceNgwee: number;
   rides: RideCard[];
   monthCount: number;
-  buses: BusOption[];
-  initialFleet?: string;
 }) {
-  const [paying, setPaying] = useState(Boolean(initialFleet));
-  const [preset, setPreset] = useState(initialFleet);
   const letters = name.split(/\s+/).filter(Boolean).map((part) => part[0]).slice(0, 2).join('').toUpperCase() || initials;
-  if (paying) return <PayForm buses={buses} balanceNgwee={balanceNgwee} initialFleet={preset} onClose={() => setPaying(false)} />;
   return (
     <div className="w-full px-5 pb-4 text-[#0B1B3B] lg:px-10 lg:py-8">
       <header className="safe-top flex items-center justify-end lg:justify-between">
@@ -47,49 +36,49 @@ export function HomeApp({
           <span className="sheen" aria-hidden />
           <div className="flex items-center justify-between gap-2">
             <p className="text-[13px] font-semibold text-[#D5DCEC]">Available balance</p>
-            <Link href="/topup" className="relative z-10 flex min-h-11 items-center gap-1 rounded-xl bg-white px-3 text-sm font-bold text-[#0B1B3B]"><Plus className="size-4" aria-hidden /> Add funds</Link>
+            <Link prefetch={false} href="/topup" className="relative z-10 flex min-h-11 items-center gap-1 rounded-xl bg-white px-3 text-sm font-bold text-[#0B1B3B]"><Plus className="size-4" aria-hidden /> Add funds</Link>
           </div>
           <p className="num mt-1 text-[36px] font-extrabold leading-none tracking-[-0.04em] text-white"><CountUp ngwee={balanceNgwee} /></p>
           <p className="mt-1 text-[12px] font-semibold text-[#D5DCEC]">Twende wallet · ZMW</p>
         </section>
-        <button type="button" onClick={() => { setPreset(''); setPaying(true); }} className="glow-pay press col-span-2 flex h-14 items-center justify-center gap-2 md:col-span-1 rounded-[20px] bg-[#1F5BFF] text-[18px] font-extrabold text-white">
+        <Link prefetch={false} href="/pay" className="glow-pay press col-span-2 flex h-14 items-center justify-center gap-2 md:col-span-1 rounded-[20px] bg-[#1F5BFF] text-[18px] font-extrabold text-white">
           Pay a fare →
-        </button>
-        <Link href="/map" className="press col-span-2 flex h-14 items-center gap-3 md:col-span-1 rounded-[20px] bg-[#0B1B3B] px-3 text-white">
+        </Link>
+        <Link prefetch={false} href="/map" className="press col-span-2 flex h-14 items-center gap-3 md:col-span-1 rounded-[20px] bg-[#0B1B3B] px-3 text-white">
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#1F5BFF]"><Map className="h-5 w-5" /></span>
           <span>
             <span className="block text-[15px] font-extrabold">Live buses</span>
             <span className="block text-[12px] font-semibold text-[#D5DCEC]">See the fleet on the map</span>
           </span>
         </Link>
-        <Link href="/rides" data-tilt className="elevate press flex min-h-[88px] flex-col justify-between rounded-[20px] bg-white p-3 text-[#0B1B3B]">
+        <Link prefetch={false} href="/rides" data-tilt className="elevate press flex min-h-[88px] flex-col justify-between rounded-[20px] bg-white p-3 text-[#0B1B3B]">
           <Ticket className="h-5 w-5 text-[#1F5BFF]" />
           <span>
             <span className="block text-[15px] font-extrabold">Rides</span>
             <span className="mt-0.5 block text-[12px] font-semibold text-[#3E4A63]">{monthCount} this month</span>
           </span>
         </Link>
-        <Link href="/lost" data-tilt className="elevate press flex min-h-[88px] flex-col justify-between rounded-[20px] bg-white p-3 text-[#0B1B3B]">
+        <Link prefetch={false} href="/lost" data-tilt className="elevate press flex min-h-[88px] flex-col justify-between rounded-[20px] bg-white p-3 text-[#0B1B3B]">
           <MapPin className="h-5 w-5 text-[#1F5BFF]" />
           <span>
             <span className="block text-[15px] font-extrabold">Lost & found</span>
             <span className="mt-0.5 block text-[12px] font-semibold text-[#3E4A63]">Report an item</span>
           </span>
         </Link>
-        <Link href="/wallet" className="press col-span-2 flex min-h-12 items-center justify-between rounded-xl bg-white px-4 text-sm font-bold text-[#0B1B3B]">
+        <Link prefetch={false} href="/wallet" className="press col-span-2 flex min-h-12 items-center justify-between rounded-xl bg-white px-4 text-sm font-bold text-[#0B1B3B]">
           Transaction history <span aria-hidden>→</span>
         </Link>
       </div>
       <section className="mt-4 lg:rounded-[20px] lg:bg-white lg:p-5">
         <div className="flex items-center justify-between">
           <h2 className="text-[16px] font-extrabold">Recent rides</h2>
-          <Link href="/rides" className="text-[13px] font-semibold text-[#1F5BFF]">See all</Link>
+          <Link prefetch={false} href="/rides" className="text-[13px] font-semibold text-[#1F5BFF]">See all</Link>
         </div>
         {rides.length === 0 ? <div className="mt-2"><EmptyState title="No rides yet" body="Pay a fare and the last three trips will show up here." /></div> : (
           <ul className="stagger mt-2 overflow-hidden rounded-[20px] bg-white">
             {rides.map((ride) => (
               <li key={ride.id} className="border-b border-[#E6EAF2] last:border-0">
-                <Link href={`/receipt/${ride.id}`} className="flex items-center gap-3 px-3 py-3">
+                <Link prefetch={false} href={`/receipt/${ride.id}`} className="flex items-center gap-3 px-3 py-3">
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#E7EEFF] text-[12px] font-extrabold text-[#1F5BFF]">{ride.fleetNumber}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[14px] font-bold">{ride.route}</span>

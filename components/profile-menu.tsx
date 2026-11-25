@@ -13,9 +13,9 @@ export function ProfileMenu({ name, notices }: { name: string; notices: Notice[]
   return (
     <div className="overflow-hidden rounded-2xl bg-white shadow-[0_8px_24px_rgba(11,27,59,0.06)]">
       <Row icon={<Pencil className="h-5 w-5" />} label="Edit personal details" onClick={() => setOpen(open === 'edit' ? null : 'edit')} />
-      {open === 'edit' ? <div className="border-t border-[#E6EAF2] p-3"><ProfileForms name={name} mode="name" /></div> : null}
+      {open === 'edit' ? <div className="border-t border-[#E6EAF2] p-3"><ProfileForms role="passenger" name={name} mode="name" /></div> : null}
       <Row icon={<KeyRound className="h-5 w-5" />} label="Change PIN" onClick={() => setOpen(open === 'pin' ? null : 'pin')} />
-      {open === 'pin' ? <div className="border-t border-[#E6EAF2] p-3"><ProfileForms name="" mode="pin" /></div> : null}
+      {open === 'pin' ? <div className="border-t border-[#E6EAF2] p-3"><ProfileForms role="passenger" name="" mode="pin" /></div> : null}
       <Row icon={<Bell className="h-5 w-5" />} label="Notifications" detail={unread > 0 ? String(unread) : undefined} onClick={() => setOpen(open === 'notes' ? null : 'notes')} />
       {open === 'notes' ? (
         <ul className="border-t border-[#E6EAF2] px-4 py-2">
@@ -35,7 +35,7 @@ export function ProfileMenu({ name, notices }: { name: string; notices: Notice[]
         Help & support
         <ChevronRight className="ml-auto h-4 w-4 text-[#8A93A6]" />
       </Link>
-      <form action={signOutAction} className="border-t border-[#E6EAF2]">
+      <form action={signOutAction.bind(null, 'passenger')} className="border-t border-[#E6EAF2]">
         <button type="submit" className="press flex min-h-14 w-full items-center gap-3 bg-white px-4 text-left text-[15px] font-semibold text-[#0B1B3B]">
           <LogOut className="h-5 w-5 text-[#5C6578]" />
           Log out

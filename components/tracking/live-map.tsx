@@ -16,7 +16,13 @@ type Stop = { id: string; name: string; lat: number; lng: number; seq: number };
 type Payload = { buses: LiveBus[]; stops: { route: string; stops: Stop[] }[]; landmarks?: Stop[]; demo?: boolean; now: number };
 type YouFix = { lat: number; lng: number; accuracy: number; recordedAt?: number; demo?: boolean };
 type DistanceSample = { at: number; metres: number };
-const POLL_MS = 1_000;
+const POLL_MS = 5_000;
+const ROUTE_REFRESH_MS = 120_000;
+
+function lowDataConnection() {
+  const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+  return Boolean(connection?.saveData || ['slow-2g', '2g', '3g'].includes(connection?.effectiveType ?? ''));
+}
 const TRAIL_MS = 45_000;
 const TRAIL_M = 380;
 const DEMO_VIEW: YouFix = { ...DEMO_RIDER, demo: true };
@@ -172,16 +178,19 @@ export function LiveMap({ mode, paidRide }: { mode: 'rider' | 'operator'; paidRi
     let dead = false;
     let timer = 0;
     let loading = false;
+    let lastRouteRefresh = 0;
     const load = async () => {
-      if (document.hidden || loading) return;
+      if (document.hidden || !navigator.onLine || loading) return;
+      const refreshRoutes = Date.now() - lastRouteRefresh >= ROUTE_REFRESH_MS;
       loading = true;
       try {
-        const response = await fetch('/api/buses/live', { signal: AbortSignal.timeout(6000) });
+        const response = await fetch(`/api/buses/live?role=${mode === 'operator' ? 'operator' : 'passenger'}&compact=${refreshRoutes ? '0' : '1'}`, { signal: AbortSignal.timeout(6000) });
         if (!response.ok) throw new Error('Live data unavailable');
         if (dead) return;
-        const body = await response.json() as Payload;
+        const body = await response.json() as Omit<Payload, 'stops'> & { stops?: Payload['stops'] };
         if (!dead) {
-          setData((previous) => body.now >= previous.now ? body : previous);
+          if (refreshRoutes) lastRouteRefresh = Date.now();
+          setData((previous) => body.now >= previous.now ? { ...previous, ...body, stops: body.stops ?? previous.stops } : previous);
           setReconnecting(false);
         }
       } catch {
@@ -192,7 +201,7 @@ export function LiveMap({ mode, paidRide }: { mode: 'rider' | 'operator'; paidRi
     };
     const loop = () => {
       void load();
-      timer = window.setTimeout(loop, POLL_MS);
+      timer = window.setTimeout(loop, lowDataConnection() ? 15_000 : POLL_MS);
     };
     loop();
     const onShow = () => { if (!document.hidden) void load(); };
@@ -202,7 +211,7 @@ export function LiveMap({ mode, paidRide }: { mode: 'rider' | 'operator'; paidRi
       window.clearTimeout(timer);
       document.removeEventListener('visibilitychange', onShow);
     };
-  }, []);
+  }, [mode]);
 
   useEffect(() => {
     const node = holder.current;
@@ -227,6 +236,14 @@ export function LiveMap({ mode, paidRide }: { mode: 'rider' | 'operator'; paidRi
         if (!dead) setMapError(true);
       }
     };
+    if (lowDataConnection()) {
+      void fallback();
+      return () => {
+        dead = true;
+        mapRef.current?.camera.remove();
+        mapRef.current = null;
+      };
+    }
     void import('maplibre-gl').then((maplibre) => {
       if (dead) return;
       let map: import('maplibre-gl').Map;

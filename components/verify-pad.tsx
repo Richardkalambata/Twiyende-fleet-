@@ -120,7 +120,7 @@ export function VerifyPad({
       <div className="flex items-center justify-end gap-3 lg:justify-between">
         <span className="hidden lg:inline-flex"><Logo tone="light" business /></span>
         <div className="flex items-center gap-2">
-          <form action={signOutAction}>
+          <form action={signOutAction.bind(null, 'conductor')}>
             <button type="submit" aria-label="Log out" className="press grid h-10 w-10 place-items-center rounded-full bg-white/10 text-white">
               <LogOut className="h-5 w-5" />
             </button>

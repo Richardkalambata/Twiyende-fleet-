@@ -177,7 +177,7 @@ export function PickupClose({ items = [] }: { items?: { id: string; category: st
     <form className="rounded-3xl bg-white p-4 shadow-sm" onSubmit={async (event) => {
       event.preventDefault();
       setPending(true);
-      const result = await verifyPickupAction(code);
+      const result = await verifyPickupAction('operator', code);
       setPending(false);
       if (!result.ok) setError(result.message);
       else {

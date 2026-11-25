@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { formatBalance } from '@/lib/money';
-import { getPassengerHome, listWalletActivity } from '@/lib/service';
+import { getBalance, listWalletActivity } from '@/lib/service';
 import { formatHour24, formatRideWhen } from '@/lib/time';
 
 export const metadata = { title: 'Transaction history' };
@@ -11,15 +11,15 @@ export default async function WalletHistory({ searchParams }: { searchParams: Pr
   const user = await requireUser(['passenger']);
   const requested = Number((await searchParams).page);
   const page = Number.isSafeInteger(requested) && requested > 0 ? Math.min(requested, 1000000) : 1;
-  const [home, entries] = await Promise.all([
-    getPassengerHome(user.id),
+  const [balanceNgwee, entries] = await Promise.all([
+    getBalance(user.id),
     listWalletActivity(user.id, PAGE_SIZE + 1, (page - 1) * PAGE_SIZE),
   ]);
   return (
     <div className="safe-top w-full px-5 pb-8 lg:px-10">
       <Link href="/home" className="text-sm font-semibold text-[#184BDE]">← Home</Link>
       <h1 className="mt-3 text-3xl font-extrabold">Transaction history</h1>
-      <p className="mt-2 text-sm text-[#5C6578]">Current balance <strong className="text-[#0B1B3B]">{formatBalance(home.balanceNgwee)}</strong></p>
+      <p className="mt-2 text-sm text-[#5C6578]">Current balance <strong className="text-[#0B1B3B]">{formatBalance(balanceNgwee)}</strong></p>
       <ul className="mt-5 divide-y divide-[#E4E8F0] rounded-2xl bg-white px-4">
         {entries.slice(0, PAGE_SIZE).map((entry) => (
           <li key={entry.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 py-4 text-sm">

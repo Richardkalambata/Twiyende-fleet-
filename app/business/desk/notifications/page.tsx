@@ -14,7 +14,7 @@ export default async function FleetNotifications() {
   return (
     <div className="space-y-4 px-4 py-5 md:px-6">
       <h1 className="text-[28px] font-bold">Fleet notifications</h1>
-      <NotificationList notices={notices} />
+      <NotificationList role="operator" notices={notices} />
       <section className="rounded-2xl bg-white p-4">
         <h2 className="font-bold">Daily fare summary</h2>
         <p className="text-sm">{summary.date} · Zambia time</p>

@@ -29,8 +29,8 @@ export default async function ConductorProfilePage() {
         <Row label="Route" value={home.bus?.route ?? 'Ask your operator'} />
       </dl>
       <ConductorWalletForm phone={user.payoutPhone ?? user.phone} network={user.payoutNetwork} />
-      <ProfileForms name={user.name} mode="pin" />
-      <form action={signOutAction}>
+      <ProfileForms role="conductor" name={user.name} mode="pin" />
+      <form action={signOutAction.bind(null, 'conductor')}>
         <button className="press flex h-12 w-full items-center gap-3 rounded-2xl bg-white px-4 text-[15px] font-semibold shadow-[0_8px_24px_rgba(11,27,59,0.06)]">
           <LogOut className="h-5 w-5" />
           Log out

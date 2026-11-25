@@ -406,3 +406,36 @@ test('collection retries, duplicate callbacks and provider references post one b
   await assert.rejects(db.run('UPDATE payment_collection_postings SET amount_ngwee = 1 WHERE collection_id = ?', first.id), /append-only/);
   await assert.rejects(db.run('DELETE FROM payment_collection_postings WHERE collection_id = ?', first.id), /append-only/);
 });
+
+test('the same fare retry returns one receipt and debits the wallet once', async () => {
+  await useIsolatedDatabase();
+  const { IDS } = await import('../lib/constants.ts');
+  const { getBalance, payFare, getFareBusOption } = await import('../lib/service.ts');
+  const { resetDatabase } = await import('../lib/db.ts');
+  await resetDatabase();
+  assert.equal((await getFareBusOption('12'))?.route, 'Town to Matero');
+  assert.equal(await getFareBusOption('18'), null);
+
+  const before = await getBalance(IDS.richard);
+  const key = crypto.randomUUID();
+  const [initial, retry] = await Promise.all([
+    payFare(IDS.richard, '12', '5', key), payFare(IDS.richard, '12', '5', key),
+  ]);
+  assert.ok(initial.ok && retry.ok);
+  assert.equal(initial.rideId, retry.rideId);
+  assert.equal(initial.code, retry.code);
+  assert.equal(await getBalance(IDS.richard), before - 500);
+  assert.equal((await payFare(IDS.richard, '12', '10', key)).ok, false);
+
+  const previous = process.env.TWENDE_ENV;
+  process.env.TWENDE_ENV = 'production';
+  try {
+    const { topUp, requestPayout } = await import('../lib/service.ts');
+    assert.equal((await topUp(IDS.richard, 'mtn', '0971000001', '10')).ok, false);
+    assert.equal((await requestPayout(IDS.owner, '10')).ok, false);
+    assert.equal((await payFare(IDS.richard, '12', '5')).ok, false);
+  } finally {
+    if (previous === undefined) delete process.env.TWENDE_ENV;
+    else process.env.TWENDE_ENV = previous;
+  }
+});

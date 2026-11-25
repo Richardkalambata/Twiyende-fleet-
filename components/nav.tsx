@@ -11,14 +11,14 @@ import { signOutAction } from '@/lib/actions';
 
 function Item({ href, label, active, children }: { href: string; label: string; active: boolean; dark?: boolean; children: ReactNode }) {
   return (
-    <Link href={href} aria-current={active ? 'page' : undefined} className={`nav-item flex h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[12px] font-semibold lg:h-14 lg:flex-none lg:flex-row lg:justify-start lg:gap-3 lg:rounded-xl lg:px-4 lg:text-sm ${active ? 'text-[#0B1B3B] lg:!bg-white' : 'text-[#D5DCEC] lg:text-white/70 lg:hover:bg-white/10'}`}>
+    <Link prefetch={false} href={href} aria-current={active ? 'page' : undefined} className={`nav-item flex h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[12px] font-semibold lg:h-14 lg:flex-none lg:flex-row lg:justify-start lg:gap-3 lg:rounded-xl lg:px-4 lg:text-sm ${active ? 'text-[#0B1B3B] lg:!bg-white' : 'text-[#D5DCEC] lg:text-white/70 lg:hover:bg-white/10'}`}>
       {children}
       <span>{label}</span>
     </Link>
   );
 }
 
-function Bar({ label, index, cols, children }: { label: string; index: number; cols: number; children: ReactNode }) {
+function Bar({ role, label, index, cols, children }: { role: 'passenger' | 'conductor'; label: string; index: number; cols: number; children: ReactNode }) {
   return (
     <nav className="px-4 pb-[max(12px,env(safe-area-inset-bottom))] lg:flex lg:h-full lg:flex-col lg:pt-8" aria-label={label}>
       <div className="mb-8 hidden px-3 lg:block"><Logo tone="light" business={label === 'Conductor'} /></div>
@@ -26,7 +26,7 @@ function Bar({ label, index, cols, children }: { label: string; index: number; c
         <span className="nav-pill lg:hidden" aria-hidden />
         {children}
       </div>
-      <form action={signOutAction} className="mt-1 lg:mt-auto lg:border-t lg:border-white/20 lg:pt-4">
+      <form action={signOutAction.bind(null, role)} className="mt-1 lg:mt-auto lg:border-t lg:border-white/20 lg:pt-4">
         <button type="submit" className="flex min-h-9 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold lg:min-h-12 lg:justify-start lg:text-white lg:hover:bg-white/10">
           <LogOut className="size-4" aria-hidden /> Log out
         </button>
@@ -37,7 +37,7 @@ function Bar({ label, index, cols, children }: { label: string; index: number; c
 
 export function PassengerNav() {
   const path = usePathname();
-  const unread = useUnreadNotifications();
+  const unread = useUnreadNotifications('passenger');
   const tabs = [
     path === '/home',
     path.startsWith('/map'),
@@ -48,7 +48,7 @@ export function PassengerNav() {
   ];
   const index = Math.max(0, tabs.findIndex(Boolean));
   return (
-    <Bar label="Passenger" index={index} cols={6}>
+    <Bar role="passenger" label="Passenger" index={index} cols={6}>
       <Item href="/home" label="Home" active={tabs[0]}><HomeIcon className="h-5 w-5" /></Item>
       <Item href="/map" label="Map" active={tabs[1]}><Map className="h-5 w-5" /></Item>
       <Item href="/rides" label="Rides" active={tabs[2]}><RidesIcon className="h-5 w-5" /></Item>
@@ -63,7 +63,7 @@ export function PassengerNav() {
 
 export function ConductorNav() {
   const path = usePathname();
-  const unread = useUnreadNotifications();
+  const unread = useUnreadNotifications('conductor');
   const tabs = [
     path === '/business/drive',
     path.startsWith('/business/drive/trips'),
@@ -74,7 +74,7 @@ export function ConductorNav() {
   ];
   const index = Math.max(0, tabs.findIndex(Boolean));
   return (
-    <Bar label="Conductor" index={index} cols={6}>
+    <Bar role="conductor" label="Conductor" index={index} cols={6}>
       <Item href="/business/drive" label="Verify" active={tabs[0]}><ShieldIcon className="h-5 w-5" /></Item>
       <Item href="/business/drive/trips" label="Trips" active={tabs[1]}><BusIcon className="h-5 w-5" /></Item>
       <Item href="/business/drive/earnings" label="Earnings" active={tabs[2]}><Wallet className="h-5 w-5" /></Item>

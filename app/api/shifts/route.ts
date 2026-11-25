@@ -5,7 +5,7 @@ import { getDb } from '@/lib/db';
 import { startOfLusakaDay } from '@/lib/time';
 
 export async function GET() {
-  const user = await getCurrentUser();
+  const user = await getCurrentUser('conductor');
   if (!user || user.role !== 'conductor') return NextResponse.json({ error: 'Sign in' }, { status: 401 });
   const shift = await openShift(user.id);
   if (!shift) return NextResponse.json({ sharing: false });
@@ -30,13 +30,14 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const user = await getCurrentUser();
+  const user = await getCurrentUser('conductor');
   if (!user || user.role !== 'conductor') return NextResponse.json({ error: 'Sign in' }, { status: 401 });
   const body = await request.json().catch(() => null) as { action?: string } | null;
   if (body?.action === 'end') {
     await endShift(user.id);
     return NextResponse.json({ sharing: false });
   }
+  if (body?.action !== 'start') return NextResponse.json({ error: 'Invalid shift action' }, { status: 400 });
   const result = await startShift(user.id);
   if (!result.ok) return NextResponse.json({ error: result.message }, { status: 400 });
   return NextResponse.json({ sharing: true, busId: result.busId, fleet: result.fleet, route: result.route, startedAt: result.startedAt, verified: 0 });

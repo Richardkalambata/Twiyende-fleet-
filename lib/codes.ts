@@ -38,5 +38,5 @@ export function confusingCodeMessage(code: string): string | null {
 
 
 export function riderPaymentPath(bus: unknown): string | null {
-  return typeof bus === 'string' && /^\d{1,4}$/.test(bus) ? `/home?bus=${bus}` : null;
+  return typeof bus === 'string' && /^\d{1,4}$/.test(bus) ? `/pay?bus=${bus}` : null;
 }

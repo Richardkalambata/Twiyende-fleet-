@@ -1,9 +1,10 @@
 'use server';
 
 import { riderPaymentPath } from '@/lib/codes';
+import { canResetDemoDatabase } from './db';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { createSession, destroySession, getCurrentUser, requireUser } from './auth';
+import { createSession, destroySession, getCurrentUser, isRole, requireUser } from './auth';
 import {
   assignConductor,
   authenticate,
@@ -43,7 +44,7 @@ import {
 } from './service';
 import { beginOperatorVerification, completeOperatorVerification } from './operator-verification';
 import { requiresOperatorSms } from './operator-sms-policy';
-import type { Fail } from './types';
+import type { Fail, Role } from './types';
 
 function refresh() {
   revalidatePath('/', 'layout');
@@ -56,13 +57,14 @@ export async function loginAction(previous: LoginState, formData: FormData): Pro
     if (!requiresOperatorSms()) return { ok: false, message: 'Restart sign-in to continue with your PIN.' };
     const userId = await completeOperatorVerification(String(formData.get('code') ?? ''));
     if (!userId) return { ok: true, step: 'sms', message: 'That code could not be verified. Try again or restart sign-in.' };
-    await createSession(userId, true);
+    await createSession(userId, 'operator', true);
     redirect('/business/desk');
   }
+  const gate = String(formData.get('gate') ?? 'passenger');
+  if (!isRole(gate) && gate !== 'business') return { ok: false, message: 'Open the correct sign-in page.' };
   const pin = String(formData.get('pin') ?? '');
   const result = await authenticate(String(formData.get('phone') ?? ''), pin);
   if (!result.ok) return result;
-  const gate = String(formData.get('gate') ?? 'passenger');
   if (gate === 'passenger' && result.user.role !== 'passenger') {
     return { ok: false, message: 'Operators and conductors sign in to Twende Fleet Business.' };
   }
@@ -90,44 +92,44 @@ export async function loginAction(previous: LoginState, formData: FormData): Pro
     if (!sent) return { ok: false, message: 'We could not send a code. Wait a minute and try again.' };
     return { ok: true, step: 'sms' };
   }
-  await destroySession();
-  await createSession(result.user.id);
+  await createSession(result.user.id, result.user.role);
   redirect((result.user.role === 'passenger' ? riderPaymentPath(formData.get('bus')) : null) ?? homeFor(result.user.role));
 }
 
 export async function demoLoginAction(formData: FormData) {
   const gate = String(formData.get('gate') ?? 'passenger');
   const back = gate === 'conductor' ? '/business/conductor/login' : gate === 'operator' || gate === 'business' ? '/business/login' : '/login';
+  if (!isRole(gate) && gate !== 'business') redirect('/login');
   const result = await authenticateDemo(String(formData.get('userId') ?? ''));
   if (!result.ok) redirect(`${back}?error=${encodeURIComponent(result.message)}`);
   if (gate === 'passenger' && result.user.role !== 'passenger') {
     redirect(`${back}?error=${encodeURIComponent('Open Twende Fleet Business for this account.')}`);
   }
-  if (gate === 'operator' && result.user.role !== 'operator') {
+  if ((gate === 'operator' || gate === 'business') && result.user.role !== 'operator') {
     redirect(`${back}?error=${encodeURIComponent('This sign-in is for operators. Conductors use Conductor sign in.')}`);
   }
   if (gate === 'conductor' && result.user.role !== 'conductor') {
     redirect(`${back}?error=${encodeURIComponent('This sign-in is for conductors. Operators use Operator sign in.')}`);
   }
-  await destroySession();
-  await createSession(result.user.id);
+  await createSession(result.user.id, result.user.role);
   redirect((result.user.role === 'passenger' ? riderPaymentPath(formData.get('bus')) : null) ?? homeFor(result.user.role));
 }
 
-export async function signOutAction() {
-  const user = await getCurrentUser();
+export async function signOutAction(role: Role) {
+  if (!isRole(role)) return;
+  const user = await getCurrentUser(role);
   if (user?.role === 'conductor') {
     const { endShift } = await import('./tracking');
     await endShift(user.id);
   }
-  await destroySession();
-  if (user?.role === 'conductor') redirect('/business/conductor/login');
-  redirect(user && user.role !== 'passenger' ? '/business' : '/');
+  await destroySession(role);
+  if (role === 'conductor') redirect('/business/conductor/login');
+  redirect(role === 'operator' ? '/business' : '/');
 }
 
-export async function payAction(fleetNumber: string, fare: string) {
+export async function payAction(fleetNumber: string, fare: string, requestId: string) {
   const user = await requireUser(['passenger']);
-  const result = await payFare(user.id, fleetNumber, fare);
+  const result = await payFare(user.id, fleetNumber, fare, requestId);
   if (result.ok) refresh();
   return result;
 }
@@ -196,8 +198,9 @@ export async function logOperatorFoundAction(_previous: unknown, formData: FormD
   return result;
 }
 
-export async function verifyPickupAction(code: string) {
-  const user = await requireUser(['conductor', 'operator']);
+export async function verifyPickupAction(role: 'conductor' | 'operator', code: string) {
+  if (role !== 'conductor' && role !== 'operator') return { ok: false as const, message: 'Sign in to verify a pickup.' };
+  const user = await requireUser([role]);
   const result = await verifyPickup(user.id, code);
   if (result.ok) refresh();
   return result;
@@ -280,9 +283,9 @@ export async function payoutAction(_prev: Fail | { ok: true; message: string } |
 
 export async function resetDemoAction() {
   const user = await requireUser(['operator']);
-  if (!user.demo) return;
+  if (!user.demo || !canResetDemoDatabase()) return;
   await restoreDemoData();
-  await createSession(user.id);
+  await createSession(user.id, 'operator');
   redirect('/business/desk?reset=1');
 }
 
@@ -298,7 +301,7 @@ export async function signupPassengerAction(_prev: Fail | null, formData: FormDa
     network: String(formData.get('network') ?? ''),
   });
   if (!result.ok) return result;
-  await createSession(result.id);
+  await createSession(result.id, 'passenger');
   redirect(riderPaymentPath(formData.get('bus')) ?? '/home');
 }
 
@@ -321,16 +324,18 @@ export async function assignShiftAction(formData: FormData) {
   refresh();
 }
 
-export async function updateProfileAction(_prev: Fail | null, formData: FormData): Promise<Fail | null> {
-  const user = await requireUser();
+export async function updateProfileAction(role: Role, _prev: Fail | null, formData: FormData): Promise<Fail | null> {
+  if (!isRole(role)) return { ok: false, message: 'Sign in again.' };
+  const user = await requireUser([role]);
   const result = await updateProfile(user.id, String(formData.get('name') ?? ''));
   if (!result.ok) return result;
   refresh();
   return null;
 }
 
-export async function changePinAction(_prev: Fail | null, formData: FormData): Promise<Fail | null> {
-  const user = await requireUser();
+export async function changePinAction(role: Role, _prev: Fail | null, formData: FormData): Promise<Fail | null> {
+  if (!isRole(role)) return { ok: false, message: 'Sign in again.' };
+  const user = await requireUser([role]);
   const result = await changePin(user.id, String(formData.get('current') ?? ''), String(formData.get('next') ?? ''));
   if (!result.ok) return result;
   refresh();
@@ -355,9 +360,9 @@ export async function supportAction(_prev: Fail | null, formData: FormData): Pro
   redirect(`/help/support/${result.id}`);
 }
 
-export async function replySupportAction(_previous: { ok: boolean; message: string } | null, formData: FormData) {
-  const user = await requireUser(['operator', 'passenger']);
-  const role = user.role === 'operator' ? 'operator' : 'passenger';
+export async function replySupportAction(role: 'operator' | 'passenger', _previous: { ok: boolean; message: string } | null, formData: FormData) {
+  if (role !== 'operator' && role !== 'passenger') return { ok: false, message: 'Sign in again.' };
+  const user = await requireUser([role]);
   const result = await replySupport(user.id, role, String(formData.get('ticketId') ?? ''), String(formData.get('body') ?? ''), formData.get('close') === 'on');
   if (result.ok) refresh();
   return result;
@@ -391,8 +396,9 @@ export async function terminateConductorAction(_previous: { ok: boolean; message
   return result;
 }
 
-export async function readNoticeAction(formData: FormData) {
-  const user = await requireUser();
+export async function readNoticeAction(role: Role, formData: FormData) {
+  if (!isRole(role)) return;
+  const user = await requireUser([role]);
   await markNotificationRead(user.id, String(formData.get('id') ?? ''));
   refresh();
 }

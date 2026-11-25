@@ -1,0 +1,11 @@
+.git
+.next
+.open-next
+.wrangler
+.env*
+node_modules
+playwright-report
+test-results
+coverage
+*.log
+.dev.vars*

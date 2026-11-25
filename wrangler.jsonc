@@ -8,6 +8,8 @@
   "preview_urls": false,
   "vars": {
     "TWENDE_WORKERS": "1",
+    "TWENDE_ENV": "demo",
+    "PAYMENT_PROVIDER": "simulated",
     "TWENDE_PUBLIC_ORIGIN": "https://twende-fleet-refresh.richardkalambata495.workers.dev"
   },
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },

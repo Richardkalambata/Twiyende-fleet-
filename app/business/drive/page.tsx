@@ -10,7 +10,7 @@ export default async function ConductorPage() {
   const home = await getConductorHome(user.id);
   return (
     <>
-      {home.bus && <Link className="block px-5 py-3 text-sm font-bold text-[#1747CB]" href={`/bus-sign/${home.bus.id}`}>Print or download bus sign</Link>}
+      {home.bus && <Link className="block px-5 py-3 text-sm font-bold text-[#1747CB]" href={`/bus-sign/${home.bus.id}?role=conductor`}>Print or download bus sign</Link>}
       <VerifyPad
         fleetNumber={home.bus?.fleet_number ?? null}
         route={home.bus?.route}

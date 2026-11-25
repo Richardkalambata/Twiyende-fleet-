@@ -140,7 +140,7 @@ export function ConductorLostBoard({
         ))}
       </ul>
 
-      <form className="mt-4 rounded-2xl bg-white p-3 text-[#0B1B3B]" onSubmit={(event) => { event.preventDefault(); void run('pickup', () => verifyPickupAction(pickup)); }}>
+      <form className="mt-4 rounded-2xl bg-white p-3 text-[#0B1B3B]" onSubmit={(event) => { event.preventDefault(); void run('pickup', () => verifyPickupAction('conductor', pickup)); }}>
         <label className="text-sm font-medium text-[#0B1B3B]" htmlFor="pickup-code">Select an item or enter its pickup code</label>
         <select aria-label="Select item to return" value={items.some((item) => item.status !== 'closed' && item.pickupCode === pickup) ? pickup : ''} onChange={(event) => setPickup(event.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-[#E4E8F0] px-3">
           <option value="">Choose an item</option>

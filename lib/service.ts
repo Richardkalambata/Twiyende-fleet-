@@ -129,7 +129,7 @@ async function userById(id: string): Promise<UserRow | null> {
 
 export async function getPublicUser(id: string): Promise<PublicUser | null> {
   const row = await userById(id);
-  return row && (row.conductor_closes_at == null || row.conductor_closes_at > Date.now()) ? mapUser(row) : null;
+  return row && !(process.env.TWENDE_ENV === 'production' && row.demo) && (row.conductor_closes_at == null || row.conductor_closes_at > Date.now()) ? mapUser(row) : null;
 }
 
 export function parseRange(value: string | undefined): RangeKey {
@@ -137,7 +137,7 @@ export function parseRange(value: string | undefined): RangeKey {
   return 'today';
 }
 
-async function getBalance(userId: string): Promise<number> {
+export async function getBalance(userId: string): Promise<number> {
   const row = await (await getDb()).get('SELECT COALESCE(SUM(amount_ngwee), 0) AS n FROM wallet_transactions WHERE user_id = ?', userId) as
     | { n: number }
     | undefined;
@@ -257,7 +257,7 @@ export async function authenticate(phoneRaw: string, pin: string): Promise<{ ok:
   key, now + 60_000, now, now, now);
   if (!attempt) return { ok: false, message: 'Too many tries. Wait a minute, then try again.' };
   const row = await db.get<UserRow>('SELECT * FROM users WHERE phone = ?', phone);
-  if (!row || !verifyPin(pin, row.pin_hash)) {
+  if (!row || (process.env.TWENDE_ENV === 'production' && row.demo) || !verifyPin(pin, row.pin_hash)) {
     return { ok: false, message: 'That phone number and PIN do not match.' };
   }
   if (row.conductor_closes_at != null && row.conductor_closes_at <= now) {
@@ -267,7 +267,7 @@ export async function authenticate(phoneRaw: string, pin: string): Promise<{ ok:
 }
 
 export async function authenticateDemo(userId: string): Promise<{ ok: true; user: PublicUser } | Fail> {
-  if (process.env.DEMO_ROLE_SWITCHER !== '1') {
+  if (process.env.TWENDE_ENV === 'production' || process.env.DEMO_ROLE_SWITCHER !== '1') {
     return { ok: false, message: 'Demo sign-in is turned off.' };
   }
   const row = await (await getDb()).get('SELECT * FROM users WHERE id = ? AND demo = TRUE AND (conductor_closes_at IS NULL OR conductor_closes_at > ?)', userId, Date.now()) as UserRow | undefined;
@@ -276,7 +276,7 @@ export async function authenticateDemo(userId: string): Promise<{ ok: true; user
 }
 
 export async function listDemoAccounts(): Promise<DemoAccount[]> {
-  if (process.env.DEMO_ROLE_SWITCHER !== '1') return [];
+  if (process.env.TWENDE_ENV === 'production' || process.env.DEMO_ROLE_SWITCHER !== '1') return [];
   const rows = await (await getDb()).all(`SELECT * FROM users WHERE demo = TRUE AND conductor_closes_at IS NULL`) as UserRow[];
   const buses = await (await getDb()).all('SELECT fleet_number, conductor_id FROM buses') as Array<{
     fleet_number: string;
@@ -323,37 +323,31 @@ async function rideCards(passengerId: string, limit: number): Promise<RideCard[]
 }
 
 export async function getPassengerHome(userId: string) {
-  const user = await userById(userId);
-  if (!user) throw new UserError('Sign in again.');
-  return {
-    user: mapUser(user),
-    balanceNgwee: await getBalance(userId),
-    rides: await rideCards(userId, 4),
-    buses: await listBusOptions(),
-    notices: await passengerNotices(userId),
-  };
+  const db = await getDb();
+  const [balanceNgwee, rides, month] = await Promise.all([
+    getBalance(userId), rideCards(userId, 3),
+    db.get<{ n: number }>("SELECT COUNT(*)::int AS n FROM rides WHERE passenger_id = ? AND created_at >= ? AND status <> 'void'", userId, startOfLusakaMonth()),
+  ]);
+  return { balanceNgwee, rides, monthCount: month?.n ?? 0 };
 }
 
 export async function listPassengerRides(userId: string): Promise<RideCard[]> {
   return await rideCards(userId, 50);
 }
 
-export async function listBusOptions(): Promise<BusOption[]> {
-  const rows = await (await getDb()).all(`SELECT fleet_number, route, status, default_fare_ngwee, owner_id FROM buses ORDER BY CAST(fleet_number AS INTEGER)`) as Array<{
-    fleet_number: string;
-    route: string;
-    status: 'active' | 'offline';
-    default_fare_ngwee: number;
-    owner_id: string;
-  }>;
-  const fares = await (await getDb()).all('SELECT owner_id, route, amount_ngwee FROM route_fares') as Array<{ owner_id: string; route: string; amount_ngwee: number }>;
-  return rows.map((row) => ({
-    fleetNumber: row.fleet_number,
-    route: row.route,
-    status: row.status,
-    defaultFareNgwee: row.default_fare_ngwee ?? 500,
-    fareNgwee: fares.filter((fare) => fare.owner_id === row.owner_id && fare.route === row.route).map((fare) => fare.amount_ngwee),
-  }));
+export async function getFareBusOption(input: string): Promise<BusOption | null> {
+  const fleet = normalizeFleetNumber(input);
+  if (!/^\d{1,4}$/.test(fleet)) return null;
+  const row = await (await getDb()).get<{
+    fleet_number: string; route: string; default_fare_ngwee: number | null; fares: number[];
+  }>(`SELECT b.fleet_number, b.route, b.default_fare_ngwee,
+      ARRAY(SELECT f.amount_ngwee FROM route_fares f
+        WHERE f.owner_id = b.owner_id AND f.route = b.route ORDER BY f.amount_ngwee) AS fares
+    FROM buses b WHERE b.fleet_number = ? AND b.status = 'active' AND b.conductor_id IS NOT NULL`, fleet);
+  return row ? {
+    fleetNumber: row.fleet_number, route: row.route, status: 'active',
+    defaultFareNgwee: row.default_fare_ngwee ?? 500, fareNgwee: row.fares,
+  } : null;
 }
 
 export async function getReceipt(passengerId: string, rideId: string): Promise<Receipt | null> {
@@ -392,39 +386,42 @@ export async function listWalletActivity(userId: string, limit = 8, offset = 0):
   }));
 }
 
-export async function payFare(passengerId: string, fleetRaw: string, fareRaw: string) {
+export async function payFare(passengerId: string, fleetRaw: string, fareRaw: string, requestId = nid('fare')) {
+  if (process.env.TWENDE_ENV === 'production') return { ok: false as const, message: 'Payments are currently unavailable.' };
   const fleet = normalizeFleetNumber(fleetRaw);
   const amount = parseFare(fareRaw);
   if (!fleet) return { ok: false as const, message: 'Enter the bus number painted on the minibus.' };
   if (amount == null) return { ok: false as const, message: 'Enter a fare from K1 to K100.' };
-  const bus = await busByFleet(fleet);
-  if (!bus) return { ok: false as const, message: `No Twende bus ${fleet}. Check the number on the vehicle.` };
-  if (bus.status !== 'active' || !bus.conductor_id) {
-    return { ok: false as const, message: `Bus ${fleet} is not taking Twende payments right now.` };
-  }
-  const configuredFares = await (await getDb()).all<{ amount_ngwee: number }>(
-    'SELECT amount_ngwee FROM route_fares WHERE owner_id = ? AND route = ?', bus.owner_id, bus.route,
-  );
-  if (configuredFares.length && !configuredFares.some((fare) => fare.amount_ngwee === amount)) {
-    return { ok: false as const, message: 'Choose one of the fares set for this route.' };
-  }
-  const balance = await getBalance(passengerId);
-  if (balance < amount) {
-    return {
-      ok: false as const,
-      message: `Not enough balance. You have ${formatBalance(balance)}. Top up to pay ${formatCompact(amount)}.`,
-    };
-  }
-  const passenger = await userById(passengerId);
-  if (!passenger) return { ok: false as const, message: 'Sign in again.' };
+  if (!/^[A-Za-z0-9_-]{12,80}$/.test(requestId)) return { ok: false as const, message: 'Reload the fare form and try again.' };
+  const digest = createHash('sha256').update(JSON.stringify([passengerId, requestId])).digest('hex');
+  const rideId = `ride_${digest}`;
   try {
     return await withTransaction(async () => {
       const db = await getDb();
-      const current = await db.get<BusRow>('SELECT * FROM buses WHERE id = ? FOR SHARE', bus.id);
-      if (!current || current.status !== 'active' || current.conductor_id !== bus.conductor_id || current.route !== bus.route) {
-        throw new UserError('This bus changed while you were paying. Check the bus and try again.');
+      await db.run('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', rideId);
+      const prior = await db.get<RideJoin>(
+        'SELECT r.*, b.fleet_number FROM rides r JOIN buses b ON b.id = r.bus_id WHERE r.id = ? AND r.passenger_id = ?',
+        rideId, passengerId,
+      );
+      if (prior) {
+        if (prior.fleet_number !== fleet || prior.amount_ngwee !== amount) {
+          throw new UserError('This payment request was for a different fare.');
+        }
+        return { ok: true as const, rideId, code: prior.code, amountNgwee: amount, balanceNgwee: await getBalance(passengerId), fleetNumber: fleet, route: prior.route_snapshot };
       }
-      const rideId = nid('ride');
+      const bus = await db.get<BusRow>('SELECT * FROM buses WHERE fleet_number = ? FOR SHARE', fleet);
+      if (!bus) throw new UserError(`No Twende bus ${fleet}. Check the number on the vehicle.`);
+      if (bus.status !== 'active' || !bus.conductor_id) {
+        throw new UserError(`Bus ${fleet} is not taking Twende payments right now.`);
+      }
+      const fares = await db.all<{ amount_ngwee: number }>(
+        'SELECT amount_ngwee FROM route_fares WHERE owner_id = ? AND route = ?', bus.owner_id, bus.route,
+      );
+      if (fares.length && !fares.some((fare) => fare.amount_ngwee === amount)) {
+        throw new UserError('Choose one of the fares set for this route.');
+      }
+      const passenger = await userById(passengerId);
+      if (!passenger || passenger.role !== 'passenger') throw new UserError('Sign in again.');
       const now = Date.now();
       const expiresAt = now + 3 * 60 * 60 * 1000;
       const code = await reserveUniqueCode(rideId, expiresAt + DAY_MS);
@@ -445,6 +442,7 @@ export async function payFare(passengerId: string, fleetRaw: string, fareRaw: st
 }
 
 export async function cancelFare(passengerId: string, rideId: string) {
+  if (process.env.TWENDE_ENV === 'production') return { ok: false as const, message: 'Payments are currently unavailable.' };
   try {
     return await withTransaction(async () => {
       const ride = await (await getDb()).get(`SELECT r.*, b.fleet_number FROM rides r JOIN buses b ON b.id = r.bus_id WHERE r.id = ? AND r.passenger_id = ?`, rideId, passengerId) as RideJoin | undefined;
@@ -572,6 +570,7 @@ export async function listConductorPayouts(conductorId: string) {
 }
 
 export async function recordConductorPayout(operatorId: string, conductorId: string, amountRaw: string, paidOn: string, requestId: string, transferRefRaw: string) {
+  if (process.env.TWENDE_ENV === 'production') return { ok: false as const, message: 'Payments are currently unavailable.' };
   const amount = parseMoney(amountRaw, 100_000_000);
   if (amount === null) return { ok: false as const, message: 'Enter a payout from K1 to K1,000,000.' };
   const day = new Date(`${paidOn}T12:00:00Z`);
@@ -640,6 +639,7 @@ export async function listConductorTrips(userId: string) {
 }
 
 export async function topUp(passengerId: string, network: string, phoneRaw: string, amountRaw: string, requestId = nid('top')) {
+  if (process.env.TWENDE_ENV === 'production') return { ok: false as const, message: 'Payments are currently unavailable.' };
   const phone = normalizePhone(phoneRaw);
   if (!phone) return { ok: false as const, message: 'Enter the mobile-money number to charge.' };
   if (network !== 'mtn' && network !== 'airtel' && network !== 'zamtel') {
@@ -947,6 +947,7 @@ export async function verifyPickup(actorId: string, rawCode: string) {
 }
 
 export async function sendTip(passengerId: string, itemId: string, amountRaw: number) {
+  if (process.env.TWENDE_ENV === 'production') return { ok: false as const, message: 'Payments are currently unavailable.' };
   if (!TIP_AMOUNTS_NGWEE.includes(amountRaw as (typeof TIP_AMOUNTS_NGWEE)[number])) {
     return { ok: false as const, message: 'Choose K5, K10, or K20.' };
   }
@@ -973,7 +974,7 @@ export async function sendTip(passengerId: string, itemId: string, amountRaw: nu
   }
 }
 
-async function passengerNotices(userId: string): Promise<Notice[]> {
+export async function passengerNotices(userId: string): Promise<Notice[]> {
   const rows = await (await getDb()).all(`SELECT li.id, li.category, li.status, b.fleet_number FROM lost_items li
       JOIN buses b ON b.id = li.bus_id
       WHERE li.passenger_id = ? AND li.status IN ('reported', 'pickup_pending', 'not_found')
@@ -1479,6 +1480,7 @@ async function releaseReservation(payoutId: string) {
 }
 
 export async function requestPayout(ownerId: string, amountRaw: string) {
+  if (process.env.TWENDE_ENV === 'production') return { ok: false as const, message: 'Payments are currently unavailable.' };
   const amount = parseMoney(amountRaw, 100_000_000);
   if (amount == null) return { ok: false as const, message: 'Enter a payout of at least K1.' };
   const user = await userById(ownerId);
@@ -1489,6 +1491,7 @@ export async function requestPayout(ownerId: string, amountRaw: string) {
   const payoutId = nid('pay');
   try {
     await withTransaction(async () => {
+      await (await getDb()).run('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', 'withdrawal:' + ownerId);
       const available = await ownerAvailableNgwee(ownerId);
       if (amount > available) {
         throw new UserError(`You can pay out up to ${formatBalance(Math.max(available, 0))}.`);
@@ -1772,6 +1775,7 @@ export async function listRouteFares(ownerId: string) {
 }
 
 export async function settleDay(ownerId: string, fleet: string, amountRaw: string) {
+  if (process.env.TWENDE_ENV === 'production') return { ok: false as const, message: 'Payments are currently unavailable.' };
   const amount = parseFare(amountRaw);
   if (amount == null) return { ok: false as const, message: 'Enter the amount to settle.' };
   const bus = await busByFleet(fleet);

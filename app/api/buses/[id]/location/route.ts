@@ -3,7 +3,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { recordConductorLocation } from '@/lib/tracking';
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
-  const user = await getCurrentUser();
+  const user = await getCurrentUser('conductor');
   if (!user) return NextResponse.json({ error: 'Sign in' }, { status: 401 });
   if (user.role !== 'conductor') return NextResponse.json({ error: 'Conductors only' }, { status: 403 });
   const { id } = await context.params;

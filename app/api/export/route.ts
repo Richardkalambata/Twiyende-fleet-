@@ -6,7 +6,7 @@ import { formatHour24, lusakaDateKey } from '@/lib/time';
 import { fareArchiveYear, parseRange, ridesForExport } from '@/lib/service';
 
 export async function GET(request: Request) {
-  const user = await getCurrentUser();
+  const user = await getCurrentUser('operator');
   if (!user || user.role !== 'operator') {
     return NextResponse.json({ message: 'Sign in as the owner to export.' }, { status: 401 });
   }

@@ -21,7 +21,7 @@ test('forced Chrome dark mode keeps the light UI', async ({ page }, testInfo) =>
   await assertLightControls(page);
   await page.screenshot({ path: testInfo.outputPath('dark-home-412.png') });
 
-  await page.getByRole('button', { name: /Pay a fare/ }).click();
+  await page.getByRole('link', { name: /Pay a fare/ }).click();
   await page.getByLabel('Bus number').fill('12');
   await page.getByText('Town to Matero').waitFor();
   await assertLightControls(page);

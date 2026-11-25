@@ -1,7 +1,5 @@
-import { requireUser } from '@/lib/auth';
 import { PhoneShell } from '@/components/shell';
 
-export default async function FocusLayout({ children }: { children: React.ReactNode }) {
-  await requireUser(['passenger']);
+export default function FocusLayout({ children }: { children: React.ReactNode }) {
   return <PhoneShell>{children}</PhoneShell>;
 }

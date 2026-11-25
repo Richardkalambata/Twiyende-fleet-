@@ -1,17 +1,16 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import type { Role } from '@/lib/types';
 import { useEffect, useState } from 'react';
 
-export function useUnreadNotifications() {
-  const path = usePathname();
+export function useUnreadNotifications(role: Role) {
   const [unread, setUnread] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
     async function update() {
-      if (document.hidden) return;
+      if (document.hidden || !navigator.onLine) return;
       try {
-        const response = await fetch('/api/notifications', { signal: controller.signal });
+        const response = await fetch(`/api/notifications?role=${role}`, { signal: controller.signal });
         if (response.status === 401) setUnread(0);
         if (response.ok) setUnread((await response.json()).unread);
       } catch {
@@ -19,14 +18,14 @@ export function useUnreadNotifications() {
       }
     }
     void update();
-    const timer = window.setInterval(update, 30_000);
+    const timer = window.setInterval(update, 60_000);
     document.addEventListener('visibilitychange', update);
     return () => {
       controller.abort();
       window.clearInterval(timer);
       document.removeEventListener('visibilitychange', update);
     };
-  }, [path]);
+  }, [role]);
   return unread;
 }
 

@@ -7,7 +7,7 @@ import { homeFor, listDemoAccounts } from '@/lib/service';
 export const metadata = { title: 'Operator sign in' };
 
 export default async function BusinessLogin({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const user = await getCurrentUser();
+  const user = await getCurrentUser('operator');
   if (user?.role === 'operator') redirect(homeFor(user.role));
   const params = await searchParams;
   const accounts = (await listDemoAccounts()).filter((account) => account.role === 'operator');

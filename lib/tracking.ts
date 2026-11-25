@@ -279,9 +279,9 @@ export async function listLiveBuses(viewer: { id: string; role: string }, now = 
      LEFT JOIN bus_latest l ON l.bus_id = b.id
      LEFT JOIN assignments a ON a.bus_id = b.id AND a.shift_date = ?
      LEFT JOIN users u ON u.id = a.conductor_id
-     WHERE b.status = 'active' OR b.owner_id = ?
+     WHERE CASE WHEN ?::boolean THEN b.owner_id = ? ELSE b.status = 'active' END
      ORDER BY b.fleet_number`,
-    now, lusakaDateKey(new Date(now)), operator ? viewer.id : '',
+    now, lusakaDateKey(new Date(now)), operator, viewer.id,
   );
   return rows.flatMap((row) => {
     const ownFleet = operator && row.owner_id === viewer.id;

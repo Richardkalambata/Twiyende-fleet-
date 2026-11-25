@@ -80,18 +80,18 @@ export function LoginForm({ accounts, error, gate = 'passenger', operatorSmsRequ
           {message ? <p className="text-sm text-[#E5484D]" role="alert">{message}</p> : null}
           <SignInButton label="Log in" disabled={pin.length !== 6} className="flex h-12 w-full items-center justify-center rounded-xl bg-[#1F5BFF] text-[15px] font-bold text-white disabled:opacity-50 aria-busy:opacity-100" />
         </form>}
-        {resolved === 'passenger' && riderPaymentPath(bus) && <Link href={`/signup?bus=${bus}`} className="mt-4 font-semibold text-[#1747CB]">Create a rider account</Link>}
+        {resolved === 'passenger' && riderPaymentPath(bus) && <Link prefetch={false} href={`/signup?bus=${bus}`} className="mt-4 font-semibold text-[#1747CB]">Create a rider account</Link>}
         {resolved !== 'passenger' && <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px] font-semibold">
           {resolved === 'operator' ? (
             <>
-              <Link href="/business/signup" className="block text-[#1F5BFF]">Create a company</Link>
-              <Link href="/business/conductor/login" className="block text-[#5C6578]">Are you a conductor? Sign in here</Link>
+              <Link prefetch={false} href="/business/signup" className="block text-[#1F5BFF]">Create a company</Link>
+              <Link prefetch={false} href="/business/conductor/login" className="block text-[#5C6578]">Are you a conductor? Sign in here</Link>
             </>
           ) : null}
           {resolved === 'conductor' ? (
             <>
               <p className="font-medium text-[#5C6578]">No account? Ask your bus operator to add you.</p>
-              <Link href="/business/login" className="block text-[#1F5BFF]">Are you the operator? Sign in here</Link>
+              <Link prefetch={false} href="/business/login" className="block text-[#1F5BFF]">Are you the operator? Sign in here</Link>
             </>
           ) : null}
         </div>}

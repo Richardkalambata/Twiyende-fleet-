@@ -1,6 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { normalizeFleetNumber } from '@/lib/codes';
 import { useRouter } from 'next/navigation';
 import { payAction } from '@/lib/actions';
 import { formatBalance, parseFare } from '@/lib/money';
@@ -8,14 +10,44 @@ import type { BusOption } from '@/lib/types';
 import { Bus } from 'lucide-react';
 import { toast } from './toast';
 
-export function PayForm({ buses, balanceNgwee, onClose, initialFleet = '' }: { buses: BusOption[]; balanceNgwee: number; onClose?: () => void; initialFleet?: string }) {
+type Attempt = { number: string; amount: number; id: string };
+
+export function PayForm({ balanceNgwee, initialBus, initialFleet, riderId }: {
+  balanceNgwee: number; initialBus: BusOption | null; initialFleet: string; riderId: string;
+}) {
   const router = useRouter();
   const [fleet, setFleet] = useState(initialFleet);
   const [fare, setFare] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const active = buses.filter((bus) => bus.status === 'active');
-  const match = useMemo(() => active.find((bus) => bus.fleetNumber === fleet.trim().replace(/^bus\s*/i, '')), [active, fleet]);
+  const [lookup, setLookup] = useState<{ number: string; bus: BusOption | null; failed?: boolean } | null>(
+    initialFleet ? { number: initialFleet, bus: initialBus } : null,
+  );
+  const inFlight = useRef(false);
+  const request = useRef<Attempt | null>(null);
+  const number = normalizeFleetNumber(fleet);
+  const validNumber = /^\d{1,4}$/.test(number);
+  const matched = lookup?.number === number ? lookup : null;
+  const match = matched?.bus;
+
+  useEffect(() => {
+    if (!validNumber || matched) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/fare-bus?number=${number}`, { signal: controller.signal });
+        if (!response.ok) throw new Error('Bus lookup failed');
+        const { bus } = await response.json() as { bus: BusOption | null };
+        if (!controller.signal.aborted) setLookup({ number, bus });
+      } catch {
+        if (!controller.signal.aborted) setLookup({ number, bus: null, failed: true });
+      }
+    }, 250);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [number, validNumber, matched]);
   const configuredFares = match?.fareNgwee ?? [];
   const chips = (configuredFares.length ? configuredFares : [...new Set([match?.defaultFareNgwee ?? 500, 1000, 1500, 2000])])
     .map((value) => String(value / 100));
@@ -24,39 +56,60 @@ export function PayForm({ buses, balanceNgwee, onClose, initialFleet = '' }: { b
   const short = Math.max(0, amount - balanceNgwee);
 
   async function submit() {
+    if (inFlight.current || !match || !amount) return;
+    inFlight.current = true;
     setPending(true);
     setError(null);
-    const result = await payAction(fleet, selectedFare);
-    if (!result.ok) {
+    const storageKey = `twende-fare-attempt:${riderId}`;
+    let prior = request.current;
+    try {
+      prior ??= JSON.parse(sessionStorage.getItem(storageKey) ?? 'null') as Attempt | null;
+    } catch { /* The in-memory key also protects retries. */ }
+    const id = prior?.number === number && prior.amount === amount && typeof prior.id === 'string'
+      ? prior.id : crypto.randomUUID();
+    request.current = { number, amount, id };
+    try { sessionStorage.setItem(storageKey, JSON.stringify(request.current)); } catch { /* Storage may be disabled. */ }
+    try {
+      const result = await payAction(number, selectedFare, id);
+      request.current = null;
+      try { sessionStorage.removeItem(storageKey); } catch { /* Storage may be disabled. */ }
+      if (result.ok) {
+        router.replace(`/receipt/${result.rideId}`);
+        return;
+      }
       setError(result.message);
       toast(result.message);
+    } catch {
+      setError('We could not confirm the payment. Retry this same fare to check its result without paying twice.');
+    } finally {
+      inFlight.current = false;
       setPending(false);
-      return;
     }
-    router.push(`/receipt/${result.rideId}`);
   }
 
   return (
     <div className="flex min-h-full flex-col bg-[#F4F6FB] px-5 pb-8 text-[#0B1B3B]">
-      <button type="button" className="safe-top text-left text-2xl" onClick={onClose} aria-label="Back">←</button>
+      <Link href="/home" prefetch={false} className="safe-top text-left text-2xl" aria-label="Back">←</Link>
       <h1 className="mt-3 text-[28px] font-extrabold tracking-[-0.04em]">Pay your fare</h1>
       <p className="text-[14px] text-[#5C6578]">Check the number on your bus.</p>
       <label className="mt-6 block text-[13px] text-[#5C6578]">
         Bus number
-        <input value={fleet} onChange={(event) => setFleet(event.target.value)} inputMode="numeric" aria-label="Bus number" className="mt-1 w-full border-0 border-b-2 border-[#0B1B3B] bg-white py-1 text-[40px] font-extrabold tracking-[-0.04em] text-[#0B1B3B] outline-none placeholder:text-[#5C6578]" />
+        <input value={fleet} disabled={pending} onChange={(event) => { setFleet(event.target.value); setFare(''); setError(null); }} inputMode="numeric" aria-label="Bus number" className="mt-1 w-full border-0 border-b-2 border-[#0B1B3B] bg-white py-1 text-[40px] font-extrabold tracking-[-0.04em] text-[#0B1B3B] outline-none placeholder:text-[#5C6578]" />
       </label>
       {match ? (
         <div className="mt-4 flex items-center gap-3 rounded-2xl bg-white px-3 py-3">
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#EEF2FF] text-[#1F5BFF]"><Bus className="h-5 w-5" /></span>
           <span><span className="block font-bold">Bus {match.fleetNumber}</span><span className="text-[13px] text-[#5C6578]">{match.route || 'Route not set'}</span></span>
         </div>
-      ) : null}
+      ) : validNumber && !matched ? <p role="status" className="mt-3 text-sm">Checking Bus {number}…</p>
+        : matched?.failed ? <p role="status" className="mt-3 text-sm">Could not check this bus. <button type="button" className="font-bold text-[#1747CB]" onClick={() => setLookup(null)}>Retry</button></p>
+        : validNumber ? <p className="mt-3 text-sm">This bus is unavailable. Check the number on the vehicle.</p> : null}
       {configuredFares.length ? <p className="mt-6 text-[13px] font-semibold">Route fares (K)</p> : <label className="mt-6 block text-[13px] font-semibold">Fare amount (K)
-        <input value={fare} onChange={(event) => setFare(event.target.value)} inputMode="decimal" aria-label="Custom fare" className="mt-2 w-full rounded-xl border border-[#D5DCE8] bg-white px-3 py-2 text-xl font-bold" />
+        <input value={fare} disabled={pending} onChange={(event) => setFare(event.target.value)} inputMode="decimal" aria-label="Custom fare" className="mt-2 w-full rounded-xl border border-[#D5DCE8] bg-white px-3 py-2 text-xl font-bold" />
       </label>}
       <div className="mt-2 flex flex-wrap gap-2">
         {chips.map((value) => (
-          <button key={value} type="button" data-on={selectedFare === value} onClick={() => setFare(value)} className={`chip press h-11 min-w-16 flex-1 rounded-xl text-[15px] font-bold ${selectedFare === value ? 'bg-[#1F5BFF] text-white' : 'border border-[#E4E8F0] bg-white text-[#0B1B3B]'}`}>K{value}</button>
+          <button key={value} type="button" disabled={pending} data-on={selectedFare === value} onClick={() => setFare(value)} className={`chip press h-11 min-w-16 flex-1 rounded-xl text-[15px] font-bold ${selectedFare === value ? 'bg-[#1F5BFF] text-white' : 'border border-[#E4E8F0] bg-white text-[#0B1B3B]'}`}>K{value}</button>
         ))}
       </div>
       <div className="mt-6 space-y-2 text-[14px]">

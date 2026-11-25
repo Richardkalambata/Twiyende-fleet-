@@ -9,7 +9,7 @@ export default defineConfig({
   globalSetup: './tests/e2e/global-setup.ts',
   use: { baseURL },
   webServer: {
-    command: 'node tests/e2e/ensure-db.mjs && npx next start -p 3050',
+    command: 'node tests/e2e/ensure-db.mjs && npx next start -H 127.0.0.1 -p 3050',
     url: E2E_BASE_URL,
     reuseExistingServer: false,
     timeout: 120_000,

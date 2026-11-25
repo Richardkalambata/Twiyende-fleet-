@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import QRCode from 'qrcode';
 import { PrintBusSign } from '@/components/print-bus-sign';
-import { requireUser } from '@/lib/auth';
+import { getCurrentUser, requireUser } from '@/lib/auth';
 import { getPrintableBus } from '@/lib/service';
 
 export const metadata = { title: 'Printable bus sign' };
@@ -12,9 +12,19 @@ function escapeXml(value: string) {
   return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }
 
-export default async function BusSignPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await requireUser(['operator', 'conductor']);
-  const bus = await getPrintableBus(user, (await params).id);
+export default async function BusSignPage({ params, searchParams }: {
+  params: Promise<{ id: string }>; searchParams: Promise<{ role?: string }>;
+}) {
+  const [{ id }, { role }] = await Promise.all([params, searchParams]);
+  let user = await requireUser(role === 'conductor' ? ['conductor'] : role === 'operator' ? ['operator'] : ['operator', 'conductor']);
+  let bus = await getPrintableBus(user, id);
+  if (!bus && !role && user.role === 'operator') {
+    const conductor = await getCurrentUser('conductor');
+    if (conductor) {
+      user = conductor;
+      bus = await getPrintableBus(user, id);
+    }
+  }
   if (!bus) notFound();
 
   const url = new URL('/login', process.env.TWENDE_PUBLIC_ORIGIN || 'https://twende-fleet-refresh.vercel.app');
