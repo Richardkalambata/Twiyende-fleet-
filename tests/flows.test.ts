@@ -372,3 +372,37 @@ test('fleet notifications are scoped and termination expires account access', as
   assert.equal((await service.authenticate(PHONES.mwila, '123456')).ok, false);
   assert.equal((await service.authenticateDemo(IDS.mwila)).ok, false);
 });
+
+test('collection retries, duplicate callbacks and provider references post one balanced credit', async () => {
+  await useIsolatedDatabase();
+  const { IDS } = await import('../lib/constants.ts');
+  const { getDb } = await import('../lib/db.ts');
+  const { startCollection, recordVerifiedCollection, CollectionConflict } = await import('../lib/payments/collections.ts');
+  const db = await getDb();
+  await db.exec(fs.readFileSync(new URL('../migrations/003_collection_ledger.sql', import.meta.url), 'utf8'));
+
+  const input = { riderId: IDS.richard, requestKey: crypto.randomUUID(), provider: 'test', merchant: 'staging', amountNgwee: 2_000 };
+  const [first, replay] = await Promise.all([startCollection(input), startCollection(input)]);
+  assert.equal(replay.id, first.id);
+  await assert.rejects(startCollection({ ...input, amountNgwee: 2_100 }), CollectionConflict);
+  await assert.rejects(startCollection({ ...input, riderId: IDS.owner }), CollectionConflict);
+
+  const confirmed = { collectionId: first.id, provider: 'test', merchant: 'staging', transactionId: crypto.randomUUID(), eventId: crypto.randomUUID(), amountNgwee: 2_000, currency: 'ZMW' };
+  const other = await startCollection({ ...input, requestKey: crypto.randomUUID() });
+  await assert.rejects(recordVerifiedCollection({ ...confirmed, amountNgwee: 1_999 }), CollectionConflict);
+  await assert.rejects(recordVerifiedCollection({ ...confirmed, merchant: 'other' }), CollectionConflict);
+  await assert.rejects(recordVerifiedCollection({ ...confirmed, currency: 'USD' }), CollectionConflict);
+  assert.equal(await db.get('SELECT 1 FROM payment_collection_postings WHERE collection_id = ?', first.id), null);
+  assert.deepEqual((await Promise.all([
+    recordVerifiedCollection(confirmed),
+    recordVerifiedCollection(confirmed),
+    recordVerifiedCollection({ ...confirmed, eventId: crypto.randomUUID() }),
+  ])).sort(), ['already-posted', 'already-posted', 'posted']);
+  await assert.rejects(recordVerifiedCollection({ ...confirmed, transactionId: crypto.randomUUID() }), CollectionConflict);
+  await assert.rejects(recordVerifiedCollection({ ...confirmed, collectionId: other.id, eventId: crypto.randomUUID() }), CollectionConflict);
+  await assert.rejects(recordVerifiedCollection({ ...confirmed, collectionId: other.id, transactionId: crypto.randomUUID() }), CollectionConflict);
+  assert.equal(await db.get('SELECT 1 FROM payment_collection_postings WHERE collection_id = ?', other.id), null);
+  assert.deepEqual(await db.get('SELECT amount_ngwee, currency FROM payment_collection_postings WHERE collection_id = ?', first.id), { amount_ngwee: 2_000, currency: 'ZMW' });
+  await assert.rejects(db.run('UPDATE payment_collection_postings SET amount_ngwee = 1 WHERE collection_id = ?', first.id), /append-only/);
+  await assert.rejects(db.run('DELETE FROM payment_collection_postings WHERE collection_id = ?', first.id), /append-only/);
+});

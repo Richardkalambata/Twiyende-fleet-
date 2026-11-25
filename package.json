@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test --test-concurrency=1 tests/flows.test.ts tests/tracking.test.ts",
     "test:e2e": "playwright test",
+    "db:prepare": "node scripts/prepare-database.mjs",
     "build:cloudflare": "opennextjs-cloudflare build",
     "deploy:cloudflare": "opennextjs-cloudflare deploy"
   },

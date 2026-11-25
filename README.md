@@ -124,3 +124,19 @@ Fares move from the passenger wallet to the owner’s verified takings. Tips mov
 ### Operator sign-in verification
 
 Operators sign in with their six-digit PIN while `OPERATOR_SMS_REQUIRED=0` (the default). To enable SMS verification, set `OPERATOR_SMS_REQUIRED=1` and configure `TWILIO_VERIFY_SERVICE_SID`, `TWILIO_API_KEY`, and `TWILIO_API_SECRET` on the server. Configure the Verify service for six-digit SMS codes and allow Zambia destinations. Existing operator sessions require a fresh sign-in. Users with four-digit PINs can select **Upgrade my old four-digit PIN** at sign-in. When SMS is enabled, operators complete the PIN upgrade after verifying the code.
+
+## Payment architecture staging
+
+Prepare a disposable PostgreSQL database with `npm run db:prepare` using
+`TWENDE_MIGRATION_DATABASE_URL` for the migration role. Remote migration
+connections require `sslmode=verify-full`. This command applies the app
+schema and collection journal without seeding demo users.
+
+The collection journal records one debit to partner clearing and one credit
+to the rider liability for each confirmed collection. Its confirmation
+handler is an internal service. Connect it only to a partner adapter that
+verifies the signed event or fetches authoritative transaction status,
+including the merchant, reference, amount, and currency. The simulated
+wallet and existing app routes remain independent of the journal. A
+provider adapter, reconciliation, refunds, and payouts are still needed
+for a real-money pilot.
