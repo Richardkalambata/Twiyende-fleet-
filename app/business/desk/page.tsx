@@ -83,7 +83,7 @@ export default async function FleetPage({ searchParams }: { searchParams: Promis
         <ul className="mt-2 divide-y divide-[#E6EAF2] md:hidden">
           {recent.length === 0 ? <li className="px-4 py-8 text-center text-[14px] text-[#5C6578]">No fares in this period yet.</li> : null}
           {recent.map((ride) => (
-            <li key={`${ride.code}-${ride.createdAt}`} className="flex items-center gap-3 px-4 py-3">
+            <li key={ride.id} className="flex items-center gap-3 px-4 py-3">
               <span className="num w-12 text-[13px] text-[#5C6578]">{formatHour24(ride.createdAt)}</span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[15px] font-semibold">{ride.passenger}</span>
@@ -110,7 +110,7 @@ export default async function FleetPage({ searchParams }: { searchParams: Promis
             </thead>
             <tbody>
               {recent.map((ride) => (
-                <tr key={`${ride.code}-${ride.createdAt}`}>
+                <tr key={ride.id}>
                   <td className="px-4">{formatHour24(ride.createdAt)}</td>
                   <td>{ride.passenger}</td>
                   <td>Bus {ride.fleetNumber}</td>

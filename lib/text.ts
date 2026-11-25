@@ -11,7 +11,8 @@ export function nid(prefix: string): string {
 }
 
 export function csvCell(value: string): string {
-  const safe = /^[=+\-@]/.test(value) ? `'${value}` : value;
-  if (/[",\n]/.test(safe)) return `"${safe.replaceAll('"', '""')}"`;
+  const formula = /^[=+\-@＝＋－＠]/.test(value.trimStart());
+  const safe = formula || /^[\t\r\n]/.test(value) ? `'${value}` : value;
+  if (/[",\r\n]/.test(safe)) return `"${safe.replaceAll('"', '""')}"`;
   return safe;
 }

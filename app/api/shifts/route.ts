@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { endShift, openShift, startShift } from '@/lib/tracking';
 import { getDb } from '@/lib/db';
 import { startOfLusakaDay } from '@/lib/time';
+import { readTrackingRequest } from '@/lib/tracking-request';
 
 export async function GET() {
   const user = await getCurrentUser('conductor');
@@ -16,7 +17,9 @@ export async function GET() {
     user.id,
     startOfLusakaDay(),
   );
-  const latest = await db.get<{ lat: number; lng: number }>(`SELECT lat, lng FROM bus_latest WHERE bus_id = ?`, shift.bus_id);
+  const latest = await db.get<{ lat: number; lng: number }>(`
+    SELECT lat, lng FROM bus_latest WHERE bus_id = ? AND source = 'conductor' AND recorded_at >= ?`,
+  shift.bus_id, shift.started_at);
   return NextResponse.json({
     sharing: true,
     busId: shift.bus_id,
@@ -32,12 +35,13 @@ export async function GET() {
 export async function POST(request: Request) {
   const user = await getCurrentUser('conductor');
   if (!user || user.role !== 'conductor') return NextResponse.json({ error: 'Sign in' }, { status: 401 });
-  const body = await request.json().catch(() => null) as { action?: string } | null;
-  if (body?.action === 'end') {
+  const input = await readTrackingRequest(request);
+  if (!input.ok) return NextResponse.json({ error: input.error }, { status: input.status });
+  if (input.body.action === 'end') {
     await endShift(user.id);
     return NextResponse.json({ sharing: false });
   }
-  if (body?.action !== 'start') return NextResponse.json({ error: 'Invalid shift action' }, { status: 400 });
+  if (input.body.action !== 'start') return NextResponse.json({ error: 'Invalid shift action' }, { status: 400 });
   const result = await startShift(user.id);
   if (!result.ok) return NextResponse.json({ error: result.message }, { status: 400 });
   return NextResponse.json({ sharing: true, busId: result.busId, fleet: result.fleet, route: result.route, startedAt: result.startedAt, verified: 0 });

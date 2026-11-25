@@ -22,6 +22,9 @@ export function ConductorWalletForm({ phone, network }: { phone: string; network
         <label className="text-sm font-semibold">Mobile-money number
           <input name="phone" type="tel" required defaultValue={phone} className={control} />
         </label>
+        <label className="text-sm font-semibold">Confirm your six-digit PIN
+          <input name="pin" type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{6}" maxLength={6} required className={control} />
+        </label>
       </div>
       <button disabled={pending} className="min-h-11 rounded-xl bg-[#1F5BFF] px-4 font-bold text-white disabled:opacity-50">{pending ? 'Saving…' : 'Save wallet'}</button>
       {result ? <p role={result.ok ? 'status' : 'alert'} className="text-sm">{result.message}</p> : null}

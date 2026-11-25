@@ -6,7 +6,8 @@ const url = process.env.TWENDE_MIGRATION_DATABASE_URL;
 if (!url) throw new Error('Set TWENDE_MIGRATION_DATABASE_URL for the migration role.');
 const parsed = new URL(url);
 const local = ['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname);
-if (!local && (parsed.searchParams.get('sslmode') !== 'verify-full' || parsed.searchParams.has('uselibpqcompat'))) {
+const modes = parsed.searchParams.getAll('sslmode');
+if (!local && (modes.length !== 1 || modes[0] !== 'verify-full' || parsed.searchParams.has('uselibpqcompat'))) {
   throw new Error('Remote schema migrations require sslmode=verify-full.');
 }
 const ledger = await readFile(new URL('../migrations/003_collection_ledger.sql', import.meta.url), 'utf8');

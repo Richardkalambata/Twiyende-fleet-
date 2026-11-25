@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { cookies } from 'next/headers';
+import { allowAttempt } from './attempt-limit';
 import { getDb } from './db';
 import { phoneToTel } from './phone';
 
@@ -27,20 +28,17 @@ async function verifyRequest(endpoint: string, body: Record<string, string>) {
   }
 }
 
-export async function beginOperatorVerification(userId: string, phone: string, pinHash: string, nextHash: string | null) {
+export async function beginOperatorVerification(userId: string, phone: string, pinHash: string) {
   const db = await getDb();
   const now = Date.now();
-  const allowed = await db.get(`INSERT INTO login_limits (key, attempts, expires_at) VALUES (?, 1, ?)
-    ON CONFLICT (key) DO UPDATE SET attempts = 1, expires_at = EXCLUDED.expires_at
-    WHERE login_limits.expires_at <= ? RETURNING key`, `sms:${userId}`, now + 60_000, now);
-  if (!allowed) return false;
+  if (!await allowAttempt(`sms:${userId}`, 1, 60_000, now)) return false;
   await db.run('DELETE FROM operator_verifications WHERE expires_at <= ?', now);
   const verification = await verifyRequest('Verifications', { To: phoneToTel(phone), Channel: 'sms' });
   if (verification?.status !== 'pending' || !verification.sid) return false;
   const token = randomBytes(32).toString('hex');
   await db.run(`INSERT INTO operator_verifications
-    (id, user_id, provider_sid, pin_hash, next_hash, expires_at) VALUES (?, ?, ?, ?, ?, ?)`,
-  digest(token), userId, verification.sid, pinHash, nextHash, Date.now() + MAX_AGE * 1000);
+    (id, user_id, provider_sid, pin_hash, expires_at) VALUES (?, ?, ?, ?, ?)`,
+  digest(token), userId, verification.sid, pinHash, Date.now() + MAX_AGE * 1000);
   (await cookies()).set(COOKIE, token, {
     httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: MAX_AGE,
   });
@@ -58,12 +56,12 @@ export async function completeOperatorVerification(code: string) {
   if (!challenge) return null;
   const result = await verifyRequest('VerificationCheck', { VerificationSid: challenge.provider_sid, Code: code });
   if (result?.status !== 'approved') return null;
-  const claimed = await db.get<{ user_id: string }>(`WITH challenge AS (
-    DELETE FROM operator_verifications WHERE id = ? AND expires_at > ? RETURNING *
-  )
-  UPDATE users SET pin_hash = COALESCE(challenge.next_hash, users.pin_hash)
-  FROM challenge WHERE users.id = challenge.user_id AND users.pin_hash = challenge.pin_hash
-    AND users.role IN ('operator', 'owner') RETURNING users.id AS user_id`, id, Date.now());
+  const claimed = await db.get<{ user_id: string; pin_hash: string }>(`
+    DELETE FROM operator_verifications AS challenge USING users
+    WHERE challenge.id = ? AND challenge.expires_at > ?
+      AND users.id = challenge.user_id AND users.pin_hash = challenge.pin_hash
+      AND users.role IN ('operator', 'owner')
+    RETURNING challenge.user_id, challenge.pin_hash`, id, Date.now());
   jar.delete(COOKIE);
-  return claimed?.user_id ?? null;
+  return claimed;
 }

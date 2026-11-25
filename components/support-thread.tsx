@@ -34,13 +34,13 @@ export function SupportThread({ id, status, messages, viewer, operator }: {
   );
 }
 
-export function OperatorLostActions({ id }: { id: string }) {
+export function OperatorLostActions({ id, expired = false }: { id: string; expired?: boolean }) {
   const [result, update, pending] = useActionState(updateOperatorLostAction, null);
   return (
     <form action={update} className="mt-3 flex flex-wrap gap-2">
       <input type="hidden" name="itemId" value={id} />
-      <button name="outcome" value="found" disabled={pending} className="min-h-10 rounded-xl bg-[#184BDE] px-3 text-sm font-bold text-white">Found it</button>
-      <button name="outcome" value="not-found" disabled={pending} className="min-h-10 rounded-xl border border-[#D5DCE8] px-3 text-sm font-bold">Not found</button>
+      <button name="outcome" value="found" disabled={pending} className="min-h-10 rounded-xl bg-[#184BDE] px-3 text-sm font-bold text-white">{expired ? 'Send new pickup code' : 'Found it'}</button>
+      {expired ? null : <button name="outcome" value="not-found" disabled={pending} className="min-h-10 rounded-xl border border-[#D5DCE8] px-3 text-sm font-bold">Not found</button>}
       {result ? <p role={result.ok ? 'status' : 'alert'} className="w-full text-sm">{result.message}</p> : null}
     </form>
   );

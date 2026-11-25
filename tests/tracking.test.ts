@@ -196,3 +196,39 @@ test('a conductor can only post a location for their own bus', async () => {
   const rider = await tracking.recordConductorLocation(IDS.richard, IDS.bus12, { lat: -15.41, lng: 28.28 });
   assert.equal(rider.ok, false);
 });
+
+test('concurrent map reads write one simulator update and a new shift waits for its first fix', async () => {
+  await useUnit();
+  const { IDS } = await import('../lib/constants.ts');
+  const { getDb, resetDatabase } = await import('../lib/db.ts');
+  const tracking = await import('../lib/tracking.ts');
+  await resetDatabase();
+  const previousMode = process.env.SIMULATED;
+  try {
+    process.env.SIMULATED = '1';
+    const viewer = { id: IDS.richard, role: 'passenger' };
+    const db = await getDb();
+    const first = Date.now();
+    await Promise.all(Array.from({ length: 30 }, (_, index) => tracking.listLiveBuses(viewer, first + index)));
+    const rounds = await db.get<{ count: number }>(
+      "SELECT COUNT(DISTINCT recorded_at)::int AS count FROM bus_locations WHERE source = 'simulated' AND recorded_at >= ?", first,
+    );
+    assert.equal(rounds?.count, 1);
+
+    process.env.SIMULATED = '0';
+    assert.ok((await tracking.startShift(IDS.mwila)).ok);
+    const point = { lat: -15.41, lng: 28.28 };
+    assert.ok((await tracking.recordConductorLocation(IDS.mwila, IDS.bus12, point)).ok);
+    assert.ok((await tracking.listLiveBuses(viewer)).some((bus) => bus.id === IDS.bus12));
+    await tracking.endShift(IDS.mwila);
+    await db.run('UPDATE bus_latest SET recorded_at = ? WHERE bus_id = ?', Date.now() - 60_000, IDS.bus12);
+    assert.ok((await tracking.startShift(IDS.mwila)).ok);
+    assert.ok(!(await tracking.listLiveBuses(viewer)).some((bus) => bus.id === IDS.bus12));
+    const next = await tracking.recordConductorLocation(IDS.mwila, IDS.bus12, point);
+    assert.ok(next.ok && !next.skipped);
+    assert.ok((await tracking.listLiveBuses(viewer)).some((bus) => bus.id === IDS.bus12));
+  } finally {
+    if (previousMode === undefined) delete process.env.SIMULATED;
+    else process.env.SIMULATED = previousMode;
+  }
+});

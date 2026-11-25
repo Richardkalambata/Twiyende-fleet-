@@ -7,6 +7,8 @@ import { test } from 'node:test';
 import { formatBalance, formatCompact, formatGrouped, formatPercent } from '../lib/money';
 import { confusingCodeMessage, normalizeFleetNumber, randomCode } from '../lib/codes';
 import { timeGreeting } from '../lib/time';
+import { csvCell } from '../lib/text';
+import { readTrackingRequest } from '../lib/tracking-request';
 import { assertLocalServer, assertSafeDatabase } from './db-guard';
 
 const UNIT_URL = 'postgres://twende:twende@127.0.0.1:5432/twende_unit';
@@ -54,13 +56,41 @@ test('money formatting and fare codes', () => {
   assert.equal(timeGreeting(new Date('2026-11-18T08:00:00Z')), 'Good morning');
 });
 
+test('sensitive API requests and CSV cells keep their input boundaries', async () => {
+  const endpoint = 'https://fleet.example.test/api/shifts';
+  function request(origin: string, body: string, type = 'application/json') {
+    return new Request(endpoint, { method: 'POST', body, headers: { origin, 'content-type': type } });
+  }
+  const origin = new URL(endpoint).origin;
+  const correct = await readTrackingRequest(request(origin, '{"action":"start"}'));
+  assert.deepEqual(correct, { ok: true, body: { action: 'start' } });
+  const behindAdapter = await readTrackingRequest(new Request('https://internal.example.test/api/shifts', {
+    method: 'POST',
+    body: '{"action":"start"}',
+    headers: { host: 'fleet.example.test', origin, 'content-type': 'application/json' },
+  }));
+  assert.ok(behindAdapter.ok);
+  const otherSite = await readTrackingRequest(request('https://other.example.test', '{"action":"start"}'));
+  assert.ok(!otherSite.ok && otherSite.status === 403);
+  const plainText = await readTrackingRequest(request(origin, '{"action":"start"}', 'text/plain'));
+  assert.ok(!plainText.ok && plainText.status === 415);
+  const oversized = await readTrackingRequest(request(origin, JSON.stringify({ note: 'é'.repeat(600) })));
+  assert.ok(!oversized.ok && oversized.status === 413);
+  const malformed = await readTrackingRequest(request(origin, '[]'));
+  assert.ok(!malformed.ok && malformed.status === 400);
+  assert.equal(csvCell('Town to Matero'), 'Town to Matero');
+  assert.equal(csvCell('   =1'), "'   =1");
+  assert.equal(csvCell('＋1'), "'＋1");
+  assert.equal(csvCell('First\rSecond'), '"First\rSecond"');
+});
+
 test('passenger pay, conductor verify, lost and found, owner totals', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'twende-'));
   await useIsolatedDatabase();
   process.env.DEMO_ROLE_SWITCHER = '1';
   process.env.PAYMENT_PROVIDER = 'simulated';
 
-  const { IDS } = await import('../lib/constants.ts');
+  const { IDS, PHONES } = await import('../lib/constants.ts');
   const service = await import('../lib/service.ts');
   const { resetDatabase } = await import('../lib/db.ts');
   await resetDatabase();
@@ -202,7 +232,6 @@ test('passenger pay, conductor verify, lost and found, owner totals', async () =
 
   const logged = await service.logFoundItem(IDS.chanda, 'wallet', 'Brown leather wallet', null);
   assert.equal(logged.ok, true);
-  if (logged.ok) assert.equal(logged.matched, false);
 
   const namwinga = (await service.getConductorLost(IDS.mwila)).alerts.find((alert) => alert.description.includes('Samsung'));
   assert.ok(namwinga);
@@ -234,28 +263,62 @@ test('passenger pay, conductor verify, lost and found, owner totals', async () =
     if (login.ok) assert.equal((await service.getConductorHome(login.user.id)).bus?.fleet_number, '44');
   }
 
-  const payout = await service.requestPayout(IDS.owner, '10');
-  assert.equal(payout.ok, true);
+  const owner = await service.authenticate(PHONES.owner, '123456');
+  assert.ok(owner.ok);
+  const { getDb } = await import('../lib/db.ts');
+  const db = await getDb();
+  const initialPayouts = await service.getPayoutSummary(IDS.owner);
+  await db.run(`INSERT INTO payouts (id, owner_id, amount_ngwee, status, network, destination, created_at)
+    VALUES (?, ?, ?, 'paid', 'settlement', ?, ?)`, 'legacy-settlement', IDS.owner, 500, 'Bus 12', Date.now());
+  assert.equal((await service.getPayoutSummary(IDS.owner)).availableNgwee, initialPayouts.availableNgwee);
+  const requestId = crypto.randomUUID();
+  const [payout, retry] = await Promise.all([
+    service.requestPayout(IDS.owner, '10', requestId, owner.pinHash),
+    service.requestPayout(IDS.owner, '10', requestId, owner.pinHash),
+  ]);
+  assert.ok(payout.ok && retry.ok);
+  assert.equal((await service.requestPayout(IDS.owner, '11', requestId, owner.pinHash)).ok, false);
+  assert.equal((await service.requestPayout(IDS.owner, '10', crypto.randomUUID(), 'stale-pin-hash')).ok, false);
   assert.ok((await service.listNotifications(IDS.owner)).some((notice) => notice.title === 'Test payout recorded' && notice.body.includes('No money was sent')));
   const summary = (await service.getPayoutSummary(IDS.owner));
+  assert.equal(summary.availableNgwee, initialPayouts.availableNgwee - 1000);
+  assert.equal(summary.history.length, initialPayouts.history.length + 1);
   assert.ok(summary.availableNgwee > 0);
   assert.equal(summary.history[0]?.amountNgwee, 1000);
 
   const umbrellaTrip = (await service.listReportableTrips(IDS.richard)).find((trip) => trip.fleetNumber === '12');
   assert.ok(umbrellaTrip);
-  const matched = await service.reportLost(IDS.richard, umbrellaTrip.id, 'umbrella', 'Black umbrella left on the seat', null, true);
-  assert.equal(matched.ok, true);
-  if (matched.ok) {
-    assert.equal(matched.matched, true);
-    const matchedItem = (await service.getPassengerLostItem(IDS.richard, matched.itemId));
+  const umbrellaReport = await service.reportLost(IDS.richard, umbrellaTrip.id, 'umbrella', 'Black umbrella left on the seat', null, true);
+  assert.equal(umbrellaReport.ok, true);
+  if (umbrellaReport.ok) {
+    const unverified = await service.getPassengerLostItem(IDS.richard, umbrellaReport.itemId);
+    assert.equal(unverified?.status, 'reported');
+    assert.equal(unverified?.pickupCode, null);
+    assert.ok((await service.getConductorLost(IDS.mwila)).items.some((item) => item.category === 'umbrella' && item.status === 'waiting'));
+    assert.equal((await service.markFound(IDS.mwila, umbrellaReport.itemId)).ok, true);
+    const matchedItem = await service.getPassengerLostItem(IDS.richard, umbrellaReport.itemId);
     assert.equal(matchedItem?.status, 'pickup_pending');
     assert.equal(matchedItem?.smsSent, true);
+    assert.ok(matchedItem?.pickupCode);
+    assert.ok(!(await service.verifyPickup(IDS.chanda, matchedItem.pickupCode)).ok);
+    const { getDb } = await import('../lib/db.ts');
+    await (await getDb()).run('UPDATE lost_items SET pickup_until = ? WHERE id = ?', Date.now() - 1, umbrellaReport.itemId);
+    const expired = await service.verifyPickup(IDS.mwila, matchedItem.pickupCode);
+    assert.ok(!expired.ok && /expired/.test(expired.message));
+    const expiredDetails = await service.getPassengerLostItem(IDS.richard, umbrellaReport.itemId);
+    assert.equal(expiredDetails?.status, 'pickup_pending');
+    assert.equal(expiredDetails.pickupCode, null);
+    assert.equal((await service.markFound(IDS.mwila, umbrellaReport.itemId)).ok, true);
+    const renewed = await service.getPassengerLostItem(IDS.richard, umbrellaReport.itemId);
+    assert.ok(renewed?.pickupCode && renewed.pickupCode !== matchedItem.pickupCode);
+    assert.equal((await service.verifyPickup(IDS.mwila, matchedItem.pickupCode)).ok, false);
+    assert.equal((await service.verifyPickup(IDS.mwila, renewed.pickupCode)).ok, true);
   }
 
   const wholeKwacha = String(Math.floor((await service.getPayoutSummary(IDS.owner)).availableNgwee / 100));
   const [firstPayout, secondPayout] = await Promise.all([
-    service.requestPayout(IDS.owner, wholeKwacha),
-    service.requestPayout(IDS.owner, wholeKwacha),
+    service.requestPayout(IDS.owner, wholeKwacha, crypto.randomUUID(), owner.pinHash),
+    service.requestPayout(IDS.owner, wholeKwacha, crypto.randomUUID(), owner.pinHash),
   ]);
   assert.equal([firstPayout.ok, secondPayout.ok].filter(Boolean).length, 1);
   const afterPayouts = (await service.getPayoutSummary(IDS.owner));
@@ -273,15 +336,21 @@ test('signup, pin, support, fare options, and code expiry', async () => {
   await useIsolatedDatabase();
   process.env.PAYMENT_PROVIDER = 'simulated';
   const service = await import('../lib/service.ts');
-  const { resetDatabase } = await import('../lib/db.ts');
+  const { getDb, resetDatabase } = await import('../lib/db.ts');
   const { IDS } = await import('../lib/constants.ts');
   await resetDatabase();
   const created = await service.signupPassenger({ name: 'Amina Banda', phone: '0973333444', pin: '432109', network: 'mtn' });
   assert.equal(created.ok, true);
   if (!created.ok) return;
   assert.equal((await service.changePin(created.id, '0000', '111109')).ok, false);
+  const db = await getDb();
+  await db.run('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)', 'previous-session', created.id, Date.now() + 60_000);
   assert.equal((await service.changePin(created.id, '432109', '111109')).ok, true);
+  assert.equal(await db.get('SELECT 1 FROM sessions WHERE user_id = ?', created.id), null);
+  assert.equal((await service.authenticate('0973333444', '432109')).ok, false);
   assert.equal((await service.authenticate('0973333444', '111109')).ok, true);
+  const attempts = await Promise.all(Array.from({ length: 5 }, () => service.changePin(created.id, '000000', '222222')));
+  assert.equal(attempts.filter((attempt) => !attempt.ok && /Too many tries/.test(attempt.message)).length, 1);
   const topped = await service.topUp(created.id, 'mtn', '0973333444', '20');
   assert.equal(topped.ok, true);
   const paid = await service.payFare(created.id, '12', '5');
@@ -308,8 +377,6 @@ test('signup, pin, support, fare options, and code expiry', async () => {
   const wrongFare = await service.payFare(created.id, '12', '5');
   assert.equal(wrongFare.ok, false);
   assert.equal((await service.payFare(created.id, '12', '7')).ok, true);
-  const settled = await service.settleDay(IDS.owner, '12', '10');
-  assert.equal(settled.ok, true);
 });
 
 test('fleet notifications are scoped and termination expires account access', async () => {
@@ -345,7 +412,10 @@ test('fleet notifications are scoped and termination expires account access', as
   assert.equal(await openShift(IDS.mwila), null);
   assert.equal((await service.listNotifications(IDS.owner)).filter((notice) => notice.title === 'Shift ended').length, 2);
 
-  assert.equal((await service.saveConductorPayoutDestination(IDS.mwila, 'mtn', PHONES.mwila)).ok, true);
+  const conductor = await service.authenticate(PHONES.mwila, '123456');
+  assert.ok(conductor.ok);
+  assert.equal((await service.saveConductorPayoutDestination(IDS.mwila, 'mtn', PHONES.mwila, 'stale-pin-hash')).ok, false);
+  assert.equal((await service.saveConductorPayoutDestination(IDS.mwila, 'mtn', PHONES.mwila, conductor.pinHash)).ok, true);
   const payoutArgs = [IDS.owner, IDS.mwila, '5', lusakaDateKey(), '7d425664-c705-4616-b71f-6ad57ded51ea', 'TEST-123'] as const;
   assert.equal((await service.recordConductorPayout(...payoutArgs)).ok, true);
   assert.equal((await service.recordConductorPayout(...payoutArgs)).ok, true);
@@ -360,6 +430,7 @@ test('fleet notifications are scoped and termination expires account access', as
   assert.equal((await service.terminateConductor(IDS.owner, IDS.mwila)).ok, true);
   assert.equal((await service.terminateConductor(IDS.owner, IDS.mwila)).ok, false);
   assert.equal(await openShift(IDS.mwila), null);
+  assert.equal((await service.saveConductorPayoutDestination(IDS.mwila, 'mtn', '0975550199', conductor.pinHash)).ok, false);
   assert.equal((await startShift(IDS.mwila)).ok, false);
   assert.equal((await service.assignConductor(IDS.owner, IDS.bus15, IDS.mwila)).ok, false);
   const account = await service.getPublicUser(IDS.mwila);
@@ -430,10 +501,15 @@ test('the same fare retry returns one receipt and debits the wallet once', async
   const previous = process.env.TWENDE_ENV;
   process.env.TWENDE_ENV = 'production';
   try {
-    const { topUp, requestPayout } = await import('../lib/service.ts');
+    const { topUp, requestPayout, signupPassenger, signupOperator } = await import('../lib/service.ts');
+    const { requiresOperatorSms } = await import('../lib/operator-sms-policy.ts');
+    assert.equal(requiresOperatorSms(), true);
     assert.equal((await topUp(IDS.richard, 'mtn', '0971000001', '10')).ok, false);
-    assert.equal((await requestPayout(IDS.owner, '10')).ok, false);
+    assert.equal((await requestPayout(IDS.owner, '10', crypto.randomUUID(), 'unused')).ok, false);
     assert.equal((await payFare(IDS.richard, '12', '5')).ok, false);
+    const applicant = { name: 'Test Applicant', phone: '0971234567', pin: '246810', network: 'mtn' };
+    assert.equal((await signupPassenger(applicant)).ok, false);
+    assert.equal((await signupOperator({ ...applicant, company: 'Test Fleet' })).ok, false);
   } finally {
     if (previous === undefined) delete process.env.TWENDE_ENV;
     else process.env.TWENDE_ENV = previous;

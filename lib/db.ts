@@ -38,7 +38,8 @@ function databaseUrl(): string {
   }
   if (process.env.TWENDE_ENV === 'production') {
     const parameters = new URL(url).searchParams;
-    if (parameters.get('sslmode') !== 'verify-full' || parameters.has('uselibpqcompat')) {
+    const modes = parameters.getAll('sslmode');
+    if (modes.length !== 1 || modes[0] !== 'verify-full' || parameters.has('uselibpqcompat')) {
       throw new Error('Production PostgreSQL requires sslmode=verify-full.');
     }
   }
@@ -86,7 +87,11 @@ function getPool(): Pool {
       connectionString: databaseUrl(),
       max: 5,
       idleTimeoutMillis: 10_000,
+      connectionTimeoutMillis: 5_000,
       ssl: sslFor(databaseUrl()),
+    });
+    pool.on('error', (error: NodeJS.ErrnoException) => {
+      console.error('Idle database connection lost', error.code ?? 'unknown');
     });
     attachDatabasePool(pool);
     globalForDb.twendePool = pool;

@@ -123,7 +123,7 @@ Fares move from the passenger wallet to the owner’s verified takings. Tips mov
 
 ### Operator sign-in verification
 
-Operators sign in with their six-digit PIN while `OPERATOR_SMS_REQUIRED=0` (the default). To enable SMS verification, set `OPERATOR_SMS_REQUIRED=1` and configure `TWILIO_VERIFY_SERVICE_SID`, `TWILIO_API_KEY`, and `TWILIO_API_SECRET` on the server. Configure the Verify service for six-digit SMS codes and allow Zambia destinations. Existing operator sessions require a fresh sign-in. Users with four-digit PINs can select **Upgrade my old four-digit PIN** at sign-in. When SMS is enabled, operators complete the PIN upgrade after verifying the code.
+Production operator sign-in requires a six-digit PIN and SMS verification. Configure `TWILIO_VERIFY_SERVICE_SID`, `TWILIO_API_KEY`, and `TWILIO_API_SECRET` on the server and enable six-digit Verify codes for Zambia. Set `OPERATOR_SMS_REQUIRED=1` to test this in the demo environment. Production self-registration stays closed until rider phone verification and operator approval are implemented.
 
 ## Payment architecture staging
 

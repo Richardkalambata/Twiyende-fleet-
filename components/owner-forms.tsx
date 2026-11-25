@@ -5,7 +5,7 @@ import { assignConductorAction, logOperatorFoundAction, payoutAction, registerBu
 import { CONDUCTOR_CATEGORIES, categoryLabel } from '@/lib/categories';
 import { LUSAKA_ROUTES } from '@/lib/lusaka-routes';
 import type { BusPerformance, ConductorOption, Fail } from '@/lib/types';
-import { useId, useState, type ReactNode } from 'react';
+import { useId, useRef, useState, type ReactNode } from 'react';
 import { buttonClass } from './shell';
 
 function Sheet({ label, title, children }: { label: string; title: string; children: ReactNode }) {
@@ -130,7 +130,18 @@ export function ConductorAssignmentForm({ bus, conductors }: { bus: BusPerforman
 
 export function PayoutForms({ phone, network, today, locked }: { phone: string; network: string; today: string; locked: boolean }) {
   const [saved, save, saving] = useActionState(savePayoutAction, null as Fail | null);
-  const [paid, pay, paying] = useActionState(payoutAction, null);
+  const request = useRef<string | null>(null);
+  const [paid, pay, paying] = useActionState(async (previous: Fail | { ok: true; message: string } | null, data: FormData) => {
+    request.current ??= crypto.randomUUID();
+    data.set('requestId', request.current);
+    try {
+      const result = await payoutAction(previous, data);
+      request.current = null;
+      return result;
+    } catch {
+      return { ok: false as const, message: 'Could not confirm the payout. Retry with the same amount.' };
+    }
+  }, null);
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       {locked ? (
@@ -168,7 +179,7 @@ export function PayoutForms({ phone, network, today, locked }: { phone: string; 
   );
 }
 
-export function PickupClose({ items = [] }: { items?: { id: string; category: string; fleetNumber: string; pickupCode: string | null }[] }) {
+export function PickupClose() {
   const [code, setCode] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -187,11 +198,7 @@ export function PickupClose({ items = [] }: { items?: { id: string; category: st
       }
     }}>
       <h2 className="font-semibold">Save a return</h2>
-      <p className="mt-1 text-sm text-[#5C6B63]">Select an unclaimed item or enter the code the passenger provides.</p>
-      <select aria-label="Select item to return" value={items.some((item) => item.pickupCode === code) ? code : ''} onChange={(e) => setCode(e.target.value)} className="mt-2 h-11 w-full rounded-xl border border-[#D5DCE8] px-3">
-        <option value="">Choose an item</option>
-        {items.map((item) => <option key={item.id} value={item.pickupCode ?? ''}>Bus {item.fleetNumber} · {item.category} · {item.pickupCode}</option>)}
-      </select>
+      <p className="mt-1 text-sm text-[#5C6B63]">Enter the pickup code the rider gives you.</p>
       <div className="mt-3 flex gap-2">
         <input value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} maxLength={8} aria-label="Pickup code" className="h-14 min-w-0 flex-1 rounded-2xl border border-[#AEB9CD] bg-white px-4 text-[#0B1B3B] tracking-[0.2em] placeholder:text-[#5C6578]" />
         <button className="h-12 rounded-xl bg-[#1F5BFF] px-5 font-bold text-white" disabled={pending || code.length < 4}>{pending ? 'Saving…' : 'Save return'}</button>

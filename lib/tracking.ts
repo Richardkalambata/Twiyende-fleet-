@@ -16,6 +16,9 @@ import {
 
 const WEEK_MS = 7 * DAY_MS;
 const CONDUCTOR_HOLD_MS = 45_000;
+const SIMULATION_INTERVAL_MS = 5_000;
+const SIMULATION_LOCK = 872346;
+const LOCATION_PRUNE_INTERVAL_MS = 60 * 60_000;
 
 export type LiveBus = {
   id: string;
@@ -55,7 +58,7 @@ function id(prefix: string) {
 }
 
 export function simulatedEnabled(): boolean {
-  return process.env.SIMULATED !== '0';
+  return process.env.TWENDE_ENV !== 'production' && process.env.SIMULATED !== '0';
 }
 
 async function assignedBus(conductorId: string) {
@@ -144,86 +147,95 @@ export async function recordConductorLocation(
   if (!Number.isFinite(point.lat) || !Number.isFinite(point.lng) || Math.abs(point.lat) > 90 || Math.abs(point.lng) > 180) {
     return { ok: false as const, message: 'That location is not valid.' };
   }
-  const bus = await assignedBus(conductorId);
-  if (!bus || bus.id !== busId) return { ok: false as const, message: 'You can only share the bus assigned to you.' };
-  const shift = await openShift(conductorId);
-  if (!shift || shift.bus_id !== busId) return { ok: false as const, message: 'Start your shift before sharing location.' };
-  const now = Date.now();
-  const db = await getDb();
-  const previous = await db.get<{ lat: number; lng: number; recorded_at: number }>(
-    `SELECT lat, lng, recorded_at FROM bus_latest WHERE bus_id = ? AND source = 'conductor'`,
-    busId,
-  );
-  if (previous && !shouldSendFix({ lat: previous.lat, lng: previous.lng, at: previous.recorded_at }, point, now)) {
-    return { ok: true as const, skipped: true };
-  }
-  const speed = point.speed ?? (previous ? haversineMetres(previous, point) / Math.max(1, (now - previous.recorded_at) / 1000) : null);
-  await db.run(
-    `INSERT INTO bus_locations (id, bus_id, lat, lng, heading, speed, accuracy, recorded_at, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'conductor')`,
-    id('loc'),
-    busId,
-    point.lat,
-    point.lng,
-    point.heading ?? null,
-    speed,
-    point.accuracy ?? null,
-    now,
-  );
-  await db.run(
-    `INSERT INTO bus_latest (bus_id, lat, lng, heading, speed, accuracy, recorded_at, source)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'conductor')
-     ON CONFLICT (bus_id) DO UPDATE SET lat = EXCLUDED.lat, lng = EXCLUDED.lng, heading = EXCLUDED.heading,
-       speed = EXCLUDED.speed, accuracy = EXCLUDED.accuracy, recorded_at = EXCLUDED.recorded_at, source = 'conductor'`,
-    busId,
-    point.lat,
-    point.lng,
-    point.heading ?? null,
-    speed,
-    point.accuracy ?? null,
-    now,
-  );
-  await db.run(`DELETE FROM bus_locations WHERE recorded_at < ?`, now - WEEK_MS);
-  return { ok: true as const, skipped: false };
-}
-
-async function advanceSimulator(now = Date.now()) {
-  if (!simulatedEnabled()) return;
-  const db = await getDb();
-  const buses = await db.all<{ id: string; route: string }>(`SELECT id, route FROM buses ORDER BY fleet_number`);
-  for (const [index, bus] of buses.entries()) {
-    const path = demoRoutePath(bus.route);
-    if (path.length < 2) continue;
-    const latest = await db.get<{ source: string; recorded_at: number; lat: number; lng: number }>(
-      `SELECT source, recorded_at, lat, lng FROM bus_latest WHERE bus_id = ?`,
-      bus.id,
+  return withTransaction(async () => {
+    const bus = await assignedBus(conductorId);
+    if (!bus || bus.id !== busId) return { ok: false as const, message: 'You can only share the bus assigned to you.' };
+    const db = await getDb();
+    const shift = await db.get<{ expires_at: number; started_at: number }>(
+      'SELECT expires_at, started_at FROM shifts WHERE conductor_id = ? AND bus_id = ? AND ended_at IS NULL AND expires_at > ? LIMIT 1 FOR UPDATE',
+      conductorId, busId, Date.now(),
     );
-    if (latest?.source === 'conductor' && now - latest.recorded_at < CONDUCTOR_HOLD_MS) continue;
-    // Three minutes around the corridor. Every poll writes a fresh point so open maps never sit on a stale fix.
-    const spot = pointAlong(path, ((now / DEMO_LOOP_MS) + index * 0.17) % 1);
-    const speed = demoSpeed(routeLength(path));
+    const now = Date.now();
+    if (!shift || Number(shift.expires_at) <= now) {
+      return { ok: false as const, message: 'Start your shift before sharing location.' };
+    }
+    const previous = await db.get<{ lat: number; lng: number; recorded_at: number }>(
+      `SELECT lat, lng, recorded_at FROM bus_latest WHERE bus_id = ? AND source = 'conductor' AND recorded_at >= ?`,
+      busId, shift.started_at,
+    );
+    if (previous && !shouldSendFix({ lat: previous.lat, lng: previous.lng, at: previous.recorded_at }, point, now)) {
+      return { ok: true as const, skipped: true };
+    }
+    const speed = point.speed ?? (previous ? haversineMetres(previous, point) / Math.max(1, (now - previous.recorded_at) / 1000) : null);
     await db.run(
-      `INSERT INTO bus_locations (id, bus_id, lat, lng, heading, speed, accuracy, recorded_at, source) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, 'simulated')`,
+      `INSERT INTO bus_locations (id, bus_id, lat, lng, heading, speed, accuracy, recorded_at, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'conductor')`,
       id('loc'),
-      bus.id,
-      spot.lat,
-      spot.lng,
-      spot.heading,
+      busId,
+      point.lat,
+      point.lng,
+      point.heading ?? null,
       speed,
+      point.accuracy ?? null,
       now,
     );
     await db.run(
       `INSERT INTO bus_latest (bus_id, lat, lng, heading, speed, accuracy, recorded_at, source)
-       VALUES (?, ?, ?, ?, ?, NULL, ?, 'simulated')
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'conductor')
        ON CONFLICT (bus_id) DO UPDATE SET lat = EXCLUDED.lat, lng = EXCLUDED.lng, heading = EXCLUDED.heading,
-         speed = EXCLUDED.speed, accuracy = EXCLUDED.accuracy, recorded_at = EXCLUDED.recorded_at, source = 'simulated'`,
-      bus.id,
-      spot.lat,
-      spot.lng,
-      spot.heading,
+         speed = EXCLUDED.speed, accuracy = EXCLUDED.accuracy, recorded_at = EXCLUDED.recorded_at, source = 'conductor'`,
+      busId,
+      point.lat,
+      point.lng,
+      point.heading ?? null,
       speed,
+      point.accuracy ?? null,
       now,
     );
-  }
+    await db.run(`DELETE FROM bus_locations WHERE recorded_at < ?`, now - WEEK_MS);
+    return { ok: true as const, skipped: false };
+  });
+}
+
+async function advanceSimulator(now = Date.now()) {
+  if (!simulatedEnabled()) return;
+  await withTransaction(async () => {
+    const db = await getDb();
+    const locked = await db.get<{ acquired: boolean }>('SELECT pg_try_advisory_xact_lock(?) AS acquired', SIMULATION_LOCK);
+    if (!locked?.acquired) return;
+    const previous = await db.get<{ value: string }>("SELECT value FROM meta WHERE key = 'last_simulated_locations'");
+    if (previous && now - Number(previous.value) < SIMULATION_INTERVAL_MS) return;
+    const buses = await db.all<{ id: string; route: string }>(
+      "SELECT id, route FROM buses WHERE status = 'active' AND route IS NOT NULL ORDER BY fleet_number",
+    );
+    const points = buses.flatMap((bus, index) => {
+      const path = demoRoutePath(bus.route);
+      if (path.length < 2) return [];
+      const spot = pointAlong(path, ((now / DEMO_LOOP_MS) + index * 0.17) % 1);
+      return [{ bus_id: bus.id, ...spot, speed: demoSpeed(routeLength(path)) }];
+    });
+    await db.run(
+      `WITH fixes AS (
+        INSERT INTO bus_latest (bus_id, lat, lng, heading, speed, accuracy, recorded_at, source)
+        SELECT bus_id, lat, lng, heading, speed, NULL, ?, 'simulated'
+        FROM jsonb_to_recordset(?::jsonb) AS point(bus_id text, lat double precision, lng double precision,
+          heading double precision, speed double precision)
+        ORDER BY bus_id
+        ON CONFLICT (bus_id) DO UPDATE SET lat = EXCLUDED.lat, lng = EXCLUDED.lng, heading = EXCLUDED.heading,
+          speed = EXCLUDED.speed, accuracy = NULL, recorded_at = EXCLUDED.recorded_at, source = EXCLUDED.source
+        WHERE bus_latest.recorded_at < EXCLUDED.recorded_at
+          AND (bus_latest.source <> 'conductor' OR bus_latest.recorded_at <= ?)
+        RETURNING bus_id, lat, lng, heading, speed, recorded_at, source
+      )
+      INSERT INTO bus_locations (id, bus_id, lat, lng, heading, speed, recorded_at, source)
+      SELECT 'sim_' || bus_id || '_' || recorded_at, bus_id, lat, lng, heading, speed, recorded_at, source FROM fixes`,
+      now, JSON.stringify(points), now - CONDUCTOR_HOLD_MS,
+    );
+    await db.run(`INSERT INTO meta (key, value) VALUES ('last_simulated_locations', ?)
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, String(now));
+    if (!previous || Math.floor(Number(previous.value) / LOCATION_PRUNE_INTERVAL_MS) < Math.floor(now / LOCATION_PRUNE_INTERVAL_MS)) {
+      await db.run("DELETE FROM bus_locations WHERE source = 'simulated' AND recorded_at < ?", now - WEEK_MS);
+    }
+  });
 }
 
 export async function ensureStops(db?: Db) {
@@ -273,7 +285,9 @@ export async function listLiveBuses(viewer: { id: string; role: string }, now = 
             l.lat, l.lng, l.heading, l.speed, l.accuracy, l.recorded_at, l.source,
             u.short_name AS conductor_name,
             EXISTS (
-              SELECT 1 FROM shifts s WHERE s.bus_id = b.id AND s.conductor_id = b.conductor_id AND s.ended_at IS NULL AND s.expires_at > ? AND b.status = 'active'
+              SELECT 1 FROM shifts s WHERE s.bus_id = b.id AND s.conductor_id = b.conductor_id
+              AND s.ended_at IS NULL AND s.expires_at > ? AND s.started_at <= l.recorded_at
+              AND l.source = 'conductor' AND b.status = 'active'
             ) AS shift_open
      FROM buses b
      LEFT JOIN bus_latest l ON l.bus_id = b.id
@@ -304,9 +318,9 @@ export async function listLiveBuses(viewer: { id: string; role: string }, now = 
       }];
     }
     const stale = isStale(row.recorded_at, now) || (row.source === 'conductor' && !row.shift_open);
-    const simulated = row.source === 'simulated';
+    const simulated = row.source === 'simulated' && simulatedEnabled();
     const onShift = Boolean(row.shift_open) || simulated;
-    if (!ownFleet && (!onShift || (operator && stale))) return [];
+    if (!ownFleet && (!onShift || stale)) return [];
     const bus: LiveBus = {
       id: row.bus_id,
       fleet: row.fleet_number,

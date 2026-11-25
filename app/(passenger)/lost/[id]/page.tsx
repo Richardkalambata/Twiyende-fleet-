@@ -58,11 +58,15 @@ export default async function LostDetailPage({ params }: { params: Promise<{ id:
                 </span>
               </div>
             </article>
-            <section className="ticket px-4 py-4 text-center">
-              <p className="text-xs font-semibold tracking-[0.16em] text-[#8A918C]">PICKUP CODE</p>
-              <p className="mt-1 text-5xl font-semibold tracking-[0.12em] text-[#143028]">{item.pickupCode}</p>
-              <p className="mt-2 text-sm text-[#5C6B63]"><PinIcon className="mr-1 inline h-4 w-4" /> Show this code at pickup</p>
-            </section>
+            {item.pickupCode ? (
+              <section className="ticket px-4 py-4 text-center">
+                <p className="text-xs font-semibold tracking-[0.16em] text-[#8A918C]">PICKUP CODE</p>
+                <p className="mt-1 text-5xl font-semibold tracking-[0.12em] text-[#143028]">{item.pickupCode}</p>
+                <p className="mt-2 text-sm text-[#5C6B63]"><PinIcon className="mr-1 inline h-4 w-4" /> Show this code at pickup</p>
+              </section>
+            ) : item.pickupCodeExpired ? (
+              <p className="rounded-2xl bg-white p-4 text-sm">Your pickup code expired. Ask the conductor or operator for a new code.</p>
+            ) : null}
             <Link href="/lost" className="flex min-h-16 items-center gap-3 rounded-3xl bg-white px-4 shadow-sm">
               <span className="grid h-10 w-10 place-items-center rounded-full bg-[#E7F3EC] text-[#1F5BFF]"><PinIcon /></span>
               <span>
@@ -71,7 +75,7 @@ export default async function LostDetailPage({ params }: { params: Promise<{ id:
                 <span className="block text-sm text-[#6A756E]">{item.pickupUntilLabel}</span>
               </span>
             </Link>
-            {item.smsSent ? <p className="text-center text-xs text-[#6A756E]">Demo SMS recorded. Your pickup code is shown here.</p> : null}
+            {item.smsSent && item.pickupCode ? <p className="text-center text-xs text-[#6A756E]">Demo SMS recorded. Your pickup code is shown here.</p> : null}
             <FoundActions
               itemId={item.id}
               tipNgwee={item.tipNgwee}

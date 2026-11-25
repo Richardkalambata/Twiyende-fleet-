@@ -42,7 +42,7 @@ export function ReportForm({ trips }: { trips: RideCard[] }) {
       setError(result.message);
       return;
     }
-    router.push(result.matched ? `/lost/${result.itemId}` : '/lost');
+    router.push('/lost');
     router.refresh();
   }
 

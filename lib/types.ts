@@ -95,6 +95,7 @@ export type PassengerLostDetail = {
   conductorName: string | null;
   conductorPhone: string | null;
   pickupCode: string | null;
+  pickupCodeExpired: boolean;
   pickupPlace: string | null;
   pickupUntil: number | null;
   pickupUntilLabel: string | null;
@@ -105,7 +106,6 @@ export type PassengerLostDetail = {
 };
 
 export type ConductorAlert = {
-  pickupCode?: string | null;
   id: string;
   category: string;
   description: string;
@@ -113,11 +113,11 @@ export type ConductorAlert = {
 };
 
 export type ConductorItem = {
-  pickupCode?: string | null;
   id: string;
   category: string;
   description: string;
   status: LostStatus;
+  pickupCodeExpired: boolean;
   meta: string;
 };
 
@@ -184,13 +184,13 @@ export type PayoutSummary = {
 };
 
 export type ExportRide = {
+  id: string;
   createdAt: number;
   fleetNumber: string;
   plate: string;
   route: string;
   conductor: string;
   passenger: string;
-  code: string;
   amountNgwee: number;
   status: string;
 };

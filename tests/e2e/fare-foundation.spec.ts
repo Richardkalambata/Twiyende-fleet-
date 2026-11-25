@@ -43,3 +43,32 @@ test('the three roles stay signed in independently and the fare flow skips map d
   expect((await page.request.get('/api/notifications?role=passenger')).status()).toBe(200);
   expect((await page.request.get('/api/notifications?role=operator')).status()).toBe(200);
 });
+
+test('authenticated tracking requires same-origin JSON and an active shift', async ({ page }) => {
+  await login(page, '/business/conductor/login', PHONES.mwila, '/business/drive');
+  const base = new URL(page.url()).origin;
+  const wrongOrigin = await page.request.post('/api/shifts', {
+    headers: { origin: 'http://sibling.example.test' }, data: { action: 'start' },
+  });
+  expect(wrongOrigin.status()).toBe(403);
+
+  const shift = await page.evaluate(async () => {
+    const response = await fetch('/api/shifts', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'start' }),
+    });
+    return { status: response.status, ...(await response.json() as { busId?: string }) };
+  });
+  expect(shift.status, JSON.stringify(shift)).toBe(200);
+  expect(shift.busId).toBeTruthy();
+  const endpoint = `/api/buses/${shift.busId}/location`;
+  const invalid = await page.request.post(endpoint, { headers: { origin: base }, data: { lat: null, lng: 28.28 } });
+  expect(invalid.status()).toBe(400);
+  const recorded = await page.request.post(endpoint, { headers: { origin: base }, data: { lat: -15.4, lng: 28.28 } });
+  expect(recorded.status()).toBe(200);
+  expect(recorded.headers()['cache-control']).toContain('no-store');
+  expect(recorded.headers()['x-content-type-options']).toBe('nosniff');
+  const ended = await page.request.post('/api/shifts', { headers: { origin: base }, data: { action: 'end' } });
+  expect(ended.status()).toBe(200);
+  const offShift = await page.request.post(endpoint, { headers: { origin: base }, data: { lat: -15.4, lng: 28.28 } });
+  expect(offShift.status()).toBe(403);
+});

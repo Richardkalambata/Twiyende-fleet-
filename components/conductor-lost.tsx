@@ -71,13 +71,12 @@ export function ConductorLostBoard({
         <span className="inline-flex h-9 items-center gap-2 rounded-full border border-[#E4E8F0] bg-[#F1F4FA] px-3 text-[#0B1B3B]"><BusIcon className="h-4 w-4" /> Bus {fleetNumber ?? '—'}</span>
       </div>
       <h1 className="mt-4 text-[34px] font-semibold tracking-tight">Lost & found</h1>
-      <p className="text-sm text-[#5C6578]">Confirm the item is found before sharing its pickup code by phone.</p>
+      <p className="text-sm text-[#5C6578]">Check the rider’s description before marking their report found. Twende sends the pickup code to the rider.</p>
 
       {alerts.map((alert) => (
         <article key={alert.id} className="mt-4 rounded-3xl border border-[#1F5BFF]/40 bg-[#EEF3FF] p-4 shadow-[0_0_30px_rgba(232,131,58,0.18)]">
           <p className="text-sm font-semibold text-[#1F5BFF]">New report · {categoryLabel(alert.category)}</p>
           <p className="mt-1 text-[15px]">{alert.description} · {alert.tripLabel} trip</p>
-          {alert.pickupCode ? <p className="mt-1 text-sm font-semibold">Pickup code {alert.pickupCode} · Share once found</p> : null}
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button type="button" className="flex h-12 items-center justify-center gap-2 rounded-full bg-[#1F5BFF] font-semibold text-white" disabled={pending === alert.id} onClick={() => run(alert.id, () => markFoundAction(alert.id))}>
               <CheckIcon className="h-4 w-4" /> Found it
@@ -133,21 +132,20 @@ export function ConductorLostBoard({
             <span className="min-w-0 flex-1">
               <span className="block font-semibold">{categoryLabel(item.category)}</span>
               <span className="block text-xs text-[#5C6578]">{item.description}</span>
-              {item.status !== 'closed' && item.pickupCode ? <span className="block text-sm font-bold">Pickup code {item.pickupCode}</span> : null}
             </span>
-            <span className="text-xs text-[#1F5BFF]">{item.status === 'closed' ? 'Returned' : 'Awaiting pickup'}</span>
+            {item.pickupCodeExpired ? (
+              <button type="button" disabled={pending !== null} className="py-3 text-xs font-semibold text-[#1F5BFF]" onClick={() => run(item.id, () => markFoundAction(item.id))}>
+                Send new pickup code
+              </button>
+            ) : (
+              <span className="text-xs text-[#1F5BFF]">{item.status === 'closed' ? 'Returned' : item.status === 'waiting' ? 'Unclaimed' : 'Awaiting pickup'}</span>
+            )}
           </li>
         ))}
       </ul>
 
       <form className="mt-4 rounded-2xl bg-white p-3 text-[#0B1B3B]" onSubmit={(event) => { event.preventDefault(); void run('pickup', () => verifyPickupAction('conductor', pickup)); }}>
-        <label className="text-sm font-medium text-[#0B1B3B]" htmlFor="pickup-code">Select an item or enter its pickup code</label>
-        <select aria-label="Select item to return" value={items.some((item) => item.status !== 'closed' && item.pickupCode === pickup) ? pickup : ''} onChange={(event) => setPickup(event.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-[#E4E8F0] px-3">
-          <option value="">Choose an item</option>
-          {items.filter((item) => item.status !== 'closed' && item.pickupCode).map((item) => (
-            <option key={item.id} value={item.pickupCode ?? ''}>{categoryLabel(item.category)} · {item.description} · {item.pickupCode}</option>
-          ))}
-        </select>
+        <label className="text-sm font-medium text-[#0B1B3B]" htmlFor="pickup-code">Enter the pickup code the rider gives you</label>
         <div className="mt-2 flex gap-2">
           <input id="pickup-code" value={pickup} onChange={(event) => setPickup(event.target.value.toUpperCase())} maxLength={8} className="h-14 min-w-0 flex-1 rounded-2xl border border-[#E4E8F0] bg-white px-4 text-[#0B1B3B] tracking-[0.2em] outline-none placeholder:text-[#5C6578]" />
           <button type="submit" className="h-14 rounded-full bg-[#1F5BFF] px-4 font-semibold text-white" disabled={pending !== null || pickup.trim().length < 4}>Save return</button>

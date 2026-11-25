@@ -36,7 +36,6 @@ import {
   openSupport,
   replySupport,
   addRouteFare,
-  settleDay,
   recordConductorPayout,
   saveConductorPayoutDestination,
   markNotificationRead,
@@ -55,9 +54,10 @@ type LoginState = Fail | { ok: true; step: 'sms'; message?: string } | null;
 export async function loginAction(previous: LoginState, formData: FormData): Promise<LoginState> {
   if (previous?.ok && previous.step === 'sms') {
     if (!requiresOperatorSms()) return { ok: false, message: 'Restart sign-in to continue with your PIN.' };
-    const userId = await completeOperatorVerification(String(formData.get('code') ?? ''));
-    if (!userId) return { ok: true, step: 'sms', message: 'That code could not be verified. Try again or restart sign-in.' };
-    await createSession(userId, 'operator', true);
+    const account = await completeOperatorVerification(String(formData.get('code') ?? ''));
+    if (!account) return { ok: true, step: 'sms', message: 'That code could not be verified. Try again or restart sign-in.' };
+    const created = await createSession(account.user_id, 'operator', { pinHash: account.pin_hash, operatorVerified: true });
+    if (!created) return { ok: false, message: 'Restart sign-in to continue.' };
     redirect('/business/desk');
   }
   const gate = String(formData.get('gate') ?? 'passenger');
@@ -88,11 +88,13 @@ export async function loginAction(previous: LoginState, formData: FormData): Pro
     return { ok: false, message: 'Passengers and conductors use their own sign-in.' };
   }
   if (result.user.role === 'operator' && requiresOperatorSms()) {
-    const sent = await beginOperatorVerification(result.user.id, result.user.phone, result.pinHash, null);
+    const sent = await beginOperatorVerification(result.user.id, result.user.phone, result.pinHash);
     if (!sent) return { ok: false, message: 'We could not send a code. Wait a minute and try again.' };
     return { ok: true, step: 'sms' };
   }
-  await createSession(result.user.id, result.user.role);
+  if (!await createSession(result.user.id, result.user.role, { pinHash: result.pinHash })) {
+    return { ok: false, message: 'Restart sign-in to continue.' };
+  }
   redirect((result.user.role === 'passenger' ? riderPaymentPath(formData.get('bus')) : null) ?? homeFor(result.user.role));
 }
 
@@ -111,7 +113,7 @@ export async function demoLoginAction(formData: FormData) {
   if (gate === 'conductor' && result.user.role !== 'conductor') {
     redirect(`${back}?error=${encodeURIComponent('This sign-in is for conductors. Operators use Operator sign in.')}`);
   }
-  await createSession(result.user.id, result.user.role);
+  if (!await createSession(result.user.id, result.user.role)) redirect(back);
   redirect((result.user.role === 'passenger' ? riderPaymentPath(formData.get('bus')) : null) ?? homeFor(result.user.role));
 }
 
@@ -276,7 +278,7 @@ export async function payoutAction(_prev: Fail | { ok: true; message: string } |
   const confirmation = await authenticate(user.phone, String(formData.get('pin') ?? ''));
   if (!confirmation.ok) return confirmation;
   if (confirmation.user.id !== user.id) return { ok: false, message: 'Confirm your own PIN.' };
-  const result = await requestPayout(user.id, String(formData.get('amount') ?? ''));
+  const result = await requestPayout(user.id, String(formData.get('amount') ?? ''), String(formData.get('requestId') ?? ''), confirmation.pinHash);
   if (result.ok) refresh();
   return result;
 }
@@ -285,7 +287,7 @@ export async function resetDemoAction() {
   const user = await requireUser(['operator']);
   if (!user.demo || !canResetDemoDatabase()) return;
   await restoreDemoData();
-  await createSession(user.id, 'operator');
+  if (!await createSession(user.id, 'operator')) redirect('/business/login');
   redirect('/business/desk?reset=1');
 }
 
@@ -301,7 +303,7 @@ export async function signupPassengerAction(_prev: Fail | null, formData: FormDa
     network: String(formData.get('network') ?? ''),
   });
   if (!result.ok) return result;
-  await createSession(result.id, 'passenger');
+  if (!await createSession(result.id, 'passenger')) redirect('/login');
   redirect(riderPaymentPath(formData.get('bus')) ?? '/home');
 }
 
@@ -338,8 +340,8 @@ export async function changePinAction(role: Role, _prev: Fail | null, formData: 
   const user = await requireUser([role]);
   const result = await changePin(user.id, String(formData.get('current') ?? ''), String(formData.get('next') ?? ''));
   if (!result.ok) return result;
-  refresh();
-  return null;
+  await destroySession(role);
+  redirect(role === 'operator' ? '/business/login' : role === 'conductor' ? '/business/conductor/login' : '/login');
 }
 
 export async function saveCompanyAction(_prev: Fail | null, formData: FormData): Promise<Fail | null> {
@@ -382,12 +384,6 @@ export async function addFareAction(formData: FormData) {
   refresh();
 }
 
-export async function settleAction(formData: FormData) {
-  const user = await requireUser(['operator']);
-  await settleDay(user.id, String(formData.get('fleet') ?? ''), String(formData.get('amount') ?? ''));
-  refresh();
-}
-
 export async function terminateConductorAction(_previous: { ok: boolean; message: string } | null, formData: FormData) {
   const user = await requireUser(['operator']);
   if (formData.get('confirm') !== 'on') return { ok: false, message: 'Confirm the account closure first.' };
@@ -414,7 +410,10 @@ export async function recordConductorPayoutAction(_previous: { ok: boolean; mess
 
 export async function saveConductorWalletAction(_previous: { ok: boolean; message: string } | null, data: FormData) {
   const user = await requireUser(['conductor']);
-  const result = await saveConductorPayoutDestination(user.id, String(data.get('network') ?? ''), String(data.get('phone') ?? ''));
+  const confirmation = await authenticate(user.phone, String(data.get('pin') ?? ''));
+  if (!confirmation.ok) return confirmation;
+  if (confirmation.user.id !== user.id) return { ok: false, message: 'Confirm your own PIN.' };
+  const result = await saveConductorPayoutDestination(user.id, String(data.get('network') ?? ''), String(data.get('phone') ?? ''), confirmation.pinHash);
   if (result.ok) refresh();
   return result;
 }

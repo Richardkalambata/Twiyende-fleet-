@@ -35,16 +35,27 @@ async function revokeToken(role: Role, token: string | undefined) {
   if (validToken(token)) await (await getDb()).run('DELETE FROM sessions WHERE id = ?', hashToken(role, token));
 }
 
-export async function createSession(userId: string, role: Role, operatorVerified = false) {
+export async function createSession(userId: string, role: Role, proof?: { pinHash: string; operatorVerified?: boolean }) {
   const jar = await cookies();
   const key = SESSION_COOKIES[role];
   const token = randomBytes(32).toString('hex');
-  await withTransaction(async () => {
+  const created = await withTransaction(async () => {
     const db = await getDb();
+    const account = await db.get<{ pin_hash: string; demo: boolean }>(`
+      SELECT pin_hash, demo FROM users
+      WHERE id = ? AND (CASE WHEN role = 'owner' THEN 'operator' ELSE role END) = ?
+        AND (conductor_closes_at IS NULL OR conductor_closes_at > ?)
+      FOR UPDATE`, userId, role, Date.now());
+    if (!account || (proof && account.pin_hash !== proof.pinHash)) return false;
+    if (account.demo && process.env.TWENDE_ENV === 'production') return false;
+    if (role === 'operator' && requiresOperatorSms() && proof?.operatorVerified !== true
+      && !(account.demo && process.env.DEMO_ROLE_SWITCHER === '1')) return false;
     await db.run('INSERT INTO sessions (id, user_id, expires_at, operator_verified) VALUES (?, ?, ?, ?)',
-      hashToken(role, token), userId, Date.now() + MAX_AGE * 1_000, operatorVerified);
+      hashToken(role, token), userId, Date.now() + MAX_AGE * 1_000, proof?.operatorVerified === true);
     await revokeToken(role, jar.get(key)?.value);
+    return true;
   });
+  if (!created) return false;
   jar.delete('twende_session');
   jar.set(key, token, {
     httpOnly: true,
@@ -53,6 +64,7 @@ export async function createSession(userId: string, role: Role, operatorVerified
     path: '/',
     maxAge: MAX_AGE,
   });
+  return true;
 }
 
 export async function destroySession(role: Role) {

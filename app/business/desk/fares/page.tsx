@@ -29,7 +29,7 @@ export default async function FaresPage({ searchParams }: { searchParams: Promis
         <button className="min-h-10 rounded-xl bg-[#184BDE] px-4 font-bold text-white">Apply</button>
       </form>
       <ul className="divide-y divide-[#E6EAF2] rounded-2xl bg-white px-4">
-        {rides.slice((page - 1) * size, page * size).map((ride) => <li key={`${ride.code}-${ride.createdAt}`} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
+        {rides.slice((page - 1) * size, page * size).map((ride) => <li key={ride.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
           <div><strong>{ride.passenger}</strong><p>Bus {ride.fleetNumber} · {ride.conductor || 'Unassigned'} · {new Intl.DateTimeFormat('en-GB', { dateStyle: 'short', timeZone: 'Africa/Lusaka' }).format(ride.createdAt)} {formatHour24(ride.createdAt)}</p></div>
           <div className="text-right"><strong>{formatBalance(ride.amountNgwee)}</strong><p>{ride.status === 'verified' ? 'Complete' : ride.status === 'pending' ? 'Pending' : 'Cancelled'}</p></div>
         </li>)}

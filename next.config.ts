@@ -4,7 +4,18 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   output: process.env.TWENDE_STANDALONE === '1' ? 'standalone' : undefined,
   async headers() {
-    return [{ source: '/api/:path*', headers: [{ key: 'Cache-Control', value: 'private, no-store' }] }];
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'" },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        ],
+      },
+      { source: '/api/:path*', headers: [{ key: 'Cache-Control', value: 'private, no-store' }] },
+    ];
   },
   reactStrictMode: true,
   images: {

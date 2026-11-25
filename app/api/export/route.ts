@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   const year = fareArchiveYear(params.get('year') ?? undefined);
   const status = params.get('status');
   const rows = (await ridesForExport(user.id, range, year)).filter((row) => !status || row.status === status);
-  const header = ['time', 'bus', 'plate', 'route', 'conductor', 'passenger', 'code', 'amount', 'status'];
+  const header = ['time', 'bus', 'plate', 'route', 'conductor', 'passenger', 'amount', 'status'];
   const lines = [
     header.join(','),
     ...rows.map((row) =>
@@ -26,7 +26,6 @@ export async function GET(request: Request) {
         row.route,
         row.conductor,
         row.passenger,
-        row.code,
         formatBalance(row.amountNgwee),
         row.status === 'verified' ? 'Complete' : row.status === 'pending' ? 'Pending' : 'Cancelled',
       ]

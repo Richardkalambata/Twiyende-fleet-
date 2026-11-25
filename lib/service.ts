@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { allowAttempt } from './attempt-limit';
 import { getDb, isInTransaction, resetDatabase, withTransaction } from './db';
 import { CODE_ALPHABET, PICKUP_PLACE, TIP_AMOUNTS_NGWEE } from './constants';
 import { confusingCodeMessage, normalizeFleetNumber, randomCode } from './codes';
@@ -175,10 +176,6 @@ async function writeWallet(
   return next;
 }
 
-async function busByFleet(fleet: string): Promise<BusRow | null> {
-  return (await (await getDb()).get('SELECT * FROM buses WHERE fleet_number = ?', fleet) as BusRow | undefined) ?? null;
-}
-
 async function busById(id: string): Promise<BusRow | null> {
   return (await (await getDb()).get('SELECT * FROM buses WHERE id = ?', id) as BusRow | undefined) ?? null;
 }
@@ -247,16 +244,10 @@ export async function authenticate(phoneRaw: string, pin: string): Promise<{ ok:
     return { ok: false, message: 'Enter your six-digit PIN.' };
   }
   const now = Date.now();
-  const db = await getDb();
-  const key = `pin:${phone}`;
-  const attempt = await db.get(`INSERT INTO login_limits (key, attempts, expires_at) VALUES (?, 1, ?)
-    ON CONFLICT (key) DO UPDATE SET
-      attempts = CASE WHEN login_limits.expires_at <= ? THEN 1 ELSE login_limits.attempts + 1 END,
-      expires_at = CASE WHEN login_limits.expires_at <= ? THEN EXCLUDED.expires_at ELSE login_limits.expires_at END
-    WHERE login_limits.expires_at <= ? OR login_limits.attempts < 5 RETURNING key`,
-  key, now + 60_000, now, now, now);
-  if (!attempt) return { ok: false, message: 'Too many tries. Wait a minute, then try again.' };
-  const row = await db.get<UserRow>('SELECT * FROM users WHERE phone = ?', phone);
+  if (!await allowAttempt(`pin:${phone}`, 5, 60_000, now)) {
+    return { ok: false, message: 'Too many tries. Wait a minute, then try again.' };
+  }
+  const row = await (await getDb()).get<UserRow>('SELECT * FROM users WHERE phone = ?', phone);
   if (!row || (process.env.TWENDE_ENV === 'production' && row.demo) || !verifyPin(pin, row.pin_hash)) {
     return { ok: false, message: 'That phone number and PIN do not match.' };
   }
@@ -471,6 +462,9 @@ export async function verifyCode(conductorId: string, rawCode: string) {
   if (!bus || bus.status !== 'active') {
     return { ok: false as const, message: 'You are not assigned to an active bus yet.' };
   }
+  if (!await allowAttempt(`fare-code:${conductorId}`, 30, 60_000)) {
+    return { ok: false as const, message: 'Too many code checks. Wait a minute, then try again.' };
+  }
   try {
     return await withTransaction(async () => {
       const shift = await (await getDb()).get(
@@ -484,14 +478,16 @@ export async function verifyCode(conductorId: string, rawCode: string) {
         | undefined;
       if (!ride) throw new UserError('Code not found. Ask the passenger to read it again.');
       const rideBus = await busById(ride.bus_id);
-      const fleet = rideBus?.fleet_number ?? 'another bus';
+      if (!rideBus || rideBus.owner_id !== bus.owner_id) {
+        throw new UserError('Code not found. Ask the passenger to read it again.');
+      }
+      if (ride.bus_id !== bus.id) {
+        throw new UserError(`This code is for Bus ${rideBus.fleet_number}, not Bus ${bus.fleet_number}.`);
+      }
       if (ride.expires_at && ride.expires_at < Date.now() && ride.status === 'pending') {
         throw new UserError('This code expired. Ask the passenger to pay again.');
       }
       if (ride.status === 'void') throw new UserError('This fare was cancelled and the passenger was refunded.');
-      if (ride.bus_id !== bus.id) {
-        throw new UserError(`This code is for Bus ${fleet}, not Bus ${bus.fleet_number}.`);
-      }
       if (ride.status === 'verified') {
         throw new UserError(`Already used at ${formatHour24(ride.verified_at ?? ride.created_at)}. A code works once.`);
       }
@@ -744,18 +740,23 @@ async function coolDownCode(recordId: string, code: string | null) {
 }
 
 async function issuePickup(itemId: string, foundBy: string, operator = false) {
-  const item = await (await getDb()).get('SELECT * FROM lost_items WHERE id = ?', itemId) as
-    | { id: string; bus_id: string; passenger_id: string | null; notify_sms: boolean; category: string; status: string }
-    | undefined;
-  if (!item) throw new UserError('That report is no longer here.');
+  const db = await getDb();
+  const now = Date.now();
+  const item = await db.get<{ bus_id: string; passenger_id: string; notify_sms: boolean; category: string; pickup_code: string | null }>(
+    `SELECT bus_id, passenger_id, notify_sms, category, pickup_code FROM lost_items
+      WHERE id = ? AND passenger_id IS NOT NULL
+        AND (status = 'reported' OR (status = 'pickup_pending' AND COALESCE(pickup_until, 0) <= ?))
+      FOR UPDATE`, itemId, now,
+  );
+  if (!item) throw new UserError('That report already has a current pickup code or is closed.');
   const bus = await busById(item.bus_id);
   if (!bus) throw new UserError('That bus is no longer registered.');
-  const existing = await (await getDb()).get<{ pickup_code: string | null }>('SELECT pickup_code FROM lost_items WHERE id = ?', itemId);
-  const code = existing?.pickup_code ?? await reserveUniqueCode(itemId);
-  const updated = await (await getDb()).run(`UPDATE lost_items
+  const code = await reserveUniqueCode(itemId);
+  const updated = await db.run(`UPDATE lost_items
       SET status = 'pickup_pending', pickup_code = ?, pickup_place = ?, pickup_until = ?, found_by = ?, found_at = ?, conductor_id = ?
-      WHERE id = ? AND status IN ('reported', 'waiting')`, code, PICKUP_PLACE, nextPickupDeadline(), foundBy, Date.now(), operator ? bus.conductor_id : foundBy, itemId);
+      WHERE id = ?`, code, PICKUP_PLACE, nextPickupDeadline(), foundBy, now, operator ? bus.conductor_id : foundBy, itemId);
   if (Number(updated.changes) !== 1) throw new UserError('That report was already updated.');
+  await coolDownCode(itemId, item.pickup_code);
   return { code, bus, notify: item.notify_sms === true, passengerId: item.passenger_id, category: item.category };
 }
 
@@ -787,26 +788,17 @@ export async function reportLost(
   if (!isCategory(category)) return { ok: false as const, message: 'Choose what you lost.' };
   if (description.length < 3) return { ok: false as const, message: 'Add a short description so the conductor can recognise it.' };
   try {
-    const pendingSms = await withTransaction(async () => {
+    const itemId = await withTransaction(async () => {
       const ride = await (await getDb()).get(`SELECT r.*, b.fleet_number, b.owner_id, b.conductor_id FROM rides r JOIN buses b ON b.id = r.bus_id
           WHERE r.id = ? AND r.passenger_id = ?`, rideId, passengerId) as (RideJoin & { owner_id: string }) | undefined;
       if (!ride) throw new UserError('Choose one of your trips.');
       if (ride.status !== 'verified') throw new UserError('You can report a lost item after the conductor has confirmed the fare.');
       const photoData = cleanPhoto(photo);
-      const waiting = await (await getDb()).get(`SELECT id FROM lost_items WHERE bus_id = ? AND status = 'waiting' AND category = ? ORDER BY created_at LIMIT 1`, ride.bus_id, category) as { id: string } | undefined;
-      if (waiting) {
-        await (await getDb()).run(`UPDATE lost_items
-            SET ride_id = ?, passenger_id = ?, description = ?, photo_data = COALESCE(?, photo_data), notify_sms = ?, owner_id = ?
-            WHERE id = ?`, ride.id, passengerId, description, photoData, notifySms, ride.owner_id, waiting.id);
-        const owner = await userById(ride.owner_id);
-        const issued = await issuePickup(waiting.id, ride.conductor_id ?? owner?.id ?? passengerId);
-        return { itemId: waiting.id, matched: true, issued: { ...issued, itemId: waiting.id } };
-      }
       const itemId = nid('lost');
       await (await getDb()).run(`INSERT INTO lost_items (
           id, ride_id, passenger_id, bus_id, conductor_id, owner_id, category, description, photo_data,
           notify_sms, status, pickup_code, pickup_place, pickup_until, source, found_by, found_at, closed_at, created_at, tip_ngwee
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'reported', ?, NULL, NULL, 'passenger', NULL, NULL, NULL, ?, 0)`, itemId,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'reported', NULL, NULL, NULL, 'passenger', NULL, NULL, NULL, ?, 0)`, itemId,
           ride.id,
           passengerId,
           ride.bus_id,
@@ -816,12 +808,10 @@ export async function reportLost(
           description,
           photoData,
           notifySms,
-          await reserveUniqueCode(itemId),
           Date.now(),);
-      return { itemId, matched: false, issued: null };
+      return itemId;
     });
-    if (pendingSms.issued) await notifyPickup(pendingSms.issued);
-    return { ok: true as const, itemId: pendingSms.itemId, matched: pendingSms.matched };
+    return { ok: true as const, itemId };
   } catch (error) {
     return asFail(error);
   }
@@ -837,15 +827,12 @@ export async function markFound(conductorId: string, itemId: string, operator = 
   if (!bus) return { ok: false as const, message: 'You are not assigned to a bus.' };
   try {
     const issued = await withTransaction(async () => {
-      const item = await (await getDb()).get('SELECT id, bus_id, status FROM lost_items WHERE id = ?', itemId) as
-        | { id: string; bus_id: string; status: string }
-        | undefined;
+      const item = await (await getDb()).get<{ id: string; bus_id: string }>('SELECT id, bus_id FROM lost_items WHERE id = ?', itemId);
       if (!item || item.bus_id !== bus.id) throw new UserError('That report is not for your bus.');
-      if (item.status !== 'reported') throw new UserError('That report is no longer waiting.');
       return await issuePickup(item.id, conductorId, operator);
     });
     await notifyPickup({ ...issued, itemId });
-    return { ok: true as const, message: 'Marked found. The passenger now has a pickup code.' };
+    return { ok: true as const, message: 'The rider has a pickup code.' };
   } catch (error) {
     return asFail(error);
   }
@@ -874,32 +861,15 @@ export async function logFoundItem(conductorId: string, category: string, descri
   if (!isCategory(category)) return { ok: false as const, message: 'Choose a category.' };
   const description = cleanText(descriptionRaw, 280);
   try {
-    const outcome = await withTransaction(async () => {
-      const photoData = cleanPhoto(photo);
-      const reported = operatorBusId ? undefined : await (await getDb()).get(`SELECT id FROM lost_items WHERE bus_id = ? AND status = 'reported' AND category = ? ORDER BY created_at LIMIT 1`, bus.id, category) as { id: string } | undefined;
-      if (reported) {
-        if (photoData) {
-          await (await getDb()).run('UPDATE lost_items SET photo_data = COALESCE(photo_data, ?) WHERE id = ?', photoData, reported.id);
-        }
-        const issued = await issuePickup(reported.id, conductorId);
-        return { matched: true, itemId: reported.id, issued };
-      }
-      const itemId = nid('lost');
-      const ownerId = bus.owner_id;
-      await (await getDb()).run(`INSERT INTO lost_items (
-          id, ride_id, passenger_id, bus_id, conductor_id, owner_id, category, description, photo_data,
-          notify_sms, status, pickup_code, pickup_place, pickup_until, source, found_by, found_at, closed_at, created_at, tip_ngwee
-        ) VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, FALSE, 'waiting', ?, NULL, NULL, 'conductor', ?, ?, NULL, ?, 0)`, itemId, bus.id, operatorBusId ? bus.conductor_id : conductorId, ownerId, category, description || categoryLabelSafe(category), photoData, await reserveUniqueCode(itemId), conductorId, Date.now(), Date.now());
-      return { matched: false, itemId, issued: null };
-    });
-    if (outcome.issued) await notifyPickup({ ...outcome.issued, itemId: outcome.itemId });
-    return {
-      ok: true as const,
-      matched: outcome.matched,
-      message: outcome.matched
-        ? 'Matched to a passenger report. They have a pickup code.'
-        : 'Saved on this bus. It will match if a passenger reports the same kind of item.',
-    };
+    const photoData = cleanPhoto(photo);
+    const now = Date.now();
+    await (await getDb()).run(`INSERT INTO lost_items (
+        id, ride_id, passenger_id, bus_id, conductor_id, owner_id, category, description, photo_data,
+        notify_sms, status, pickup_code, pickup_place, pickup_until, source, found_by, found_at, closed_at, created_at, tip_ngwee
+      ) VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, FALSE, 'waiting', NULL, NULL, NULL, 'conductor', ?, ?, NULL, ?, 0)`,
+    nid('lost'), bus.id, operatorBusId ? bus.conductor_id : conductorId, bus.owner_id,
+    category, description || categoryLabelSafe(category), photoData, conductorId, now, now);
+    return { ok: true as const, message: 'Item logged. If a rider reports it, confirm their description before marking the report found.' };
   } catch (error) {
     return asFail(error);
   }
@@ -917,27 +887,28 @@ export async function verifyPickup(actorId: string, rawCode: string) {
   if (!actor || (actor.role !== 'conductor' && actor.role !== 'operator' && actor.role !== 'owner')) {
     return { ok: false as const, message: 'Only the conductor or operator can close a pickup.' };
   }
+  if (!await allowAttempt(`pickup-code:${actorId}`, 15, 60_000)) {
+    return { ok: false as const, message: 'Too many code checks. Wait a minute, then try again.' };
+  }
   try {
     return await withTransaction(async () => {
-      const item = await (await getDb()).get(`SELECT li.* FROM lost_items li LEFT JOIN code_leases c ON c.code = li.pickup_code
-        WHERE li.pickup_code = ? AND (c.code IS NULL OR c.record_id = li.id)`, code) as
-        | { id: string; bus_id: string; status: LostStatus; category: string }
-        | undefined;
+      const db = await getDb();
+      const bus = actor.role === 'conductor' ? await conductorBus(actorId) : null;
+      const scope = actor.role === 'conductor' ? 'li.bus_id = ?' : 'b.owner_id = ?';
+      const item = await db.get<{ id: string; status: LostStatus; category: string }>(`
+        SELECT li.id, li.status, li.category FROM lost_items li
+        JOIN buses b ON b.id = li.bus_id
+        LEFT JOIN code_leases c ON c.code = li.pickup_code
+        WHERE li.pickup_code = ? AND li.passenger_id IS NOT NULL AND ${scope}
+          AND (c.code IS NULL OR c.record_id = li.id)`,
+      code, actor.role === 'conductor' ? bus?.id ?? null : actorId);
       if (!item) throw new UserError('Pickup code not found. Ask the passenger to read it again.');
-      const bus = await busById(item.bus_id);
-      if (!bus) throw new UserError('That bus is no longer registered.');
-      if (actor.role === 'conductor') {
-        const mine = await conductorBus(actorId);
-        if (!mine || mine.id !== bus.id) {
-          throw new UserError(`This pickup is for Bus ${bus.fleet_number}, not your bus.`);
-        }
-      } else if (bus.owner_id !== actorId) {
-        throw new UserError('That pickup is for another fleet.');
-      }
       if (item.status === 'closed') throw new UserError('This item was already handed over.');
-      if (item.status !== 'pickup_pending' && item.status !== 'waiting') throw new UserError('Mark the item found before returning it.');
-      const updated = await (await getDb()).run(`UPDATE lost_items SET status = 'closed', closed_at = ? WHERE id = ? AND status IN ('pickup_pending', 'waiting')`, Date.now(), item.id);
-      if (Number(updated.changes) !== 1) throw new UserError('This pickup was just closed.');
+      if (item.status !== 'pickup_pending') throw new UserError('Mark the item found before returning it.');
+      const now = Date.now();
+      const updated = await db.run(`UPDATE lost_items SET status = 'closed', closed_at = ?
+        WHERE id = ? AND pickup_code = ? AND status = 'pickup_pending' AND pickup_until > ?`, now, item.id, code, now);
+      if (updated.changes !== 1) throw new UserError('This pickup code expired or was already used.');
       await coolDownCode(item.id, code);
       return { ok: true as const, message: `${categoryLabelSafe(item.category)} handed over. The report is closed.` };
     });
@@ -1038,6 +1009,7 @@ export async function getPassengerLostItem(userId: string, itemId: string): Prom
     | undefined;
   if (!row) return null;
   const sms = await (await getDb()).get('SELECT id FROM sms_messages WHERE lost_item_id = ? LIMIT 1', itemId) as { id: string } | undefined;
+  const pickupCodeExpired = row.status === 'pickup_pending' && Number(row.pickup_until) <= Date.now();
   return {
     id: row.id,
     category: row.category,
@@ -1047,7 +1019,8 @@ export async function getPassengerLostItem(userId: string, itemId: string): Prom
     route: row.route,
     conductorName: row.conductor_name,
     conductorPhone: row.conductor_phone,
-    pickupCode: row.pickup_code,
+    pickupCode: row.status === 'pickup_pending' && !pickupCodeExpired ? row.pickup_code : null,
+    pickupCodeExpired,
     pickupPlace: row.pickup_place,
     pickupUntil: row.pickup_until,
     pickupUntilLabel: row.pickup_until ? formatPickupUntil(row.pickup_until) : null,
@@ -1079,16 +1052,15 @@ export async function getConductorLost(userId: string) {
   const alerts = await (await getDb()).all(`SELECT li.id, li.category, li.description, li.created_at, r.created_at AS ride_at
       FROM lost_items li LEFT JOIN rides r ON r.id = li.ride_id
       WHERE li.bus_id = ? AND li.status = 'reported' ORDER BY li.created_at DESC`, bus.id) as Array<{ id: string; category: string; description: string; created_at: number; ride_at: number | null }>;
-  const items = await (await getDb()).all(`SELECT id, category, description, status, CASE WHEN status = 'waiting' AND passenger_id IS NULL THEN pickup_code END AS pickup_code, created_at, found_at FROM lost_items
+  const items = await (await getDb()).all(`SELECT id, category, description, status, created_at, found_at, pickup_until FROM lost_items
       WHERE bus_id = ? AND (status IN ('waiting', 'pickup_pending') OR (status = 'closed' AND closed_at > ?))
-      ORDER BY CASE status WHEN 'pickup_pending' THEN 0 WHEN 'waiting' THEN 1 ELSE 2 END, created_at DESC`, bus.id, Date.now() - DAY_MS) as Array<{ id: string; category: string; description: string; status: LostStatus; pickup_code: string | null; created_at: number; found_at: number | null }>;
+      ORDER BY CASE status WHEN 'pickup_pending' THEN 0 WHEN 'waiting' THEN 1 ELSE 2 END, created_at DESC`, bus.id, Date.now() - DAY_MS) as Array<{ id: string; category: string; description: string; status: LostStatus; created_at: number; found_at: number | null; pickup_until: number | null }>;
   return {
     bus,
     alerts: alerts.map((row) => ({
       id: row.id,
       category: row.category,
       description: row.description,
-      pickupCode: null,
       tripLabel: formatHour24(row.ride_at ?? row.created_at),
     })),
     items: items.map((row) => ({
@@ -1096,7 +1068,7 @@ export async function getConductorLost(userId: string) {
       category: row.category,
       description: row.description,
       status: row.status,
-      pickupCode: row.pickup_code,
+      pickupCodeExpired: row.status === 'pickup_pending' && Number(row.pickup_until) <= Date.now(),
       meta:
         row.status === 'waiting'
           ? `found ${formatHour24(row.found_at ?? row.created_at)}`
@@ -1162,7 +1134,9 @@ export async function getOwnerDashboard(ownerId: string, range: RangeKey, routeF
   const open = await (await getDb()).get(`SELECT COUNT(*) AS n FROM lost_items li JOIN buses b ON b.id = li.bus_id WHERE b.owner_id = ? AND li.status = 'reported'`, ownerId) as { n: number };
   const todayWindow = rangeWindow('today', now);
   const todayRows = rows.filter((row) => inSpan(row, todayWindow.start, todayWindow.end));
-  const paidToday = await (await getDb()).get(`SELECT COALESCE(SUM(amount_ngwee), 0) AS amount FROM payouts WHERE owner_id = ? AND status = 'paid' AND created_at >= ? AND created_at < ?`, ownerId, todayWindow.start, todayWindow.end) as { amount: number };
+  const paidToday = await (await getDb()).get(`SELECT COALESCE(SUM(amount_ngwee), 0) AS amount FROM payouts
+    WHERE owner_id = ? AND status = 'paid' AND network <> 'settlement' AND created_at >= ? AND created_at < ?`,
+  ownerId, todayWindow.start, todayWindow.end) as { amount: number };
 
   return {
     range,
@@ -1228,13 +1202,19 @@ export async function conductorPayoutDestinations(operatorId: string) {
   );
 }
 
-export async function saveConductorPayoutDestination(conductorId: string, network: string, rawPhone: string) {
+export async function saveConductorPayoutDestination(conductorId: string, network: string, rawPhone: string, pinHash: string) {
   const phone = normalizePhone(rawPhone);
   if (!phone || !['mtn', 'airtel', 'zamtel'].includes(network)) {
     return { ok: false as const, message: 'Choose a mobile-money network and enter a valid Zambian number.' };
   }
-  await (await getDb()).run("UPDATE users SET payout_phone = ?, payout_network = ? WHERE id = ? AND role = 'conductor'", phone, network, conductorId);
-  return { ok: true as const, message: 'Mobile-money details saved.' };
+  return withTransaction(async () => {
+    const updated = await (await getDb()).run(`UPDATE users SET payout_phone = ?, payout_network = ?
+      WHERE id = ? AND role = 'conductor' AND pin_hash = ? AND conductor_closes_at IS NULL`,
+    phone, network, conductorId, pinHash);
+    if (updated.changes !== 1) return { ok: false as const, message: 'Your wallet could not be updated. Check your current PIN and account status.' };
+    await notifyUser(conductorId, 'Mobile-money wallet updated', `Your payout number now ends in ${phone.slice(-4)}.`, '/business/drive/profile');
+    return { ok: true as const, message: 'Mobile-money details saved.' };
+  });
 }
 
 export async function listOperatorConductorPayouts(operatorId: string) {
@@ -1246,18 +1226,18 @@ export async function listOperatorConductorPayouts(operatorId: string) {
 }
 
 export type OwnerLostItem = {
-  pickupCode: string | null;
   id: string;
   category: string;
   description: string;
   status: LostStatus;
+  pickupCodeExpired: boolean;
   fleetNumber: string;
   whenLabel: string;
   passenger: string | null;
 };
 
 export async function listOwnerLost(ownerId: string): Promise<OwnerLostItem[]> {
-  const rows = await (await getDb()).all(`SELECT li.id, li.category, li.description, li.status, CASE WHEN li.status = 'waiting' AND li.passenger_id IS NULL THEN li.pickup_code END AS pickup_code, li.created_at, b.fleet_number, u.short_name AS passenger
+  const rows = await (await getDb()).all(`SELECT li.id, li.category, li.description, li.status, li.created_at, li.pickup_until, b.fleet_number, u.short_name AS passenger
       FROM lost_items li JOIN buses b ON b.id = li.bus_id LEFT JOIN users u ON u.id = li.passenger_id
       WHERE b.owner_id = ? AND (li.status <> 'closed' OR li.closed_at > ?) ORDER BY CASE li.status WHEN 'reported' THEN 0 WHEN 'pickup_pending' THEN 1 WHEN 'waiting' THEN 2 ELSE 3 END, li.created_at DESC
       LIMIT 80`, ownerId, Date.now() - DAY_MS) as Array<{
@@ -1265,7 +1245,7 @@ export async function listOwnerLost(ownerId: string): Promise<OwnerLostItem[]> {
     category: string;
     description: string;
     status: LostStatus;
-    pickup_code: string | null;
+    pickup_until: number | null;
     created_at: number;
     fleet_number: string;
     passenger: string | null;
@@ -1275,7 +1255,7 @@ export async function listOwnerLost(ownerId: string): Promise<OwnerLostItem[]> {
     category: row.category,
     description: row.description,
     status: row.status,
-    pickupCode: row.pickup_code,
+    pickupCodeExpired: row.status === 'pickup_pending' && Number(row.pickup_until) <= Date.now(),
     fleetNumber: row.fleet_number,
     whenLabel: formatRideWhen(row.created_at),
     passenger: row.passenger,
@@ -1430,7 +1410,8 @@ async function earnedNgwee(ownerId: string): Promise<number> {
 }
 
 async function heldPayoutNgwee(ownerId: string): Promise<number> {
-  const row = await (await getDb()).get(`SELECT COALESCE(SUM(amount_ngwee), 0) AS amount FROM payouts WHERE owner_id = ? AND status IN ('paid', 'reserved')`, ownerId) as { amount: number };
+  const row = await (await getDb()).get(`SELECT COALESCE(SUM(amount_ngwee), 0) AS amount FROM payouts
+    WHERE owner_id = ? AND status IN ('paid', 'reserved') AND network <> 'settlement'`, ownerId) as { amount: number };
   return row.amount;
 }
 
@@ -1442,7 +1423,8 @@ export async function getPayoutSummary(ownerId: string): Promise<PayoutSummary> 
   const user = await userById(ownerId);
   const dash = await getOwnerDashboard(ownerId, 'today');
   const history = await (await getDb()).all(`SELECT id, amount_ngwee, status, network, destination, created_at FROM payouts
-      WHERE owner_id = ? AND status = 'paid' ORDER BY created_at DESC, id DESC LIMIT 50`, ownerId) as Array<{ id: string; amount_ngwee: number; status: string; network: string; destination: string; created_at: number }>;
+      WHERE owner_id = ? AND status = 'paid' AND network <> 'settlement'
+      ORDER BY created_at DESC, id DESC LIMIT 50`, ownerId) as Array<{ id: string; amount_ngwee: number; status: string; network: string; destination: string; created_at: number }>;
   return {
     availableNgwee: await ownerAvailableNgwee(ownerId),
     todayNgwee: dash.totalNgwee,
@@ -1475,63 +1457,49 @@ export async function savePayoutDestination(ownerId: string, network: string, de
   return { ok: true as const };
 }
 
-async function releaseReservation(payoutId: string) {
-  await (await getDb()).run(`DELETE FROM payouts WHERE id = ? AND status = 'reserved'`, payoutId);
-}
-
-export async function requestPayout(ownerId: string, amountRaw: string) {
+export async function requestPayout(ownerId: string, amountRaw: string, requestId: string, pinHash: string) {
   if (process.env.TWENDE_ENV === 'production') return { ok: false as const, message: 'Payments are currently unavailable.' };
   const amount = parseMoney(amountRaw, 100_000_000);
   if (amount == null) return { ok: false as const, message: 'Enter a payout of at least K1.' };
-  const user = await userById(ownerId);
-  if (!user) return { ok: false as const, message: 'Sign in again.' };
-  if (!user.payout_phone || !user.payout_network) return { ok: false as const, message: 'Set your payout destination first.' };
-  const network = user.payout_network as PayoutNetwork;
-  const destination = user.payout_phone;
-  const payoutId = nid('pay');
+  if (!/^[A-Za-z0-9_-]{12,80}$/.test(requestId)) return { ok: false as const, message: 'Reload the payout form and try again.' };
+  const payoutId = 'pay_' + createHash('sha256').update(JSON.stringify([ownerId, requestId])).digest('hex');
+  const message = `A ${formatBalance(amount)} test payout was recorded. No money was sent.`;
   try {
-    await withTransaction(async () => {
-      await (await getDb()).run('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', 'withdrawal:' + ownerId);
+    return await withTransaction(async () => {
+      const db = await getDb();
+      await db.run('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', 'withdrawal:' + ownerId);
+      const user = await db.get<{ payout_phone: string | null; payout_network: string | null }>(`
+        SELECT payout_phone, payout_network FROM users
+        WHERE id = ? AND pin_hash = ? AND role IN ('operator', 'owner') FOR UPDATE`, ownerId, pinHash);
+      if (!user) throw new UserError('Confirm your current PIN and try again.');
+      const previous = await db.get<{ amount_ngwee: number }>(
+        'SELECT amount_ngwee FROM payouts WHERE id = ? AND owner_id = ?', payoutId, ownerId,
+      );
+      if (previous) {
+        if (previous.amount_ngwee !== amount) throw new UserError('That payout request was already used for a different amount.');
+        return { ok: true as const, message };
+      }
+      const destination = user.payout_phone;
+      const network = user.payout_network;
+      if (!destination || !network || !['mtn', 'airtel', 'zamtel', 'bank'].includes(network)) {
+        throw new UserError('Set your payout destination first.');
+      }
       const available = await ownerAvailableNgwee(ownerId);
       if (amount > available) {
         throw new UserError(`You can pay out up to ${formatBalance(Math.max(available, 0))}.`);
       }
-      await (await getDb()).run(`INSERT INTO payouts (id, owner_id, amount_ngwee, status, network, destination, provider_ref, created_at)
-          VALUES (?, ?, ?, 'reserved', ?, ?, NULL, ?)`, payoutId, ownerId, amount, network, destination, Date.now());
+      const provider = getPaymentProvider();
+      if (provider.id !== 'simulated') throw new UserError('Test payouts are currently unavailable.');
+      const result = await provider.payout({ network: network as PayoutNetwork, destination, amountNgwee: amount, reference: payoutId, ownerId });
+      if (!result.ok) throw new UserError(result.message);
+      await db.run(`INSERT INTO payouts (id, owner_id, amount_ngwee, status, network, destination, provider_ref, created_at)
+        VALUES (?, ?, ?, 'paid', ?, ?, ?, ?)`, payoutId, ownerId, amount, network, destination, result.providerRef, Date.now());
+      await notifyUser(ownerId, 'Test payout recorded', message, '/business/desk/payouts');
+      return { ok: true as const, message };
     });
   } catch (error) {
     return asFail(error);
   }
-
-  let result;
-  try {
-    result = await getPaymentProvider().payout({
-      network,
-      destination,
-      amountNgwee: amount,
-      reference: payoutId,
-      ownerId,
-    });
-  } catch {
-    await releaseReservation(payoutId);
-    return { ok: false as const, message: 'The payout provider did not respond. Nothing was sent.' };
-  }
-  if (!result.ok) {
-    await releaseReservation(payoutId);
-    return { ok: false as const, message: result.message };
-  }
-  return withTransaction(async () => {
-    const updated = await (await getDb()).run(`UPDATE payouts SET status = 'paid', provider_ref = ? WHERE id = ? AND status = 'reserved'`, result.providerRef, payoutId);
-    if (updated.changes !== 1) {
-      return { ok: false as const, message: 'The payout could not be recorded. Check payouts before trying again.' };
-    }
-    const simulated = getPaymentProvider().id === 'simulated';
-    const message = simulated
-      ? `A ${formatBalance(amount)} test payout was recorded. No money was sent.`
-      : `${formatBalance(amount)} sent to ${formatPhone(destination)} via ${networkLabel(network)}.`;
-    await notifyUser(ownerId, simulated ? 'Test payout recorded' : 'Payout successful', message, '/business/desk/payouts');
-    return { ok: true as const, message };
-  });
 }
 
 export function fareArchiveYear(value?: string) {
@@ -1541,13 +1509,13 @@ export function fareArchiveYear(value?: string) {
 
 export async function ridesForExport(ownerId: string, range: RangeKey, year?: number): Promise<ExportRide[]> {
   const window = year ? { start: lusakaToUtc(year, 1, 1), end: lusakaToUtc(year + 1, 1, 1) } : rangeWindow(range);
-  const rows = await (await getDb()).all(`SELECT r.created_at, r.code, r.amount_ngwee, r.status, r.passenger_label, r.route_snapshot,
+  const rows = await (await getDb()).all(`SELECT r.id, r.created_at, r.amount_ngwee, r.status, r.passenger_label, r.route_snapshot,
         b.fleet_number, b.plate, u.short_name AS conductor
       FROM rides r JOIN buses b ON b.id = r.bus_id LEFT JOIN users u ON u.id = r.conductor_id
       WHERE b.owner_id = ? AND r.created_at >= ? AND r.created_at < ?
       ORDER BY r.created_at DESC`, ownerId, window.start, window.end) as Array<{
+    id: string;
     created_at: number;
-    code: string;
     amount_ngwee: number;
     status: string;
     passenger_label: string;
@@ -1557,19 +1525,22 @@ export async function ridesForExport(ownerId: string, range: RangeKey, year?: nu
     conductor: string | null;
   }>;
   return rows.map((row) => ({
+    id: row.id,
     createdAt: row.created_at,
     fleetNumber: row.fleet_number,
     plate: row.plate,
     route: row.route_snapshot,
     conductor: row.conductor ?? '',
     passenger: row.passenger_label,
-    code: row.code,
     amountNgwee: row.amount_ngwee,
     status: row.status,
   }));
 }
 
 export async function signupPassenger(input: { name: string; phone: string; pin: string; network: string }) {
+  if (process.env.TWENDE_ENV === 'production') {
+    return { ok: false as const, message: 'New rider accounts require phone verification. Sign-up is currently unavailable.' };
+  }
   const name = cleanText(input.name, 60);
   const phone = normalizePhone(input.phone);
   if (name.length < 2) return { ok: false as const, message: 'Enter your name.' };
@@ -1594,12 +1565,18 @@ export async function signupPassenger(input: { name: string; phone: string; pin:
 }
 
 export async function signupOperator(input: { name: string; company: string; phone: string; pin: string; network: string }) {
+  if (process.env.TWENDE_ENV === 'production') {
+    return { ok: false as const, message: 'New fleet accounts require approval. Contact Twende to register.' };
+  }
   const name = cleanText(input.name, 60);
   const company = cleanText(input.company, 80);
   const phone = normalizePhone(input.phone);
   if (name.length < 2 || company.length < 2) return { ok: false as const, message: 'Enter your name and company.' };
   if (!phone) return { ok: false as const, message: 'Enter a Zambian mobile number.' };
   if (!/^\d{6}$/.test(input.pin)) return { ok: false as const, message: 'Choose a 6-digit PIN.' };
+  if (!['mtn', 'airtel', 'zamtel'].includes(input.network)) {
+    return { ok: false as const, message: 'Choose MTN, Airtel, or Zamtel.' };
+  }
   const id = nid('usr');
   try {
     await withTransaction(async () => {
@@ -1663,12 +1640,23 @@ export async function updateProfile(userId: string, nameRaw: string) {
 }
 
 export async function changePin(userId: string, currentPin: string, nextPin: string) {
+  if (!/^\d{6}$/.test(nextPin)) return { ok: false as const, message: 'Choose a 6-digit PIN.' };
+  if (!/^\d{6}$/.test(currentPin)) return { ok: false as const, message: 'Enter your current 6-digit PIN.' };
+  if (!await allowAttempt(`pin-change:${userId}`, 5, 60_000)) {
+    return { ok: false as const, message: 'Too many tries. Wait a minute, then try again.' };
+  }
   const user = await userById(userId);
   if (!user) return { ok: false as const, message: 'Sign in again.' };
   if (!verifyPin(currentPin, user.pin_hash)) return { ok: false as const, message: 'Current PIN is wrong.' };
-  if (!/^\d{6}$/.test(nextPin)) return { ok: false as const, message: 'Choose a 6-digit PIN.' };
-  await (await getDb()).run('UPDATE users SET pin_hash = ? WHERE id = ?', hashPin(nextPin), userId);
-  return { ok: true as const };
+  const nextHash = hashPin(nextPin);
+  return withTransaction(async () => {
+    const db = await getDb();
+    const updated = await db.run('UPDATE users SET pin_hash = ? WHERE id = ? AND pin_hash = ?', nextHash, userId, user.pin_hash);
+    if (updated.changes !== 1) return { ok: false as const, message: 'Your PIN has already changed. Sign in again.' };
+    await db.run('DELETE FROM sessions WHERE user_id = ?', userId);
+    await db.run('DELETE FROM operator_verifications WHERE user_id = ?', userId);
+    return { ok: true as const };
+  });
 }
 
 export async function saveCompany(operatorId: string, nameRaw: string) {
@@ -1772,21 +1760,6 @@ export async function addRouteFare(ownerId: string, routeRaw: string, amountRaw:
 
 export async function listRouteFares(ownerId: string) {
   return (await getDb()).all<{ id: string; route: string; amount_ngwee: number }>('SELECT id, route, amount_ngwee FROM route_fares WHERE owner_id = ? ORDER BY route, amount_ngwee', ownerId);
-}
-
-export async function settleDay(ownerId: string, fleet: string, amountRaw: string) {
-  if (process.env.TWENDE_ENV === 'production') return { ok: false as const, message: 'Payments are currently unavailable.' };
-  const amount = parseFare(amountRaw);
-  if (amount == null) return { ok: false as const, message: 'Enter the amount to settle.' };
-  const bus = await busByFleet(fleet);
-  if (!bus || bus.owner_id !== ownerId) return { ok: false as const, message: 'That bus is not in your fleet.' };
-  const ref = `SET-${Date.now().toString(36).toUpperCase()}`;
-  await (await getDb()).run(
-    `INSERT INTO payouts (id, owner_id, amount_ngwee, status, network, destination, provider_ref, created_at)
-     VALUES (?, ?, ?, 'paid', 'settlement', ?, ?, ?)`,
-    nid('pay'), ownerId, amount, `Bus ${fleet}`, ref, Date.now(),
-  );
-  return { ok: true as const, ref };
 }
 
 export async function restoreDemoData() {

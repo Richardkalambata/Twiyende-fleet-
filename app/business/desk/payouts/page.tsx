@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { ConductorPayoutForm } from '@/components/conductor-payout-form';
 import { PayoutForms } from '@/components/owner-forms';
-import { settleAction } from '@/lib/actions';
 import { EmptyState } from '@/components/ui';
 import { formatBalance, formatGrouped } from '@/lib/money';
 import { formatPhone } from '@/lib/phone';
@@ -28,12 +27,6 @@ export default async function PayoutsPage() {
           <Link key={bus.id} href={`/business/desk/payouts/${bus.fleetNumber}`} className="rounded-full bg-white px-3 py-1 text-sm font-semibold">Bus {bus.fleetNumber}</Link>
         ))}
       </div>
-      <form action={settleAction} className="flex flex-wrap gap-2 rounded-2xl bg-white p-4">
-        <h2 className="w-full font-bold">Mark a bus day settled</h2>
-        <input name="fleet" required placeholder="Bus number" aria-label="Bus number" className="h-11 w-32 rounded-xl bg-white px-3 text-[#0B1B3B] placeholder:text-[#5C6578]" />
-        <input name="amount" required placeholder="Amount in K" aria-label="Amount" className="h-11 w-40 rounded-xl bg-white px-3 text-[#0B1B3B] placeholder:text-[#5C6578]" />
-        <button className="h-11 rounded-xl bg-[#1F5BFF] px-4 font-bold text-white">Mark settled</button>
-      </form>
       <ConductorPayoutForm conductors={conductors} destinations={destinations} today={lusakaDateKey()} />
       <section className="rounded-2xl bg-white p-4">
         <h2 className="font-bold">Conductor payout history</h2>
@@ -49,7 +42,7 @@ export default async function PayoutsPage() {
       <PayoutForms locked={Boolean(summary.payoutPhone)} phone={summary.payoutPhone ?? user.phone} network={summary.payoutNetwork ?? 'mtn'} today={formatGrouped(summary.todayNgwee)} />
       <section className="rounded-3xl bg-white p-4 shadow-sm">
         <h2 className="font-semibold">History</h2>
-        {summary.history.length === 0 ? <div className="mt-3"><EmptyState title="No payouts yet" body="Today’s takings stay available until you mark a bus settled." /></div> : null}
+        {summary.history.length === 0 ? <div className="mt-3"><EmptyState title="No payouts yet" body="Recorded payouts will appear here." /></div> : null}
         <ul className="mt-2 divide-y divide-[#F0EBE3]">
           {summary.history.map((payout) => (
             <li key={payout.id} className="flex items-center justify-between py-3 text-sm">
