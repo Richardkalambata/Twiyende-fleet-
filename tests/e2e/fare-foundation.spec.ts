@@ -72,3 +72,57 @@ test('authenticated tracking requires same-origin JSON and an active shift', asy
   const offShift = await page.request.post(endpoint, { headers: { origin: base }, data: { lat: -15.4, lng: 28.28 } });
   expect(offShift.status()).toBe(403);
 });
+
+test('Twende bus signs print, download, and scan into the rider fare form', async ({ page, context }) => {
+  const operator = await context.newPage();
+  await operator.addInitScript(() => {
+    const markPrinted = () => document.body.setAttribute('data-print-requested', 'yes');
+    window.print = markPrinted;
+  });
+  await login(operator, '/business/login', PHONES.owner, '/business/desk');
+  await operator.goto('/business/desk/buses');
+  await operator.getByRole('article').filter({ has: operator.getByRole('heading', { name: 'Bus 12', exact: true }) })
+    .getByRole('link', { name: 'Print or download bus sign' }).click();
+  await expect(operator.getByRole('heading', { name: 'Bus 12 sign' })).toBeVisible();
+  const sign = await operator.getByRole('img', { name: /Twende sign for Bus 12/ }).getAttribute('src');
+  expect(sign).toMatch(/^data:image\/svg\+xml;base64,/);
+  await operator.getByRole('button', { name: 'Print sign' }).click();
+  await expect(operator.locator('body')).toHaveAttribute('data-print-requested', 'yes');
+  const downloadedSign = operator.waitForEvent('download');
+  await operator.getByRole('button', { name: 'Download PNG' }).click();
+  expect((await downloadedSign).suggestedFilename()).toBe('twende-bus-12.png');
+
+  await page.addInitScript((artwork) => {
+    Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
+      configurable: true,
+      value: async () => {
+        const image = new Image();
+        image.src = artwork;
+        await image.decode();
+        const canvas = document.createElement('canvas');
+        canvas.width = 600;
+        canvas.height = 600;
+        const ctx = canvas.getContext('2d')!;
+        // Feed the QR area of the actual sign to the scanner.
+        const stream = canvas.captureStream(8);
+        const track = stream.getVideoTracks()[0];
+        const draw = () => ctx.drawImage(image, 219, 567, 356, 356, 0, 0, 600, 600);
+        draw();
+        const timer = window.setInterval(() => {
+          if (track.readyState === 'ended') window.clearInterval(timer);
+          else draw();
+        }, 140);
+        return stream;
+      },
+    });
+  }, sign!);
+  await login(page, '/login', PHONES.richard, '/home');
+  await page.goto('/pay');
+  await page.getByRole('button', { name: 'Scan bus QR code' }).click();
+  await expect(page.getByRole('textbox', { name: 'Bus number' })).toHaveValue('12');
+  await expect(page.getByText('Town to Matero', { exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/\/pay$/);
+  await expect(page.getByRole('region', { name: 'Bus QR scanner' })).toHaveCount(0);
+  await page.getByRole('textbox', { name: 'Bus number' }).fill('15');
+  await expect(page.getByText('Town to Chilenje', { exact: true })).toBeVisible();
+});

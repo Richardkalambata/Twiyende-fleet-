@@ -14,5 +14,8 @@ export default async function FarePage({ searchParams }: { searchParams: Promise
   const [balanceNgwee, initialBus] = await Promise.all([
     getBalance(rider.id), initialFleet ? getFareBusOption(initialFleet) : null,
   ]);
-  return <PayForm key={initialFleet} initialFleet={initialFleet} initialBus={initialBus} balanceNgwee={balanceNgwee} riderId={rider.id} />;
+  return (
+    <PayForm key={initialFleet} initialFleet={initialFleet} initialBus={initialBus}
+      balanceNgwee={balanceNgwee} riderId={rider.id} publicOrigin={process.env.TWENDE_PUBLIC_ORIGIN} />
+  );
 }

@@ -1,23 +1,25 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { normalizeFleetNumber } from '@/lib/codes';
 import { useRouter } from 'next/navigation';
 import { payAction } from '@/lib/actions';
 import { formatBalance, parseFare } from '@/lib/money';
 import type { BusOption } from '@/lib/types';
-import { Bus } from 'lucide-react';
+import { Bus, ScanLine } from 'lucide-react';
+import { BusQrScanner } from './bus-qr-scanner';
 import { toast } from './toast';
 
 type Attempt = { number: string; amount: number; id: string };
 
-export function PayForm({ balanceNgwee, initialBus, initialFleet, riderId }: {
-  balanceNgwee: number; initialBus: BusOption | null; initialFleet: string; riderId: string;
+export function PayForm({ balanceNgwee, initialBus, initialFleet, riderId, publicOrigin }: {
+  balanceNgwee: number; initialBus: BusOption | null; initialFleet: string; riderId: string; publicOrigin?: string;
 }) {
   const router = useRouter();
   const [fleet, setFleet] = useState(initialFleet);
   const [fare, setFare] = useState('');
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [lookup, setLookup] = useState<{ number: string; bus: BusOption | null; failed?: boolean } | null>(
@@ -29,6 +31,13 @@ export function PayForm({ balanceNgwee, initialBus, initialFleet, riderId }: {
   const validNumber = /^\d{1,4}$/.test(number);
   const matched = lookup?.number === number ? lookup : null;
   const match = matched?.bus;
+
+  const selectScannedBus = useCallback((scanned: string) => {
+    setFleet(scanned);
+    setFare('');
+    setError(null);
+    setScannerOpen(false);
+  }, []);
 
   useEffect(() => {
     if (!validNumber || matched) return;
@@ -56,7 +65,7 @@ export function PayForm({ balanceNgwee, initialBus, initialFleet, riderId }: {
   const short = Math.max(0, amount - balanceNgwee);
 
   async function submit() {
-    if (inFlight.current || !match || !amount) return;
+    if (inFlight.current || scannerOpen || !match || !amount) return;
     inFlight.current = true;
     setPending(true);
     setError(null);
@@ -91,10 +100,17 @@ export function PayForm({ balanceNgwee, initialBus, initialFleet, riderId }: {
     <div className="flex min-h-full flex-col bg-[#F4F6FB] px-5 pb-8 text-[#0B1B3B]">
       <Link href="/home" prefetch={false} className="safe-top text-left text-2xl" aria-label="Back">←</Link>
       <h1 className="mt-3 text-[28px] font-extrabold tracking-[-0.04em]">Pay your fare</h1>
-      <p className="text-[14px] text-[#5C6578]">Check the number on your bus.</p>
+      <p className="text-[14px] text-[#5C6578]">Scan the QR code on the bus sign or enter its number.</p>
+      {!scannerOpen ? (
+        <button type="button" disabled={pending} onClick={() => setScannerOpen(true)} className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 self-start rounded-xl border border-[#D5DCE8] bg-white px-4 text-sm font-bold text-[#1747CB] disabled:opacity-50">
+          <ScanLine aria-hidden="true" className="h-5 w-5" /> Scan bus QR code
+        </button>
+      ) : (
+        <BusQrScanner publicOrigin={publicOrigin} onRead={selectScannedBus} onClose={() => setScannerOpen(false)} />
+      )}
       <label className="mt-6 block text-[13px] text-[#5C6578]">
         Bus number
-        <input value={fleet} disabled={pending} onChange={(event) => { setFleet(event.target.value); setFare(''); setError(null); }} inputMode="numeric" aria-label="Bus number" className="mt-1 w-full border-0 border-b-2 border-[#0B1B3B] bg-white py-1 text-[40px] font-extrabold tracking-[-0.04em] text-[#0B1B3B] outline-none placeholder:text-[#5C6578]" />
+        <input value={fleet} disabled={pending} onChange={(event) => { setFleet(event.target.value); setFare(''); setError(null); setScannerOpen(false); }} inputMode="numeric" aria-label="Bus number" className="mt-1 w-full border-0 border-b-2 border-[#0B1B3B] bg-white py-1 text-[40px] font-extrabold tracking-[-0.04em] text-[#0B1B3B] outline-none placeholder:text-[#5C6578]" />
       </label>
       {match ? (
         <div className="mt-4 flex items-center gap-3 rounded-2xl bg-white px-3 py-3">
@@ -127,7 +143,7 @@ export function PayForm({ balanceNgwee, initialBus, initialFleet, riderId }: {
       {short > 0 ? (
         <a href="/topup" className="mt-4 flex h-12 items-center justify-center rounded-xl bg-[#1F5BFF] font-bold text-white">Top up wallet</a>
       ) : (
-        <button type="button" disabled={pending || !match || amount === 0} onClick={submit} className="glow-pay press mt-4 flex h-12 items-center justify-center rounded-xl bg-[#1F5BFF] text-[15px] font-bold text-white disabled:opacity-50">{pending ? 'Paying…' : `Pay ${formatBalance(amount)}`}</button>
+        <button type="button" disabled={pending || scannerOpen || !match || amount === 0} onClick={submit} className="glow-pay press mt-4 flex h-12 items-center justify-center rounded-xl bg-[#1F5BFF] text-[15px] font-bold text-white disabled:opacity-50">{pending ? 'Paying…' : `Pay ${formatBalance(amount)}`}</button>
       )}
       <p className="mt-2 text-center text-[12px] text-[#8A93A6]">Paid from your Twende wallet.</p>
     </div>
