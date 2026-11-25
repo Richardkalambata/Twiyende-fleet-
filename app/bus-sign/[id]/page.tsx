@@ -73,7 +73,7 @@ export default async function BusSignPage({ params, searchParams }: {
       }`}</style>
       <div className="space-y-3 print:hidden">
         <Link href={user.role === 'operator' ? '/business/desk/buses' : '/business/drive'} className="inline-flex min-h-11 items-center font-semibold text-[#1747CB]">Back</Link>
-        <h1 className="text-2xl font-extrabold">Bus ${bus.fleet_number} sign</h1>
+        <h1 className="text-2xl font-extrabold">Bus {bus.fleet_number} sign</h1>
         <p className="text-sm text-[#5C6578]">Print the sign and place it where riders can see it as they board.</p>
         <div className="flex flex-wrap gap-2">
           <PrintBusSign image={image} filename={`twende-bus-${bus.fleet_number}`} />
