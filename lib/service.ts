@@ -138,10 +138,10 @@ export function parseRange(value: string | undefined): RangeKey {
   return 'today';
 }
 
+const walletBalanceSql = 'SELECT COALESCE(SUM(amount_ngwee), 0) AS n FROM wallet_transactions WHERE user_id = ?';
+
 export async function getBalance(userId: string): Promise<number> {
-  const row = await (await getDb()).get('SELECT COALESCE(SUM(amount_ngwee), 0) AS n FROM wallet_transactions WHERE user_id = ?', userId) as
-    | { n: number }
-    | undefined;
+  const row = await (await getDb()).get<{ n: number }>(walletBalanceSql, userId);
   return Number(row?.n ?? 0);
 }
 
@@ -298,10 +298,11 @@ export async function listDemoAccounts(): Promise<DemoAccount[]> {
     });
 }
 
-async function rideCards(passengerId: string, limit: number): Promise<RideCard[]> {
-  const rows = await (await getDb()).all(`SELECT r.*, b.fleet_number FROM rides r JOIN buses b ON b.id = r.bus_id
-      WHERE r.passenger_id = ? ORDER BY r.created_at DESC LIMIT ?`, passengerId, limit) as RideJoin[];
-  return rows.map((row) => ({
+const recentRidesSql = `SELECT r.*, b.fleet_number FROM rides r JOIN buses b ON b.id = r.bus_id
+  WHERE r.passenger_id = ? ORDER BY r.created_at DESC LIMIT ?`;
+
+function toRideCard(row: RideJoin): RideCard {
+  return {
     id: row.id,
     fleetNumber: row.fleet_number,
     route: row.route_snapshot,
@@ -310,16 +311,30 @@ async function rideCards(passengerId: string, limit: number): Promise<RideCard[]
     createdAt: row.created_at,
     whenLabel: formatRideWhen(row.created_at),
     code: row.code,
-  }));
+  };
+}
+
+async function rideCards(passengerId: string, limit: number): Promise<RideCard[]> {
+  const rows = await (await getDb()).all<RideJoin>(recentRidesSql, passengerId, limit);
+  return rows.map(toRideCard);
 }
 
 export async function getPassengerHome(userId: string) {
-  const db = await getDb();
-  const [balanceNgwee, rides, month] = await Promise.all([
-    getBalance(userId), rideCards(userId, 3),
-    db.get<{ n: number }>("SELECT COUNT(*)::int AS n FROM rides WHERE passenger_id = ? AND created_at >= ? AND status <> 'void'", userId, startOfLusakaMonth()),
-  ]);
-  return { balanceNgwee, rides, monthCount: month?.n ?? 0 };
+  const row = await (await getDb()).get<{
+    balance_ngwee: number;
+    month_count: number;
+    rides: RideJoin[];
+  }>(`SELECT
+    (${walletBalanceSql}) AS balance_ngwee,
+    (SELECT COUNT(*)::int FROM rides WHERE passenger_id = ? AND created_at >= ? AND status <> 'void') AS month_count,
+    (SELECT COALESCE(json_agg(recent ORDER BY recent.created_at DESC), '[]'::json)
+      FROM (${recentRidesSql}) recent) AS rides`,
+  userId, userId, startOfLusakaMonth(), userId, 3);
+  return {
+    balanceNgwee: Number(row?.balance_ngwee ?? 0),
+    rides: row?.rides.map(toRideCard) ?? [],
+    monthCount: row?.month_count ?? 0,
+  };
 }
 
 export async function listPassengerRides(userId: string): Promise<RideCard[]> {

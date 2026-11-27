@@ -9,6 +9,34 @@ async function login(page: Page, route: string, phone: string, destination: stri
   await page.waitForURL((url) => url.pathname === destination);
 }
 
+test('the rider welcome and sign-in stay clear of fare controls', async ({ page }) => {
+  await page.addInitScript(() => {
+    const root = window as Window & { twendeRiderScanner?: { postMessage: (value: string) => void } };
+    root.twendeRiderScanner = {
+      postMessage: (value) => document.documentElement.dataset.scannerMessage = value,
+    };
+  });
+  await page.setViewportSize({ width: 412, height: 820 });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Pay your bus fare in seconds.' })).toBeVisible();
+  await expect(page.locator('.brand-entry')).toHaveCount(0);
+  await page.locator('#hero-ctas').getByRole('link', { name: 'Sign in' }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByRole('textbox', { name: 'Bus number' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Scan bus QR code' })).toHaveCount(0);
+  await expect(page.locator('.brand-entry')).toHaveCount(0);
+  await page.getByRole('textbox', { name: 'Phone number' }).fill(PHONES.richard);
+  await page.getByRole('textbox', { name: 'Six-digit PIN' }).fill(DEMO_PIN);
+  await page.getByRole('button', { name: 'Log in' }).click();
+  await expect(page).toHaveURL(/\/home$/);
+  await expect(page.getByRole('button', { name: 'Scan bus QR code' })).toHaveCount(0);
+  await expect(page.locator('.brand-entry')).toHaveCount(0);
+  await page.getByRole('link', { name: /Pay a fare/ }).click();
+  await expect(page.getByRole('textbox', { name: 'Bus number' })).toBeVisible();
+  await page.getByRole('button', { name: 'Scan bus QR code' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-scanner-message', 'scan');
+});
+
 test('the three roles stay signed in independently and the fare flow skips map downloads', async ({ context, page }) => {
   const requests: string[] = [];
   page.on('request', (request) => requests.push(new URL(request.url()).pathname));

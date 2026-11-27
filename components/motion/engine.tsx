@@ -115,13 +115,12 @@ export function RouteShift({ children }: { children: ReactNode }) {
     void node.offsetWidth;
     node.classList.add('route-enter');
   }, [path]);
-  const showBrand = path === '/' || path === '/business' || path === '/home'
-    || path === '/login' || path === '/business/login' || path === '/business/conductor/login';
+  const showBrand = path === '/business' || path === '/business/login' || path === '/business/conductor/login';
   return (
     <>
       {showBrand && (
         <div key={path} className="brand-entry" aria-hidden="true">
-          <Logo tone="light" business={path.startsWith('/business')} />
+          <Logo tone="light" business />
         </div>
       )}
       <div ref={ref}>{children}</div>

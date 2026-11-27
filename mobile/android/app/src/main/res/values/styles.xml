@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">Twende</string>
+    <color name="app_icon_background">#081A3F</color>
+    <style name="TwendeTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#1747CB</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowBackground">#F4F6FB</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>

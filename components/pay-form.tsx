@@ -2,16 +2,21 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { normalizeFleetNumber } from '@/lib/codes';
 import { useRouter } from 'next/navigation';
 import { payAction } from '@/lib/actions';
 import { formatBalance, parseFare } from '@/lib/money';
 import type { BusOption } from '@/lib/types';
 import { Bus, ScanLine } from 'lucide-react';
-import { BusQrScanner } from './bus-qr-scanner';
 import { toast } from './toast';
 
+const BusQrScanner = dynamic(() => import('./bus-qr-scanner').then((module) => module.BusQrScanner), {
+  loading: () => <p className="mt-3 text-sm" role="status">Starting camera…</p>,
+});
+
 type Attempt = { number: string; amount: number; id: string };
+type RiderScannerWindow = Window & { twendeRiderScanner?: { postMessage: (request: string) => void } };
 
 export function PayForm({ balanceNgwee, initialBus, initialFleet, riderId, publicOrigin }: {
   balanceNgwee: number; initialBus: BusOption | null; initialFleet: string; riderId: string; publicOrigin?: string;
@@ -57,6 +62,15 @@ export function PayForm({ balanceNgwee, initialBus, initialFleet, riderId, publi
       window.clearTimeout(timer);
     };
   }, [number, validNumber, matched]);
+  function openScanner() {
+    const nativeScanner = (window as RiderScannerWindow).twendeRiderScanner;
+    if (typeof nativeScanner?.postMessage === 'function') {
+      nativeScanner.postMessage('scan');
+    } else {
+      setScannerOpen(true);
+    }
+  }
+
   const configuredFares = match?.fareNgwee ?? [];
   const chips = (configuredFares.length ? configuredFares : [...new Set([match?.defaultFareNgwee ?? 500, 1000, 1500, 2000])])
     .map((value) => String(value / 100));
@@ -102,7 +116,7 @@ export function PayForm({ balanceNgwee, initialBus, initialFleet, riderId, publi
       <h1 className="mt-3 text-[28px] font-extrabold tracking-[-0.04em]">Pay your fare</h1>
       <p className="text-[14px] text-[#5C6578]">Scan the QR code on the bus sign or enter its number.</p>
       {!scannerOpen ? (
-        <button type="button" disabled={pending} onClick={() => setScannerOpen(true)} className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 self-start rounded-xl border border-[#D5DCE8] bg-white px-4 text-sm font-bold text-[#1747CB] disabled:opacity-50">
+        <button type="button" disabled={pending} onClick={openScanner} className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 self-start rounded-xl border border-[#D5DCE8] bg-white px-4 text-sm font-bold text-[#1747CB] disabled:opacity-50">
           <ScanLine aria-hidden="true" className="h-5 w-5" /> Scan bus QR code
         </button>
       ) : (

@@ -30,7 +30,7 @@ export function Onboarding() {
             alt="A woman laughing at her phone beside a Lusaka minibus"
             fill
             priority
-            quality={90}
+            quality={75}
             placeholder="blur"
             blurDataURL={blur['campaign-rider']}
             sizes="100vw"
@@ -49,7 +49,7 @@ export function Onboarding() {
             <p className="lead line-reveal mt-6 text-[#E7ECF8]" style={{ animationDelay: '400ms' }}>
               Top up, enter the bus number, and show one code to the conductor.
             </p>
-            <div id="hero-ctas" className="line-reveal mt-8 flex flex-wrap gap-3" style={{ animationDelay: '520ms' }}>
+            <div id="hero-ctas" className="mt-8 flex flex-wrap gap-3">
               <Link href="/signup" className="inline-flex h-[52px] items-center rounded-xl bg-[#1F5BFF] px-6 text-[15px] font-bold text-white">Create account</Link>
               <Link href="/login" className="inline-flex h-[52px] items-center rounded-xl bg-white/10 px-6 text-[15px] font-bold text-white ring-1 ring-white/30">Sign in</Link>
             </div>
@@ -126,7 +126,7 @@ export function Onboarding() {
       </section>
 
       <section className="relative overflow-hidden text-white">
-        <Image src="/images/brand/campaign-rider.jpg" alt="" fill quality={90} className="object-cover object-[70%_center]" sizes="100vw" />
+        <Image src="/images/brand/campaign-rider.jpg" alt="" fill quality={75} className="object-cover object-[70%_center]" sizes="100vw" />
         <div className="absolute inset-0 bg-[#071230]/78" />
         <div className="relative mx-auto flex max-w-[1200px] flex-col items-start gap-6 px-5 py-20 md:px-8 md:py-32">
           <h2 className="max-w-xl text-[32px] md:text-[52px]">Your next ride starts here.</h2>
