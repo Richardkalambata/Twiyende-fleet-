@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { Bus, Coins, Users } from 'lucide-react';
 import { requireUser } from '@/lib/auth';
-import { EarningsChart } from '@/components/chart';
+import { DashboardChart } from '@/components/dashboard-chart';
 import { BellIcon } from '@/components/icons';
 import { RangeLinks } from '@/components/owner-frame';
 import { formatBalance } from '@/lib/money';
@@ -17,8 +17,9 @@ export default async function FleetPage({ searchParams }: { searchParams: Promis
   const params = await searchParams;
   const range = parseRange(params.range);
   const route = params.route || 'all';
-  const [dash, company] = await Promise.all([getOwnerDashboard(user.id, range, route), companyName(user.id)]);
-  const recent = (await ridesForExport(user.id, range === 'month' ? 'month' : range === 'week' ? 'week' : 'today')).slice(0, 6);
+  const [dash, company, recent] = await Promise.all([
+    getOwnerDashboard(user.id, range, route), companyName(user.id), ridesForExport(user.id, range, undefined, 6),
+  ]);
   const dateLabel = new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Lusaka', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
   const maxEarn = dash.topConductors[0]?.earningsNgwee || 1;
   return (
@@ -48,7 +49,7 @@ export default async function FleetPage({ searchParams }: { searchParams: Promis
         <Kpi icon={<Users className="h-4 w-4" />} label="Conductors on shift" value={String(dash.onShift)} detail="Active shifts" last />
       </section>
       <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
-        <EarningsChart
+        <DashboardChart
           points={dash.chart}
           untilHour={range === 'today' ? lusakaParts(new Date()).hour : undefined}
           title="Fare collections"

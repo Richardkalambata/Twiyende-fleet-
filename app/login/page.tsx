@@ -1,13 +1,5 @@
-import { riderPaymentPath } from '@/lib/codes';
-import { redirect } from 'next/navigation';
-import { getCurrentUser } from '@/lib/auth';
-import { LoginForm } from '@/components/login-form';
-import { listDemoAccounts, homeFor } from '@/lib/service';
+import { SignInPage, type SignInParams } from '@/components/sign-in-page';
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; bus?: string }> }) {
-  const user = await getCurrentUser('passenger');
-  const params = await searchParams;
-  if (user?.role === 'passenger') redirect(riderPaymentPath(params.bus) ?? homeFor(user.role));
-  const accounts = (await listDemoAccounts()).filter((account) => account.role === 'passenger');
-  return <LoginForm accounts={accounts} error={params.error} bus={params.bus} />;
+export default function LoginPage({ searchParams }: { searchParams: Promise<SignInParams> }) {
+  return <SignInPage role="passenger" searchParams={searchParams} />;
 }

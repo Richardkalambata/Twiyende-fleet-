@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useActionState } from 'react';
 import { signupPassengerAction } from '@/lib/actions';
 import { buttonClass, Wordmark } from '@/components/shell';
+import { PinField } from './pin-field';
 import type { Fail } from '@/lib/types';
 
 export function PassengerSignup({ bus }: { bus?: string }) {
@@ -18,8 +19,8 @@ export function PassengerSignup({ bus }: { bus?: string }) {
           {bus && <input type="hidden" name="bus" value={bus} />}
           <Field name="name" label="Name" placeholder="Richard Banda" />
           <Field name="phone" label="Phone" placeholder="0971 000 001" inputMode="tel" />
-          <Field name="pin" label="6-digit PIN" placeholder="••••••" inputMode="numeric" maxLength={6} />
-          <Field name="confirm" label="Confirm PIN" placeholder="••••••" inputMode="numeric" maxLength={6} />
+          <PinField name="pin" label="6-digit PIN" autoComplete="new-password" required className="field mt-1 min-h-12" labelClassName="text-sm font-medium" />
+          <PinField name="confirm" label="Confirm PIN" autoComplete="new-password" required className="field mt-1 min-h-12" labelClassName="text-sm font-medium" />
           <label className="flex items-start gap-3 text-[14px] md:col-span-2 leading-5">
             <input type="checkbox" name="terms" required className="mt-1 h-4 w-4 accent-[#1F5BFF]" />
             <span>I agree to the terms</span>
@@ -41,11 +42,11 @@ export function PassengerSignup({ bus }: { bus?: string }) {
   );
 }
 
-function Field(props: { name: string; label: string; placeholder: string; inputMode?: 'tel' | 'numeric'; maxLength?: number }) {
+function Field(props: { name: string; label: string; placeholder: string; inputMode?: 'tel' }) {
   return (
     <label className="block text-sm font-medium">
       {props.label}
-      <input name={props.name} type={props.maxLength ? "password" : props.inputMode === "tel" ? "tel" : "text"} autoComplete={props.maxLength ? "new-password" : undefined} pattern={props.maxLength ? "[0-9]{6}" : undefined} required placeholder={props.placeholder} inputMode={props.inputMode} maxLength={props.maxLength} className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[18px] font-semibold text-[#0B1B3B] outline-none placeholder:text-[#5C6578] focus:border-[#1F5BFF]" />
+      <input name={props.name} type={props.inputMode === "tel" ? "tel" : "text"} required placeholder={props.placeholder} inputMode={props.inputMode} className="mt-1 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[18px] font-semibold text-[#0B1B3B] outline-none placeholder:text-[#5C6578] focus:border-[#1F5BFF]" />
     </label>
   );
 }

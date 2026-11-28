@@ -11,8 +11,29 @@ android {
         applicationId "com.modernmindsettechnologies.twende"
         minSdk 24
         targetSdk 36
-        versionCode 2
-        versionName "0.1.1"
+        versionCode 3
+        versionName "0.1.2"
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    flavorDimensions "audience"
+    productFlavors {
+        rider {
+            dimension "audience"
+            buildConfigField "boolean", "FLEET", "false"
+            resValue "string", "app_name", "Twende"
+        }
+        fleet {
+            dimension "audience"
+            applicationIdSuffix ".fleet"
+            buildConfigField "boolean", "FLEET", "true"
+            resValue "string", "app_name", "Twende Fleet"
+            versionCode 1
+            versionName "0.1.0"
+        }
     }
 
     compileOptions {

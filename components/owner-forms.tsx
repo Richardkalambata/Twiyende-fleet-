@@ -1,5 +1,7 @@
 'use client';
 
+import { PinField } from './pin-field';
+
 import { useActionState } from 'react';
 import { assignConductorAction, logOperatorFoundAction, payoutAction, registerBusAction, registerConductorAction, savePayoutAction, setBusRouteAction, setBusStatusAction, verifyPickupAction } from '@/lib/actions';
 import { CONDUCTOR_CATEGORIES, categoryLabel } from '@/lib/categories';
@@ -77,9 +79,7 @@ export function RegisterConductorForm({ buses }: { buses: BusPerformance[] }) {
       <label className="grid min-w-0 gap-1.5 text-sm font-semibold">Mobile number
         <input name="phone" type="tel" autoComplete="tel" required placeholder="Phone" aria-label="Phone" className={registrationField} />
       </label>
-      <label className="grid min-w-0 gap-1.5 text-sm font-semibold">6-digit PIN
-        <input name="pin" type="password" pattern="[0-9]{6}" autoComplete="new-password" required inputMode="numeric" maxLength={6} placeholder="6-digit PIN" aria-label="PIN" className={registrationField} />
-      </label>
+      <PinField name="pin" label="6-digit PIN" required autoComplete="new-password" labelClassName="grid min-w-0 gap-1.5 text-sm font-semibold" className={registrationField} />
       <label className="grid min-w-0 gap-1.5 text-sm font-semibold">Assigned bus
         <select name="busId" aria-label="Assign bus" className={registrationField} defaultValue="">
         <option value="">Assign later</option>
@@ -159,9 +159,7 @@ export function PayoutForms({ phone, network, today, locked }: { phone: string; 
           <option value="bank">Bank account</option>
         </select>
         <input name="destination" defaultValue={phone} aria-label="Destination" className="mt-2 h-14 w-full rounded-2xl bg-white px-4 text-[#0B1B3B] placeholder:text-[#5C6578]" />
-        <label className="mt-3 grid gap-1 text-sm font-semibold">Confirm your six-digit PIN
-          <input name="pin" type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{6}" maxLength={6} required className={registrationField} />
-        </label>
+        <PinField name="pin" label="Confirm your six-digit PIN" required autoComplete="current-password" labelClassName="mt-3 grid gap-1 text-sm font-semibold" className={registrationField} />
         <button className={`${buttonClass('green')} mt-3`} disabled={saving}>{saving ? 'Saving…' : 'Save destination'}</button>
         {saved?.message ? <p className="mt-2 text-sm text-[#9A3B1A]">{saved.message}</p> : null}
       </form>}
@@ -169,9 +167,7 @@ export function PayoutForms({ phone, network, today, locked }: { phone: string; 
         <h2 className="font-semibold">Request payout</h2>
         <p className="mt-1 text-sm text-[#5C6B63]">Simulated. Today’s takings are {today}. No Twende fee is deducted yet.</p>
         <input name="amount" defaultValue={today.replace(/[^\d.]/g, '')} aria-label="Amount in kwacha" className="mt-3 h-14 w-full rounded-2xl bg-white px-4 text-[#0B1B3B] placeholder:text-[#5C6578]" />
-        <label className="mt-3 grid gap-1 text-sm font-semibold">Confirm your six-digit PIN
-          <input name="pin" type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{6}" maxLength={6} required className={registrationField} />
-        </label>
+        <PinField name="pin" label="Confirm your six-digit PIN" required autoComplete="current-password" labelClassName="mt-3 grid gap-1 text-sm font-semibold" className={registrationField} />
         <button className={`${buttonClass('copper')} mt-3`} disabled={paying || !locked}>{paying ? 'Sending…' : 'Pay out'}</button>
         {paid && 'message' in paid ? <p className={`mt-2 text-sm ${paid.ok ? 'text-[#1F5BFF]' : 'text-[#9A3B1A]'}`}>{paid.message}</p> : null}
       </form>

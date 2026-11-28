@@ -14,7 +14,7 @@ for (const role of roles) {
     for (const width of [320, 768, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       await expect.poll(async () => (await loginPage.boundingBox())?.width).toBe(width);
-      const pin = page.getByLabel('Six-digit PIN');
+      const pin = page.getByLabel('Six-digit PIN', { exact: true });
       await expect(pin).toBeVisible();
       const phoneBox = await page.getByLabel('Phone number').boundingBox();
       const pinBox = await pin.boundingBox();

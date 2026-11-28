@@ -379,6 +379,58 @@ test('signup, pin, support, fare options, and code expiry', async () => {
   assert.equal((await service.payFare(created.id, '12', '7')).ok, true);
 });
 
+test('PIN recovery is role-scoped, expires, and revokes sessions when redeemed once', async (t) => {
+  await useIsolatedDatabase();
+  const { getDb } = await import('../lib/db');
+  const { signupPassenger, authenticate } = await import('../lib/service');
+  const { requestPinReset, resetPinWithCode } = await import('../lib/pin-reset');
+  const phone = '0967765011';
+  const account = await signupPassenger({ name: 'Recovery Check', phone, pin: '012345', network: 'mtn' });
+  assert.ok(account.ok);
+  const db = await getDb();
+  await db.run('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)', 'test-reset-session', account.id, Date.now() + 60_000);
+  const service = `VA${'1'.repeat(32)}`;
+  const sid = `VE${'2'.repeat(32)}`;
+  const keys = ['TWILIO_PIN_RESET_SERVICE_SID', 'TWILIO_API_KEY', 'TWILIO_API_SECRET'] as const;
+  const prior = keys.map((key) => process.env[key]);
+  process.env.TWILIO_PIN_RESET_SERVICE_SID = service;
+  process.env.TWILIO_API_KEY = 'fixture';
+  process.env.TWILIO_API_SECRET = 'fixture';
+  t.after(() => keys.forEach((key, index) => {
+    if (prior[index] === undefined) delete process.env[key];
+    else process.env[key] = prior[index];
+  }));
+  const requests: string[] = [];
+  t.mock.method(globalThis, 'fetch', async (input: string, init?: RequestInit) => {
+    assert.ok(input.startsWith(`https://verify.twilio.com/v2/Services/${service}/`));
+    const step = input.split('/').at(-1)!;
+    requests.push(step);
+    const body = new URLSearchParams(init?.body as URLSearchParams);
+    if (step === 'Verifications') {
+      assert.equal(body.get('To'), '+260967765011');
+      return Response.json({ sid, status: 'pending' });
+    }
+    assert.equal(body.get('VerificationSid'), sid);
+    return Response.json({ sid, status: body.get('Code') === '862431' ? 'approved' : 'pending' });
+  });
+  assert.ok(await requestPinReset('conductor', phone));
+  assert.deepEqual(requests, []);
+  const expired = await requestPinReset('passenger', phone);
+  assert.ok(expired);
+  await db.run('UPDATE pin_resets SET expires_at = ? WHERE user_id = ?', Date.now() - 1, account.id);
+  assert.equal(await resetPinWithCode('passenger', expired, '862431', '654321'), false);
+  await db.run('DELETE FROM login_limits WHERE key = ?', `pin-reset-send:${account.id}`);
+  const token = await requestPinReset('passenger', phone);
+  assert.ok(token);
+  assert.equal(await resetPinWithCode('operator', token, '862431', '654321'), false);
+  assert.equal(await resetPinWithCode('passenger', token, '000000', '654321'), false);
+  assert.equal(await resetPinWithCode('passenger', token, '862431', '654321'), true);
+  assert.equal(await resetPinWithCode('passenger', token, '862431', '111111'), false);
+  assert.equal(Boolean(await db.get('SELECT id FROM sessions WHERE user_id = ?', account.id)), false);
+  assert.equal((await authenticate(phone, '012345')).ok, false);
+  assert.equal((await authenticate(phone, '654321')).ok, true);
+});
+
 test('fleet notifications are scoped and termination expires account access', async () => {
   await useIsolatedDatabase();
   process.env.DEMO_ROLE_SWITCHER = '1';

@@ -48,9 +48,10 @@ test('the three roles stay signed in independently and the fare flow skips map d
   await page.getByRole('textbox', { name: 'Bus number' }).fill('15');
   await expect(page.getByText('Town to Chilenje')).toBeVisible();
   expect(requests.filter((route) => route === '/api/fare-bus')).toHaveLength(1);
-  await page.goto('/map');
-  await expect(page.getByRole('button', { name: /load live map|track your bus/i })).toBeVisible();
   expect(requests).not.toContain('/api/buses/live');
+  await page.goto('/map');
+  await expect.poll(() => requests.includes('/api/buses/live')).toBe(true);
+  await expect(page.getByRole('button', { name: /load live map|track your bus/i })).toHaveCount(0);
 
   const operator = await context.newPage();
   const conductor = await context.newPage();

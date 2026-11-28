@@ -1,5 +1,7 @@
 'use client';
 
+import { PinField } from './pin-field';
+
 import { useActionState } from 'react';
 import { changePinAction, updateProfileAction, saveCompanyAction } from '@/lib/actions';
 import type { Fail, Role } from '@/lib/types';
@@ -20,8 +22,8 @@ export function ProfileForms({ name, role, mode = 'both' }: { name: string; role
       {mode !== 'name' ? (
         <form action={savePin} className="rounded-2xl bg-white p-4">
           <h2 className="font-bold">Change PIN</h2>
-          <input name="current" type="password" autoComplete="current-password" inputMode="numeric" maxLength={6} placeholder="Current PIN" aria-label="Current PIN" className="mt-2 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[16px] text-[#0B1B3B] outline-none placeholder:text-[#5C6578]" />
-          <input name="next" type="password" autoComplete="new-password" pattern="[0-9]{6}" inputMode="numeric" maxLength={6} placeholder="New 6-digit PIN" aria-label="New PIN" className="mt-2 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[16px] text-[#0B1B3B] outline-none placeholder:text-[#5C6578]" />
+          <PinField name="current" label="Current PIN" placeholder="Current PIN" hideLabel required autoComplete="current-password" className="mt-2 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[16px] text-[#0B1B3B] outline-none placeholder:text-[#5C6578] min-h-11" />
+          <PinField name="next" label="New PIN" placeholder="New PIN" hideLabel required autoComplete="new-password" className="mt-2 w-full border-0 border-b border-[#D5DCE8] bg-white py-2 text-[16px] text-[#0B1B3B] outline-none placeholder:text-[#5C6578] min-h-11" />
           {pin?.message ? <p className="mt-2 text-sm text-[#E5484D]">{pin.message}</p> : null}
           <button className="press mt-3 h-11 rounded-xl bg-[#0B1B3B] px-4 font-bold text-white" disabled={pinning}>{pinning ? 'Saving…' : 'Update PIN'}</button>
         </form>

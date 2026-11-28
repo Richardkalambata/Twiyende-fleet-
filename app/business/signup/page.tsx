@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useActionState } from 'react';
 import { signupOperatorAction } from '@/lib/actions';
 import { buttonClass } from '@/components/shell';
+import { PinField } from '@/components/pin-field';
 import type { Fail } from '@/lib/types';
 
 export default function BusinessSignup() {
@@ -17,7 +18,7 @@ export default function BusinessSignup() {
           <Field name="name" label="Your name" />
           <Field name="company" label="Company" />
           <Field name="phone" label="Phone" />
-          <Field name="pin" label="6-digit PIN" />
+          <PinField name="pin" label="6-digit PIN" autoComplete="new-password" required className="field mt-1.5 min-h-12" labelClassName="text-sm font-medium" />
           <label className="block text-sm font-medium">
             Payout network
             <select name="network" className="field mt-1.5" defaultValue="mtn">
@@ -39,7 +40,7 @@ function Field({ name, label }: { name: string; label: string }) {
   return (
     <label className="block text-sm font-medium">
       {label}
-      <input name={name} required type={name === 'pin' ? 'password' : name === 'phone' ? 'tel' : 'text'} inputMode={name === 'pin' ? 'numeric' : undefined} maxLength={name === 'pin' ? 6 : undefined} pattern={name === 'pin' ? '[0-9]{6}' : undefined} className="field mt-1.5" />
+      <input name={name} required type={name === 'phone' ? 'tel' : 'text'} className="field mt-1.5" />
     </label>
   );
 }

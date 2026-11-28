@@ -19,6 +19,7 @@ TRUNCATE TABLE
   support_messages,
   support_tickets,
   operator_verifications,
+  pin_resets,
   login_limits,
   sessions,
   wallets,
@@ -72,6 +73,18 @@ CREATE TABLE IF NOT EXISTS operator_verifications (
   expires_at BIGINT NOT NULL,
   attempts INTEGER NOT NULL DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS pin_resets (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL CHECK (role IN ('passenger', 'operator', 'conductor')),
+  provider_sid TEXT NOT NULL,
+  pin_hash TEXT NOT NULL,
+  expires_at BIGINT NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS pin_resets_expires ON pin_resets(expires_at);
+CREATE INDEX IF NOT EXISTS pin_resets_user ON pin_resets(user_id);
 
 CREATE TABLE IF NOT EXISTS buses (
   id TEXT PRIMARY KEY,

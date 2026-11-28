@@ -40,6 +40,8 @@ import java.util.Arrays;
 import java.util.Collections;
 
 public final class MainActivity extends ComponentActivity {
+    private static final String PREFS = "twende_navigation";
+    private static final String LAST_ROLE = "last_role";
     private WebView web;
     private ProgressBar progress;
     private ValueCallback<Uri[]> fileCallback;
@@ -103,7 +105,7 @@ public final class MainActivity extends ComponentActivity {
         root.addView(web, new FrameLayout.LayoutParams(-1, -1));
         progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         progress.setVisibility(View.GONE);
-        progress.setContentDescription("Loading Twende");
+        progress.setContentDescription(getString(R.string.app_name));
         root.addView(progress, new FrameLayout.LayoutParams(-1,
             Math.round(3 * getResources().getDisplayMetrics().density), Gravity.TOP));
         setContentView(root);
@@ -120,7 +122,7 @@ public final class MainActivity extends ComponentActivity {
                 }
             }
         });
-        if (state == null || web.restoreState(state) == null) load(TwendeRoutes.START);
+        if (state == null || web.restoreState(state) == null) load(launchPath());
     }
 
     private void configureWebView() {
@@ -131,14 +133,27 @@ public final class MainActivity extends ComponentActivity {
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        settings.setUserAgentString(settings.getUserAgentString()
+            + (BuildConfig.FLEET ? " TwendeAndroid/Fleet" : " TwendeAndroid/Rider"));
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, false);
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
-            WebViewCompat.addWebMessageListener(web, "twendeRiderScanner", Collections.singleton(TwendeRoutes.ORIGIN),
-                (view, message, origin, mainFrame, reply) -> {
-                    if (TwendeRoutes.canOpenScanner(view.getUrl(), origin.toString(), mainFrame, message.getData())) {
-                        openScanner();
-                    }
-                });
+            if (BuildConfig.FLEET) {
+                WebViewCompat.addWebMessageListener(web, "twendeFleetSign", Collections.singleton(TwendeRoutes.ORIGIN),
+                    (view, message, origin, mainFrame, reply) -> {
+                        String page = view.getUrl();
+                        if (mainFrame && TwendeRoutes.sameOrigin(origin.toString()) && TwendeRoutes.allowed(page, true)
+                                && Uri.parse(page).getPath().startsWith("/bus-sign/")) {
+                            BusSignExport.handle(this, view, message.getData());
+                        }
+                    });
+            } else {
+                WebViewCompat.addWebMessageListener(web, "twendeRiderScanner", Collections.singleton(TwendeRoutes.ORIGIN),
+                    (view, message, origin, mainFrame, reply) -> {
+                        if (TwendeRoutes.canOpenScanner(view.getUrl(), origin.toString(), mainFrame, message.getData())) {
+                            openScanner();
+                        }
+                    });
+            }
         }
 
         web.setWebViewClient(new WebViewClient() {
@@ -146,7 +161,7 @@ public final class MainActivity extends ComponentActivity {
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
                 if (!request.isForMainFrame()) return !TwendeRoutes.sameOrigin(url);
-                if (TwendeRoutes.allowed(url)) return false;
+                if (TwendeRoutes.allowed(url, BuildConfig.FLEET)) return false;
                 if (request.hasGesture() && "https".equalsIgnoreCase(request.getUrl().getScheme())) {
                     openExternal(request.getUrl());
                 }
@@ -155,11 +170,14 @@ public final class MainActivity extends ComponentActivity {
 
             @Override
             public void doUpdateVisitedHistory(WebView view, String url, boolean reload) {
-                if (TwendeRoutes.sameOrigin(url) && !TwendeRoutes.allowed(url)) {
+                if (TwendeRoutes.sameOrigin(url) && !TwendeRoutes.allowed(url, BuildConfig.FLEET)) {
                     // Next.js can change history without a new document navigation.
                     if (view.canGoBack()) view.goBack();
-                    else load(TwendeRoutes.START);
+                    else load(launchPath());
+                    return;
                 }
+                rememberRole(url);
+                if (TwendeRoutes.isWelcome(url, BuildConfig.FLEET) && lastRole() != null) load(launchPath());
             }
 
             @Override
@@ -222,7 +240,7 @@ public final class MainActivity extends ComponentActivity {
 
             @Override
             public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
-                if (!TwendeRoutes.allowed(view.getUrl())) return false;
+                if (!TwendeRoutes.allowed(view.getUrl(), BuildConfig.FLEET)) return false;
                 if (fileCallback != null) fileCallback.onReceiveValue(null);
                 fileCallback = callback;
                 try {
@@ -244,7 +262,7 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private boolean isFarePage() {
-        return web != null && TwendeRoutes.canOpenScanner(web.getUrl(), TwendeRoutes.ORIGIN, true, "scan");
+        return !BuildConfig.FLEET && web != null && TwendeRoutes.canOpenScanner(web.getUrl(), TwendeRoutes.ORIGIN, true, "scan");
     }
 
     private boolean hasLocation() {
@@ -255,7 +273,7 @@ public final class MainActivity extends ComponentActivity {
     private void showLoadError(String url) {
         if (loadError != null && loadError.isShowing()) return;
         progress.setVisibility(View.GONE);
-        final String retry = TwendeRoutes.allowed(url) ? url : TwendeRoutes.ORIGIN + TwendeRoutes.START;
+        final String retry = TwendeRoutes.allowed(url, BuildConfig.FLEET) ? url : TwendeRoutes.ORIGIN + launchPath();
         loadError = new AlertDialog.Builder(this)
             .setMessage("Twende could not connect. Check your data or Wi-Fi and try again.")
             .setPositiveButton("Retry", (dialog, which) -> web.loadUrl(retry))
@@ -272,6 +290,21 @@ public final class MainActivity extends ComponentActivity {
 
     private void load(String path) {
         web.loadUrl(TwendeRoutes.ORIGIN + path);
+    }
+
+    private String lastRole() {
+        return getSharedPreferences(PREFS, MODE_PRIVATE).getString(LAST_ROLE, null);
+    }
+
+    private String launchPath() {
+        return TwendeRoutes.launch(BuildConfig.FLEET, lastRole(), CookieManager.getInstance().getCookie(TwendeRoutes.ORIGIN));
+    }
+
+    private void rememberRole(String url) {
+        String role = TwendeRoutes.signedInRole(url, BuildConfig.FLEET);
+        if (role != null && !role.equals(lastRole())) {
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(LAST_ROLE, role).apply();
+        }
     }
 
     @Override

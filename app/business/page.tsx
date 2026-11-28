@@ -26,14 +26,14 @@ const FAQ = [
 export default function BusinessHome() {
   return (
     <div className={`${jakarta.variable} marketing bg-[#F7F8FB] text-[#0B1B3B]`}>
-      <section data-hero className="relative h-[100svh] min-h-[640px] overflow-hidden text-white md:h-[88vh]">
+      <section data-hero className="relative min-h-[max(680px,100svh)] overflow-hidden text-white md:min-h-0 md:h-[88vh]">
         <div className="parallax-photo absolute inset-[-4%]">
           <Image
             src="/images/brand/campaign-business.jpg"
             alt="A fleet owner with a tablet in front of a row of minibuses"
             fill
             priority
-            quality={90}
+            quality={75}
             placeholder="blur"
             blurDataURL={blur['campaign-business']}
             sizes="100vw"
@@ -42,7 +42,7 @@ export default function BusinessHome() {
         </div>
         <div className="parallax-shade absolute inset-0 bg-gradient-to-t from-[#071230] via-[#071230]/75 to-[#071230]/25 md:bg-gradient-to-r md:from-[#071230] md:via-[#071230]/80 md:to-[#071230]/10" />
         <SiteHeader business />
-        <div className="relative z-10 mx-auto grid h-full max-w-[1200px] grid-cols-12 items-end px-5 pb-24 md:items-center md:px-8 md:pb-0">
+        <div className="relative z-10 mx-auto grid min-h-[max(680px,100svh)] max-w-[1200px] grid-cols-12 items-end px-5 pb-24 pt-24 md:h-full md:min-h-0 md:items-center md:px-8 md:py-0">
           <div className="col-span-12 md:col-span-7">
             <p className="line-reveal text-[13px] font-bold uppercase tracking-[0.14em] text-[#8FB0FF]">Fleet business</p>
             <h1 className="mt-4 text-[44px] md:text-[72px]">
@@ -52,9 +52,10 @@ export default function BusinessHome() {
             <p className="lead line-reveal mt-6 text-[#E7ECF8]" style={{ animationDelay: '400ms' }}>
               Today’s fares, the buses, and the conductors, on one desk.
             </p>
-            <div id="hero-ctas" className="line-reveal mt-8 flex flex-wrap gap-3" style={{ animationDelay: '520ms' }}>
-              <Link href="/business/signup" className="inline-flex h-[52px] items-center rounded-xl bg-[#1F5BFF] px-6 text-[15px] font-bold text-white">Create a company</Link>
-              <Link href="/business/login" className="inline-flex h-[52px] items-center rounded-xl bg-white/10 px-6 text-[15px] font-bold text-white ring-1 ring-white/30">Operator sign in</Link>
+            <div id="hero-ctas" className="mt-8 flex flex-wrap gap-3">
+              <Link prefetch={false} href="/business/signup" className="inline-flex h-[52px] items-center rounded-xl bg-[#1F5BFF] px-5 text-[15px] font-bold text-white">Create an operator account</Link>
+              <Link prefetch={false} href="/business/login" className="inline-flex h-[52px] items-center rounded-xl bg-white/10 px-5 text-[15px] font-bold text-white ring-1 ring-white/30">Sign in as Operator</Link>
+              <Link prefetch={false} href="/business/conductor/login" className="inline-flex h-[52px] items-center rounded-xl bg-white/10 px-5 text-[15px] font-bold text-white ring-1 ring-white/30">Sign in as Conductor</Link>
             </div>
           </div>
         </div>

@@ -133,6 +133,15 @@ export async function getPublicUser(id: string): Promise<PublicUser | null> {
   return row && !(process.env.TWENDE_ENV === 'production' && row.demo) && (row.conductor_closes_at == null || row.conductor_closes_at > Date.now()) ? mapUser(row) : null;
 }
 
+export async function getSessionAccount(sessionId: string, now = Date.now()) {
+  const row = await (await getDb()).get<UserRow & { operator_verified: boolean }>(`SELECT u.*, s.operator_verified
+    FROM sessions s JOIN users u ON u.id = s.user_id
+    WHERE s.id = ? AND s.expires_at > ?
+      AND (u.conductor_closes_at IS NULL OR u.conductor_closes_at > ?) AND (NOT u.demo OR ?)`,
+  sessionId, now, now, process.env.TWENDE_ENV !== 'production');
+  return row ? { user: mapUser(row), operatorVerified: row.operator_verified } : null;
+}
+
 export function parseRange(value: string | undefined): RangeKey {
   if (value === 'week' || value === 'month') return value;
   return 'today';
@@ -1099,17 +1108,29 @@ type Agg = { created_at: number; amount_ngwee: number; bus_id: string; conductor
 export async function getOwnerDashboard(ownerId: string, range: RangeKey, routeFleet?: string): Promise<Dashboard> {
   const now = new Date();
   const window = rangeWindow(range, now);
-  const rows = await (await getDb()).all(`SELECT COALESCE(r.verified_at, r.created_at) AS created_at, r.amount_ngwee, r.bus_id, r.conductor_id, b.fleet_number
+  const todayWindow = rangeWindow('today', now);
+  const db = await getDb();
+  const [rows, buses, metrics] = await Promise.all([
+    db.all<Agg>(`SELECT COALESCE(r.verified_at, r.created_at) AS created_at, r.amount_ngwee, r.bus_id, r.conductor_id, b.fleet_number
       FROM rides r JOIN buses b ON b.id = r.bus_id
-      WHERE b.owner_id = ? AND r.status = 'verified' AND COALESCE(r.verified_at, r.created_at) >= ? AND COALESCE(r.verified_at, r.created_at) < ?`, ownerId, Math.min(window.previousStart, window.start), window.end) as Agg[];
+      WHERE b.owner_id = ? AND r.status = 'verified' AND COALESCE(r.verified_at, r.created_at) >= ? AND COALESCE(r.verified_at, r.created_at) < ?`,
+    ownerId, Math.min(window.previousStart, window.start), window.end),
+    db.all<BusRow & { conductor_name: string | null; conductor_initials: string | null }>(`SELECT b.*, u.short_name AS conductor_name, u.initials AS conductor_initials
+      FROM buses b LEFT JOIN users u ON u.id = b.conductor_id
+      WHERE b.owner_id = ? ORDER BY CAST(b.fleet_number AS INTEGER)`, ownerId),
+    db.get<{ on_shift: number; open_lost: number; paid_today: number }>(`SELECT
+      (SELECT COUNT(DISTINCT s.conductor_id) FROM shifts s JOIN buses b ON b.id = s.bus_id
+       WHERE b.owner_id = ? AND b.status = 'active' AND s.ended_at IS NULL AND s.expires_at > ?) AS on_shift,
+      (SELECT COUNT(*) FROM lost_items li JOIN buses b ON b.id = li.bus_id
+       WHERE b.owner_id = ? AND li.status = 'reported') AS open_lost,
+      (SELECT COALESCE(SUM(amount_ngwee), 0) FROM payouts
+       WHERE owner_id = ? AND status = 'paid' AND network <> 'settlement' AND created_at >= ? AND created_at < ?) AS paid_today`,
+    ownerId, now.getTime(), ownerId, ownerId, todayWindow.start, todayWindow.end),
+  ]);
   const inSpan = (row: Agg, start: number, end: number) => row.created_at >= start && row.created_at < end;
   const current = rows.filter((row) => inSpan(row, window.start, window.end));
   const previous = rows.filter((row) => inSpan(row, window.previousStart, window.previousEnd));
   const sum = (list: Agg[]) => list.reduce((total, row) => total + row.amount_ngwee, 0);
-
-  const buses = await (await getDb()).all(`SELECT b.*, u.short_name AS conductor_name, u.initials AS conductor_initials
-      FROM buses b LEFT JOIN users u ON u.id = b.conductor_id
-      WHERE b.owner_id = ? ORDER BY CAST(b.fleet_number AS INTEGER)`, ownerId) as Array<BusRow & { conductor_name: string | null; conductor_initials: string | null }>;
 
   const performance: BusPerformance[] = buses.map((bus) => {
     const mine = current.filter((row) => row.bus_id === bus.id);
@@ -1135,23 +1156,15 @@ export async function getOwnerDashboard(ownerId: string, range: RangeKey, routeF
     bag.earningsNgwee += row.amount_ngwee;
     byConductor.set(row.conductor_id, bag);
   }
-  const conductorRows = await (await getDb()).all<{ id: string; name: string; initials: string }>(
+  const conductorRows = byConductor.size === 0 ? [] : await db.all<{ id: string; name: string; initials: string }>(
     `SELECT id, name, initials FROM users WHERE id = ANY(?::text[])`, [...byConductor.keys()],
   );
   const topConductors = conductorRows.flatMap((person) => {
     const stats = byConductor.get(person.id);
     return stats ? [{ id: person.id, name: person.name, initials: person.initials, ...stats }] : [];
   }).sort((a, b) => b.earningsNgwee - a.earningsNgwee || b.rides - a.rides || a.name.localeCompare(b.name)).slice(0, 5);
-  const shifts = await (await getDb()).get<{ total: number }>(`SELECT COUNT(DISTINCT s.conductor_id) AS total
-    FROM shifts s JOIN buses b ON b.id = s.bus_id WHERE b.owner_id = ? AND b.status = 'active'
-      AND s.ended_at IS NULL AND s.expires_at > ?`, ownerId, now.getTime());
   const chartRows = routeFleet && routeFleet !== 'all' ? current.filter((row) => row.fleet_number === routeFleet) : current;
-  const open = await (await getDb()).get(`SELECT COUNT(*) AS n FROM lost_items li JOIN buses b ON b.id = li.bus_id WHERE b.owner_id = ? AND li.status = 'reported'`, ownerId) as { n: number };
-  const todayWindow = rangeWindow('today', now);
   const todayRows = rows.filter((row) => inSpan(row, todayWindow.start, todayWindow.end));
-  const paidToday = await (await getDb()).get(`SELECT COALESCE(SUM(amount_ngwee), 0) AS amount FROM payouts
-    WHERE owner_id = ? AND status = 'paid' AND network <> 'settlement' AND created_at >= ? AND created_at < ?`,
-  ownerId, todayWindow.start, todayWindow.end) as { amount: number };
 
   return {
     range,
@@ -1161,12 +1174,12 @@ export async function getOwnerDashboard(ownerId: string, range: RangeKey, routeF
     previousRides: previous.length,
     activeBuses: buses.filter((bus) => bus.status === 'active').length,
     totalBuses: buses.length,
-    nextPayoutNgwee: Math.max(0, sum(todayRows) - paidToday.amount),
+    nextPayoutNgwee: Math.max(0, sum(todayRows) - (metrics?.paid_today ?? 0)),
     chart: buildChart(range, chartRows, now),
     buses: performance,
     topConductor: topConductors[0] ?? null,
-    topConductors, onShift: shifts?.total ?? 0,
-    openLost: open.n,
+    topConductors, onShift: metrics?.on_shift ?? 0,
+    openLost: metrics?.open_lost ?? 0,
     routes: buses.flatMap((bus) => (bus.route ? [{ fleetNumber: bus.fleet_number, route: bus.route }] : [])),
   };
 }
@@ -1522,13 +1535,13 @@ export function fareArchiveYear(value?: string) {
   return /^\d{4}$/.test(value ?? '') && year >= 2000 && year <= lusakaParts().year ? year : undefined;
 }
 
-export async function ridesForExport(ownerId: string, range: RangeKey, year?: number): Promise<ExportRide[]> {
+export async function ridesForExport(ownerId: string, range: RangeKey, year?: number, limit?: number): Promise<ExportRide[]> {
   const window = year ? { start: lusakaToUtc(year, 1, 1), end: lusakaToUtc(year + 1, 1, 1) } : rangeWindow(range);
   const rows = await (await getDb()).all(`SELECT r.id, r.created_at, r.amount_ngwee, r.status, r.passenger_label, r.route_snapshot,
         b.fleet_number, b.plate, u.short_name AS conductor
       FROM rides r JOIN buses b ON b.id = r.bus_id LEFT JOIN users u ON u.id = r.conductor_id
       WHERE b.owner_id = ? AND r.created_at >= ? AND r.created_at < ?
-      ORDER BY r.created_at DESC`, ownerId, window.start, window.end) as Array<{
+      ORDER BY r.created_at DESC LIMIT ?`, ownerId, window.start, window.end, limit ?? null) as Array<{
     id: string;
     created_at: number;
     amount_ngwee: number;
@@ -1566,12 +1579,16 @@ export async function signupPassenger(input: { name: string; phone: string; pin:
   }
   const id = nid('usr');
   try {
-    await (await getDb()).run(
-      `INSERT INTO users (id, name, short_name, phone, pin_hash, role, initials, demo, payout_phone, payout_network, created_at)
-       VALUES (?, ?, ?, ?, ?, 'passenger', ?, FALSE, ?, ?, ?)`,
-      id, name, name.split(/\s+/)[0], phone, hashPin(input.pin), initialsFrom(name), phone, input.network, Date.now(),
-    );
-    await (await getDb()).run('INSERT INTO wallets (user_id, balance_ngwee) VALUES (?, 0)', id);
+    const pinHash = hashPin(input.pin);
+    await withTransaction(async () => {
+      const db = await getDb();
+      await db.run(
+        `INSERT INTO users (id, name, short_name, phone, pin_hash, role, initials, demo, payout_phone, payout_network, created_at)
+         VALUES (?, ?, ?, ?, ?, 'passenger', ?, FALSE, ?, ?, ?)`,
+        id, name, name.split(/\s+/)[0], phone, pinHash, initialsFrom(name), phone, input.network, Date.now(),
+      );
+      await db.run('INSERT INTO wallets (user_id, balance_ngwee) VALUES (?, 0)', id);
+    });
     return { ok: true as const, id };
   } catch (error) {
     if (isUnique(error)) return { ok: false as const, message: 'That phone number already has a Twende account.' };

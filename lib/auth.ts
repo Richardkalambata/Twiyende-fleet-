@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { cache } from 'react';
 import { getDb, withTransaction } from './db';
 import { requiresOperatorSms } from './operator-sms-policy';
-import { getPublicUser } from './service';
+import { getSessionAccount } from './service';
 import type { PublicUser, Role } from './types';
 
 const SESSION_COOKIES: Record<Role, string> = {
@@ -77,15 +77,10 @@ export async function destroySession(role: Role) {
 export const getCurrentUser = cache(async (role: Role): Promise<PublicUser | null> => {
   const token = (await cookies()).get(SESSION_COOKIES[role])?.value;
   if (!validToken(token)) return null;
-  const db = await getDb();
-  const row = await db.get<{ user_id: string; operator_verified: boolean }>(
-    'SELECT user_id, operator_verified FROM sessions WHERE id = ? AND expires_at > ?', hashToken(role, token), Date.now(),
-  );
-  if (!row) return null;
-  const user = await getPublicUser(row.user_id);
-  if (user?.role !== role) return null;
-  if (role === 'operator' && requiresOperatorSms() && !row.operator_verified && !(user.demo && process.env.DEMO_ROLE_SWITCHER === '1')) return null;
-  return user;
+  const account = await getSessionAccount(hashToken(role, token));
+  if (account?.user.role !== role) return null;
+  if (role === 'operator' && requiresOperatorSms() && !account.operatorVerified && !(account.user.demo && process.env.DEMO_ROLE_SWITCHER === '1')) return null;
+  return account.user;
 });
 
 export async function requireUser(roles: readonly [Role, ...Role[]]): Promise<PublicUser> {

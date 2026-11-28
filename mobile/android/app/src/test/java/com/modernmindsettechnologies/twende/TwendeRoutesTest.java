@@ -9,15 +9,38 @@ public final class TwendeRoutesTest {
 
     @Test
     public void startsOnTheSameWelcomePageAsTheWebsite() {
-        assertEquals("/", TwendeRoutes.START);
-        assertTrue(TwendeRoutes.allowed(ORIGIN + TwendeRoutes.START));
-        assertTrue(TwendeRoutes.allowed(ORIGIN + "/signup"));
-        assertTrue(TwendeRoutes.allowed(ORIGIN + "/login"));
-        assertTrue(TwendeRoutes.allowed(ORIGIN + "/home"));
-        assertTrue(TwendeRoutes.allowed(ORIGIN + "/pay?bus=0012"));
-        assertFalse(TwendeRoutes.allowed(ORIGIN + "/business"));
-        assertFalse(TwendeRoutes.allowed(ORIGIN + "/home/%2e%2e/business"));
-        assertFalse(TwendeRoutes.allowed(ORIGIN + ".example.org/login"));
+        assertEquals("/", TwendeRoutes.start(false, null));
+        assertEquals("/login", TwendeRoutes.start(false, "passenger"));
+        assertTrue(TwendeRoutes.allowed(ORIGIN + "/signup", false));
+        assertTrue(TwendeRoutes.allowed(ORIGIN + "/login?created=1&bus=0012", false));
+        assertTrue(TwendeRoutes.allowed(ORIGIN + "/home", false));
+        assertTrue(TwendeRoutes.allowed(ORIGIN + "/pay?bus=0012", false));
+        assertFalse(TwendeRoutes.allowed(ORIGIN + "/business", false));
+        assertFalse(TwendeRoutes.allowed(ORIGIN + "/home/%2e%2e/business", false));
+        assertFalse(TwendeRoutes.allowed(ORIGIN + ".example.org/login", false));
+    }
+
+    @Test
+    public void fleetReturnsToTheLastSignedInRole() {
+        assertEquals("/business", TwendeRoutes.start(true, null));
+        assertEquals("/business/login", TwendeRoutes.start(true, "operator"));
+        assertEquals("/business/conductor/login", TwendeRoutes.start(true, "conductor"));
+        assertTrue(TwendeRoutes.allowed(ORIGIN + "/business/signup", true));
+        assertTrue(TwendeRoutes.allowed(ORIGIN + "/business/conductor/login?forgot=1", true));
+        assertTrue(TwendeRoutes.allowed(ORIGIN + "/bus-sign/12", true));
+        assertFalse(TwendeRoutes.allowed(ORIGIN + "/pay?bus=12", true));
+        assertNull(TwendeRoutes.signedInRole(ORIGIN + "/business/conductor/login", true));
+        assertEquals("conductor", TwendeRoutes.signedInRole(ORIGIN + "/business/drive/profile", true));
+        assertEquals("operator", TwendeRoutes.signedInRole(ORIGIN + "/business/desk", true));
+    }
+
+    @Test
+    public void knownSessionGoesStraightToTheDashboard() {
+        assertEquals("/home", TwendeRoutes.launch(false, null, "twende_rider_session=sample"));
+        assertEquals("/login", TwendeRoutes.launch(false, "passenger", null));
+        assertEquals("/business/desk", TwendeRoutes.launch(true, "operator", "twende_operator_session=sample"));
+        assertEquals("/business/conductor/login", TwendeRoutes.launch(true, "conductor", "twende_operator_session=sample"));
+        assertEquals("/business/drive", TwendeRoutes.launch(true, "conductor", "other=x; twende_conductor_session=sample"));
     }
 
     @Test

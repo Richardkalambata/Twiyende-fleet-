@@ -126,7 +126,7 @@ export async function signOutAction(role: Role) {
   }
   await destroySession(role);
   if (role === 'conductor') redirect('/business/conductor/login');
-  redirect(role === 'operator' ? '/business' : '/');
+  redirect(role === 'operator' ? '/business/login' : '/login');
 }
 
 export async function payAction(fleetNumber: string, fare: string, requestId: string) {
@@ -303,8 +303,9 @@ export async function signupPassengerAction(_prev: Fail | null, formData: FormDa
     network: String(formData.get('network') ?? ''),
   });
   if (!result.ok) return result;
-  if (!await createSession(result.id, 'passenger')) redirect('/login');
-  redirect(riderPaymentPath(formData.get('bus')) ?? '/home');
+  await destroySession('passenger');
+  const bus = formData.get('bus');
+  redirect(riderPaymentPath(bus) ? `/login?created=1&bus=${bus}` : '/login?created=1');
 }
 
 export async function signupOperatorAction(_prev: Fail | null, formData: FormData): Promise<Fail | null> {
@@ -316,7 +317,8 @@ export async function signupOperatorAction(_prev: Fail | null, formData: FormDat
     network: String(formData.get('network') ?? 'mtn'),
   });
   if (!result.ok) return result;
-  redirect('/business/login');
+  await destroySession('operator');
+  redirect('/business/login?created=1');
 }
 
 export async function assignShiftAction(formData: FormData) {
