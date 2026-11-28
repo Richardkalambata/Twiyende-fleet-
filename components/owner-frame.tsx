@@ -44,7 +44,7 @@ export function OwnerFrame({ children, openLost, operator, company }: { children
               onClick={() => { setMenuOpen((open) => !open); setNavOpen(false); }}
             >
               <span className="grid h-9 w-9 place-items-center rounded-full bg-white text-[12px] font-bold text-[#0B1B3B]">{operator.initials}</span>
-              <span className="max-w-[39vw] truncate text-sm font-semibold" title={operator.name}>{operator.name}</span>
+              <span className="max-w-[39vw] truncate text-sm font-semibold text-white" title={operator.name}>{operator.name}</span>
             </button>
             <button
               type="button"

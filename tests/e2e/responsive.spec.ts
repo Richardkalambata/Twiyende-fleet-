@@ -29,7 +29,7 @@ for (const role of roles) {
     if (role.nav === 'Passenger') {
       await expect(page.getByRole('link', { name: /operator|conductor/i })).toHaveCount(0);
     } else {
-      await expect(page.getByRole('link', { name: /are you (a conductor|the operator)/i })).toBeVisible();
+      await expect(page.getByRole('link', { name: role.nav === 'Fleet' ? 'Sign in as Conductor' : 'Sign in as Operator' })).toBeVisible();
     }
     await page.getByRole('button', { name: role.name }).click();
     await page.waitForURL(`**${role.landed}`);
